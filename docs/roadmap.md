@@ -77,7 +77,7 @@
 | P3-07 | P3 | Picking flow (wave task → scan location → scan SKU → confirm pick) | pending | — | Pick list view; scan source location; validate correct SKU; report shorts |
 | P3-08 | P3 | Cycle counting flow (count task → scan → submit → variance review) | pending | — | Blind count option; variance auto-detection; recount workflow |
 | P3-09 | P3 | Shipping flow (scan outbound order → verify → confirm ship) | pending | — | Load verification; carrier integration; shipment confirmation |
-| P3-10 | P3 | PDA exception handling (item not found, damaged, wrong location) | pending | — | Exception flow: report issue, attach reason, trigger supervisor review |
+| P3-10 | P3 | PDA exception handling (item not found, damaged, wrong location) | pending | — | Exception flow: report issue, attach reason, trigger supervisor review; blocks P15-04 for standardized reason codes (initially works with hardcoded codes) |
 | P3-11 | P3 | PDA offline queue + sync (background sync when connectivity restored) | pending | — | IndexedDB queue; task completion can be queued offline; conflict resolution |
 
 ## Phase 4: Integrations
@@ -102,7 +102,7 @@
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
-| P5-01 | P5 | Wave planning engine (batch, zone, carrier-based wave creation) | pending | — | Wave generation from orders; configurable grouping strategies |
+| P5-01 | P5 | Wave planning engine (batch, zone, carrier-based wave creation) | pending | — | Wave generation from orders; configurable grouping strategies; depends on P1-05 Task+Wave repo and P1-12 Order service |
 | P5-02 | P5 | Inventory allocation engine (FIFO, FEFO, lot-specific, manual override) | pending | — | Auto-allocate inventory to order lines; reservation lifecycle; depends on P1-17 |
 | P5-03 | P5 | Multi-level inventory (warehouse → zone → location → container/LPN) | pending | — | Container/LPN domain entity; nested inventory; container movements |
 | P5-04 | P5 | Inventory reports (turnover, aging, ABC analysis) | pending | — | Compute and display inventory KPIs; depends on P5-18 for export |
@@ -128,6 +128,9 @@
 | P5-24 | P5 | Pick face management (forward pick area replenishment from reserve storage) | pending | — | Define pick face locations with min/max levels per SKU; auto-trigger replenishment tasks when pick face drops below min; different from general replenishment P5-11 which is inventory-level; zone-level pick face configuration |
 | P5-25 | P5 | Serial number tracking (per-unit inventory granularity for high-value items) | pending | — | Serial number domain entity; serial-level inventory records (1:1 instead of qty); serial capture on receiving/picking/shipping; serial genealogy for traceability; opt-in per SKU (not all SKUs need serial tracking) |
 | P5-26 | P5 | Full-text search (PostgreSQL tsvector/tsquery for orders, SKUs, locations) | pending | — | GIN-indexed tsvector columns on searchable entities; search across SKU code/name/description, order_no, location code; ranked results with highlighting; search API endpoint; requires DB migration for tsvector columns + triggers |
+| P5-27 | P5 | SKU substitution rules (alternative SKUs when primary is out of stock) | pending | — | Substitution entity (primary SKU → alternate SKU); priority ranking; auto-substitution during allocation when primary unavailable; substitution approval toggle (auto vs manual review); substitution audit log |
+| P5-28 | P5 | Catch weight management (variable-weight SKUs, scale integration) | pending | — | Catch weight flag on SKU; expected vs actual weight capture at receiving/shipping; weight tolerance thresholds; scale integration via serial/TCP; price-by-weight support; catch weight audit trail |
+| P5-29 | P5 | Blind receiving workflow (receive without pre-advice, identify on dock) | pending | — | Scan barcode → identify SKU → capture qty → generate putaway; unknown barcode exception flow; mobile-first receiving screen for PDA; inventory created without ASN pre-notification; links to P3-05/P3-10 |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -154,6 +157,9 @@
 | P6-19 | P6 | K8s NetworkPolicy + PodDisruptionBudget | pending | — | NetworkPolicy: allow only required pod-to-pod and pod-to-DB/Redis traffic; deny-by-default posture; PDB: maxUnavailable=1 for admin/pda; prevents full outage during voluntary disruptions |
 | P6-20 | P6 | Container image vulnerability scanning (Trivy in CI pipeline) | pending | — | Trivy scan on every image build; fail CI on CRITICAL/HIGH CVEs; SBOM attestation; scan results in GitHub Security tab; periodic rescan of latest base images |
 | P6-21 | P6 | Database read replica support (read/write split for reporting queries) | pending | — | Read replica connection pool in DB struct; Write() and Read() pool accessors; reporting endpoints use replica; repo-level read-vs-write hint; lag-aware health check; blocks P5-04/P5-05 report performance |
+| P6-22 | P6 | K8s pod topology spread constraints (zone/region-aware pod placement) | pending | — | topologySpreadConstraints per deployment; maxSkew=1 across zones; requiredDuringScheduling for critical services; prevent all replicas in single AZ; combined with P6-18 HPA for resilience |
+| P6-23 | P6 | Database migration in CI/CD pipeline (automated migration run, pre-check, rollback) | pending | — | Run migrations as pre-deploy step in CI; migration dry-run validation before apply; rollback plan on migration failure; migration lock to prevent concurrent runs; depends on P1-25 migration tooling |
+| P6-24 | P6 | Service mesh readiness (Istio/Envoy sidecar annotations, mTLS, traffic routing) | pending | — | Pod annotations for Istio sidecar injection; mTLS strict mode between services; VirtualService for canary routing; DestinationRule for circuit breaking at mesh layer; Gateway for ingress; complements P7-16 circuit breaker at app layer |
 
 ## Phase 7: Quality, Security & Hardening
 
@@ -171,13 +177,13 @@
 | P7-10 | P7 | API client SDK generation (Go + TypeScript from OpenAPI spec) | pending | — | Auto-generated typed clients; reduces frontend API errors |
 | P7-11 | P7 | godoc documentation pass (all exported symbols, package-level docs, examples) | pending | — | Ensure every exported symbol has doc comment; add example tests |
 | P7-12 | P7 | Dependency auditing + SBOM generation (govulncheck, npx audit, SPDX) | pending | — | Vulnerability scanning in CI; SBOM for compliance; automated updates |
-| P7-13 | P7 | Redis caching layer (hot inventory data, session storage, rate limit counters) | pending | — | Cache-aside for QueryInventory; TTL policies; cache invalidation on inventory change |
+| P7-13 | P7 | Redis caching layer (hot inventory data, session storage, rate limit counters) | pending | — | Cache-aside for QueryInventory; TTL policies; cache invalidation on inventory change; depends on P1-24 Redis client; blocks P7-19 idempotency dedup store |
 | P7-14 | P7 | Data export + import (CSV bulk import for SKUs, orders; data export for reporting) | pending | — | Bulk endpoints; streaming CSV parser; validation on import |
 | P7-15 | P7 | Request ID propagation (HTTP header → context → log → gRPC → DB span) | pending | — | Extract/inject X-Request-ID at every boundary; structured log field; trace correlation |
 | P7-16 | P7 | Circuit breaker for integration adapters (WCS/RCS/MES/ERP failure isolation) | pending | — | Circuit breaker per adapter; half-open probing; fallback behavior; blocks Phase 4 integration reliability |
 | P7-17 | P7 | Secrets management (vault integration, encrypted config, no secrets in code) | pending | — | Externalize all secrets; HashiCorp Vault or cloud secrets manager; CI secret scanning |
 | P7-18 | P7 | Go fuzz testing (fuzz input parsers, validators, JSON unmarshal paths) | pending | — | go test -fuzz for CSV parser, JSON payloads, barcode validator; catch panics and edge cases |
-| P7-19 | P7 | Idempotency key support (safe retry for mutating endpoints) | pending | — | Idempotency-Key header handling; dedup store (Redis-backed); return cached response on replay; applies to order create, inventory adjust, task complete |
+| P7-19 | P7 | Idempotency key support (safe retry for mutating endpoints) | pending | — | Idempotency-Key header handling; dedup store (Redis-backed, depends on P7-13); return cached response on replay; applies to order create, inventory adjust, task complete |
 | P7-20 | P7 | Feature flag system (runtime toggles, percentage rollout) | pending | — | Flag definitions in config/DB; per-request evaluation; admin UI for flag management; gradual rollout for risky changes; emergency kill-switch capability |
 | P7-21 | P7 | Bulk API operations (batch create/update for high-volume endpoints) | pending | — | Bulk create SKUs, bulk inventory adjust; partial success response format; streaming request body; applicable to orders, inventory, SKUs |
 | P7-22 | P7 | Optimistic concurrency control (row version column for concurrent write safety) | pending | — | Add `version` int column to inventory, orders, tasks; increment on update; WHERE version=$expected; detect conflict (RowsAffected=0); return 409 Conflict on concurrent modification; critical for inventory correctness under concurrent pick/putaway; builds on P1-16 tx patterns |
@@ -186,19 +192,22 @@
 | P7-25 | P7 | Contract testing (API compatibility verification between services) | pending | — | Pact or similar consumer-driven contract tests; admin API consumer → server contract; PDA API consumer → server contract; verify in CI on every PR; prevents accidental API breakage between frontend and backend |
 | P7-26 | P7 | API response compression (gzip/brotli middleware, content negotiation) | pending | — | chi compression middleware; gzip level 6 default, brotli for supporting clients; skip for already-compressed types (images); configurable min body size threshold; reduces bandwidth for mobile PDA on warehouse WiFi |
 | P7-27 | P7 | Request validation middleware (input sanitization, content-type enforcement) | pending | — | Validate Content-Type header; enforce max body size (1MB default); sanitize string inputs (trim, null-byte check); reject unknown JSON fields (strict mode); extend P1-15 error handling with validation error details |
+| P7-28 | P7 | Graceful degradation framework (degraded mode when dependencies are unhealthy) | pending | — | Degraded mode tiers: cache-down (skip Redis, direct DB), replica-down (route reads to primary), notification-down (queue alerts for later); auto-detect health via P6-10 checks; auto-recovery when dependency restores; admin alert on degradation; per-endpoint degradation behavior config |
+| P7-29 | P7 | Database table partitioning (partition inventory_transactions + audit_logs by month) | pending | — | Declarative partitioning by month on high-volume tables; automated partition creation via cron; partition-aware queries (pruning); partition archival/detach for old data; complements P14-03 data retention; requires migration for partition setup |
+| P7-30 | P7 | Application-level deadlock detection + retry (concurrent resource ordering) | pending | — | Detect deadlock cycles in concurrent inventory/location acquisition; deterministic resource ordering to prevent deadlocks; transaction retry with exponential backoff + jitter on deadlock; deadlock event logging for diagnostics; builds on P1-16 tx patterns + P7-22 optimistic locking |
 
 ## Phase 8: Observability & Operations
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
 | P8-01 | P8 | Grafana dashboards (pre-built WMS KPIs: order volume, pick rate, accuracy) | pending | — | Dashboard JSON in repo; importable via Grafana provisioning; depends on P6-05 metrics |
-| P8-02 | P8 | AlertManager rules + notification routing (PagerDuty, Slack, email) | pending | — | Alert rules: service down, DB pool exhaustion, error rate spike, task backlog; severity routing |
+| P8-02 | P8 | AlertManager rules + notification routing (PagerDuty, Slack, email) | pending | — | Alert rules: service down, DB pool exhaustion, error rate spike, task backlog; severity routing; depends on P8-08 for notification delivery |
 | P8-03 | P8 | SLO/SLI definitions + tracking (API latency, availability, throughput) | pending | — | Define SLOs (e.g., 99.9% API availability, p95 < 500ms); error budget burn alerts |
 | P8-04 | P8 | Incident runbook documentation (common failure modes, recovery steps) | pending | — | Runbook per service; DB failover procedure; integration adapter recovery; escalation paths |
 | P8-05 | P8 | Synthetic monitoring (external health probes simulating user flows) | pending | — | Blackbox exporter probes for critical API paths; login → dashboard → order create flow |
 | P8-06 | P8 | Cloud resource tagging + cost allocation (per-environment cost tracking) | pending | — | Standard tags (env, service, owner); cost dashboards; unused resource detection |
 | P8-07 | P8 | Chaos engineering baseline (controlled failure injection, resilience validation) | pending | — | Kill a DB replica, kill a pod, network partition; verify graceful degradation and recovery |
-| P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager |
+| P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager; blocks P8-02 delivery channel |
 | P8-09 | P8 | SLO tracking & error budget dashboard (p50/p95/p99 per endpoint, burn rate) | pending | — | Grafana dashboard with per-endpoint latency histogram; SLO compliance gauges; error budget remaining/burn rate; 30-day rolling windows; depends on P6-05 metrics + P6-07 tracing; complements P8-03 SLO definitions |
 
 ## Phase 9: Advanced WMS Features
@@ -281,15 +290,41 @@
 | P15-05 | P15 | Holiday calendar & shift management (working days, shift schedules, SLA) | pending | — | Calendar entity per warehouse; holiday dates; shift definitions (morning/night, start/end); working hours; SLA calculation uses calendar (skip holidays, respect shifts); blocks P5-22 cycle count scheduling accuracy |
 | P15-06 | P15 | Document number sequence engine (configurable prefixes, auto-increment) | pending | — | Sequence definition per document type (order, ASN, task, wave); configurable prefix + date component + counter; yearly/monthly/daily reset option; gapless mode for compliance; replaces inline number generation in repos |
 
+## Phase 16: Mobile/PDA Enhancements
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P16-01 | P16 | PDA push notifications (Web Push API for task assignment, alerts) | pending | — | Service worker push event handler; subscribe on PDA login; notify on new task assigned, task overdue, exception flagged; vibration/sound patterns per priority; permission management in settings |
+| P16-02 | P16 | PDA voice input (Web Speech API for hands-free quantity entry + confirmation) | pending | — | Speech recognition for quantity entry ("five"), location codes ("A-01-02-03"), task confirmation ("confirm putaway"); wake-word "Hey WMS" for hands-free operation; language selection (en, zh, ja); fallback to manual input when speech unavailable |
+| P16-03 | P16 | PDA NFC tag support (equipment check-in, location verification, tap-to-confirm) | pending | — | Web NFC API for reading NDEF tags; equipment check-in/out via NFC tag on forklift/cart; location verification (tap location tag = confirm you're at right place); tap-to-confirm for task completion; graceful fallback when NFC unavailable |
+| P16-04 | P16 | PDA geofencing (zone-based auto task filtering, wrong-zone alerts) | pending | — | Geolocation API with warehouse zone polygons; auto-filter task list to current zone; wrong-zone alert when starting task outside expected zone; zone-entry/exit time logging for labor tracking; low-accuracy mode via BLE beacons for indoor positioning |
+
+## Phase 17: Simulation & Digital Twin
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P17-01 | P17 | Warehouse layout designer (SVG-based drag-and-drop zone/location editor) | pending | — | Visual warehouse map editor; drag zones and locations onto grid; configure aisles, racks, conveyors; export layout as JSON config; import from existing warehouse data; measurement tools (distance, area); depends on warehouse/zone/location domain entities |
+| P17-02 | P17 | Operations simulation engine (configurable order patterns, throughput modeling) | pending | — | Order pattern generator (configurable mix of inbound/outbound, SKU distribution, velocity); simulate pick/putaway/replenish cycles; measure throughput, utilization, queue depth, bottlenecks; configurable operator count and shift patterns; replay historical order data |
+| P17-03 | P17 | What-if scenario comparison (layout changes, equipment, staffing scenarios) | pending | — | Define scenarios (baseline vs proposed); run simulations on each; side-by-side metrics comparison (throughput, labor hours, utilization); sensitivity analysis on key parameters; scenario library with saved baselines; report export |
+
+## Phase 18: Supplier & Partner Enablement
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P18-01 | P18 | Supplier self-service portal (ASN submission, label printing, shipment visibility) | pending | — | Supplier-facing web portal (separate from admin); supplier login with role-limited access; submit ASN with line items; print barcode labels (depends on P15-02); view shipment receiving status; view purchase order history; multi-tenant (supplier sees only their data) |
+| P18-02 | P18 | Supplier performance scorecards (on-time delivery, accuracy, quality metrics) | pending | — | KPI computation per supplier: OTD%, fill rate, damage rate, documentation accuracy; scorecard dashboard with trend charts; configurable evaluation periods; supplier ranking; export for QBR (quarterly business review); depends on P5-04/P5-05 reporting |
+| P18-03 | P18 | 3PL billing engine (activity-based billing, storage charges, invoice generation) | pending | — | Billable event capture (receipt, putaway, pick, pack, ship, storage-day); rate card per client (different rates per activity); storage charges by volume × days; minimum charges and tiered pricing; invoice generation with line-item detail; extends P9-06 3PL support with billing specifics |
+| P18-04 | P18 | Customer inventory visibility portal (external view of owned inventory + orders) | pending | — | Customer-facing portal for 3PL clients; view own inventory levels by SKU/warehouse; order status tracking; shipment history with tracking numbers; stock arrival notification preferences; data scoped to client ownership only (security-critical); read-only access |
+
 ## Evolution Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 196 |
+| Total tasks | 216 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 187 |
+| Pending | 207 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 13: promoted P1-18 to P1; added 15 new tasks — P5-23 order splitting, P5-24 pick face mgmt, P5-25 serial number tracking, P5-26 full-text search; P6-18 K8s HPA, P6-19 NetworkPolicy/PDB, P6-20 image scanning, P6-21 read replicas; P7-22 optimistic locking, P7-23 soft delete, P7-24 test factories, P7-25 contract testing, P7-26 response compression, P7-27 request validation; P8-09 SLO dashboard; linked P7-22→P1-16, P5-24→P5-11, P6-21→P5-04/P5-05) |
+| Last grooming | 2026-07-20 (Round 14: added 20 new tasks — P5-27 SKU substitution, P5-28 catch weight, P5-29 blind receiving; P6-22 pod topology spread, P6-23 migration CI/CD, P6-24 service mesh; P7-28 graceful degradation, P7-29 table partitioning, P7-30 deadlock detection; Phase 16 PDA enhancements (4 tasks); Phase 17 simulation & digital twin (3 tasks); Phase 18 supplier & partner enablement (4 tasks); added dependency links for P5-01→P1-05, P7-13→P1-24, P7-19→P7-13, P8-02→P8-08, P3-10↔P15-04) |
