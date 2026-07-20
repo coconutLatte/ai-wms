@@ -16,6 +16,8 @@
 
 ## Phase 1: Core Domain Services & APIs
 
+> **Dependency order**: Repos → Config/Errors → Middleware → Tx Support → Services → Quality/Gen
+
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
 | P1-01 | P0 | Repository interfaces (Warehouse, Inventory, Order, Task) | completed | 2026-07-20 | Define interfaces in internal/repository/ |
@@ -25,22 +27,24 @@
 | P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | pending | — | Implement task repo with pgx; create, assign, status flow, wave grouping |
 | P1-06 | P1 | PostgreSQL repository implementation (ASN) | pending | — | ASN CRUD + ASN line management; split from original P1-04 for granularity |
 | P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | pending | — | User CRUD, role management, audit log insertion; needed for auth later |
+| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede middleware + service tasks |
+| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
 | P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | pending | — | chi/v5 middleware; req-id propagation, structured request logging, panic recovery, CORS config |
+| P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx; needed before services |
 | P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | pending | — | chi/v5 REST endpoints; thin handlers delegating to WarehouseService |
 | P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | pending | — | chi/v5 REST endpoints; thin handlers delegating to SKUService |
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | pending | — | With inventory transaction audit; check negative qty constraint |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
-| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede service tasks |
-| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; should precede API handler tasks |
-| P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx |
+| P1-20 | P1 | Domain unit tests (state machines, business rules, validation) | pending | — | Pure Go tests — no infrastructure; test Order/Task status transitions, Inventory invariants; promoted from P2 to P1 as foundational quality gate |
 | P1-17 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository; blocks P5-02 |
 | P1-18 | P2 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results; add to all list endpoints |
 | P1-19 | P2 | Authentication service (JWT login, token refresh, session management) | pending | — | JWT generation + validation middleware; refresh token rotation; blocks P2-02 |
-| P1-20 | P1 | Domain unit tests (state machines, business rules, validation) | pending | — | Pure Go tests — no infrastructure; test Order/Task status transitions, Inventory invariants; promoted from P2 to P1 as foundational quality gate |
 | P1-21 | P1 | Proto code generation workflow (buf generate + CI check) | pending | — | Run buf generate to produce Go stubs; add CI step to verify generated code matches proto sources |
-| P1-22 | P1 | Makefile dev targets (run, test, migrate, lint, generate) | pending | — | `make run-admin`, `make run-pda`, `make test`, `make migrate`, `make lint`, `make proto` |
-| P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development |
+| P1-22 | P1 | Makefile dev targets (run-admin, run-pda, migrate, remaining gaps) | pending | — | build/test/lint/proto targets already exist; needs `make run-admin`, `make run-pda`, real `make migrate` via goose; partially complete |
+| P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development; basic role/user seed already in 000001 |
+| P1-24 | P1 | Redis client initialization + connection pool + health check | pending | — | Wire go-redis/v9 into cmd entry points; RedisAddr() in config already; connection pool config; /readyz Redis ping; needed for sessions + caching |
+| P1-25 | P1 | Database migration tooling (golang-migrate or goose CLI integration) | pending | — | Replace docker-entrypoint auto-migration with explicit migration tool; `make migrate-up` / `make migrate-down`; migration version tracking table |
 
 ## Phase 2: Admin Frontend
 
@@ -48,13 +52,15 @@
 |----|----------|------|--------|-----------|-------|
 | P2-01 | P2 | Admin frontend scaffold (React + Ant Design + Vite + React Router) | pending | — | Layout, navigation, theme, API client (axios/fetch wrapper with JWT) |
 | P2-02 | P2 | Login/Auth page + JWT integration | pending | — | Login form, token storage, auto-refresh, redirect; depends on P1-19 |
-| P2-03 | P2 | Warehouse management pages (list, create, edit zones/locations) | pending | — | CRUD tables, forms, zone/location hierarchy views |
-| P2-04 | P2 | SKU management pages (list, create, edit, attribute editor) | pending | — | SKU CRUD with dynamic attribute form; barcode display/generation |
-| P2-05 | P2 | Inventory overview page (list, search, filter, detail, transaction log) | pending | — | Filterable inventory table; drill-down to transaction history |
-| P2-06 | P2 | Order management pages (inbound list, outbound list, create, detail) | pending | — | Order CRUD; order line editor; status timeline; external_ref linking |
-| P2-07 | P2 | Task monitoring dashboard (task list, status filter, assignment) | pending | — | Task table by status; assign worker; view task detail with instructions |
-| P2-08 | P2 | Dashboard home page (KPIs, charts, alerts summary) | pending | — | Inventory turnover, order volume, task completion rate, low-stock alerts |
-| P2-09 | P2 | User & Role management pages | pending | — | User CRUD; role editor with permission matrix; blocks P5-05 UI |
+| P2-03 | P2 | Warehouse management pages (list, create, edit) | pending | — | Warehouse CRUD tables + forms; split from zone/location for granularity |
+| P2-04 | P2 | Zone & Location hierarchy management pages | pending | — | Zone list/create/edit per warehouse; location grid/table; drag-and-drop zone assignment; split from P2-03 |
+| P2-05 | P2 | SKU management pages (list, create, edit, attribute editor) | pending | — | SKU CRUD with dynamic attribute form; barcode display/generation |
+| P2-06 | P2 | Inventory overview page (list, search, filter, detail, transaction log) | pending | — | Filterable inventory table; drill-down to transaction history |
+| P2-07 | P2 | Order management pages (inbound list, outbound list, create, detail) | pending | — | Order CRUD; order line editor; status timeline; external_ref linking |
+| P2-08 | P2 | Task monitoring dashboard (task list, status filter, assignment) | pending | — | Task table by status; assign worker; view task detail with instructions |
+| P2-09 | P2 | Dashboard home page (KPIs, charts, alerts summary) | pending | — | Inventory turnover, order volume, task completion rate, low-stock alerts |
+| P2-10 | P2 | User & Role management pages | pending | — | User CRUD; role editor with permission matrix; blocks P5-06 UI |
+| P2-11 | P2 | Shared API client + TypeScript types (generated from OpenAPI or handwritten) | pending | — | Typed API client shared between admin and PDA; request/response types; error handling; reduces frontend integration bugs |
 
 ## Phase 3: PDA Operations
 
@@ -98,7 +104,7 @@
 | P5-03 | P5 | Multi-level inventory (warehouse → zone → location → container/LPN) | pending | — | Container/LPN domain entity; nested inventory; container movements |
 | P5-04 | P5 | Inventory reports (turnover, aging, ABC analysis) | pending | — | Compute and display inventory KPIs; depends on P5-18 for export |
 | P5-05 | P5 | Operational reports (order fill rate, pick accuracy, cycle count variance) | pending | — | Operational KPI dashboards; date-range filtering; drill-down |
-| P5-06 | P5 | RBAC permissions (role-based access control UI + API enforcement) | pending | — | Permission middleware; resource/action checks on every API call; depends on P2-09 |
+| P5-06 | P5 | RBAC permissions (role-based access control UI + API enforcement) | pending | — | Permission middleware; resource/action checks on every API call; depends on P2-10 |
 | P5-07 | P5 | Audit log viewer (operation history, traceability, compliance export) | pending | — | Filterable audit log UI; date range; export for compliance audit |
 | P5-08 | P5 | Inventory alerts engine (low stock, expiry, stranded, slow-moving) | pending | — | Configurable thresholds; notification channels (in-app, email, webhook) |
 | P5-09 | P5 | Multi-warehouse support (cross-warehouse transfers, global inventory view) | pending | — | Transfer orders between warehouses; consolidated inventory dashboard |
@@ -111,6 +117,8 @@
 | P5-16 | P5 | Cartonization engine (optimal packaging per order) | pending | — | Box selection by item dimensions/weight; multi-carton split; packing slip generation |
 | P5-17 | P5 | Scheduled report generation (cron-based, email delivery, PDF) | pending | — | Schedule daily/weekly/monthly reports; email with PDF attachment; report history |
 | P5-18 | P5 | CSV/PDF export engine (generic export for all list views) | pending | — | Streaming CSV writer for large datasets; PDF with header/logo; used by P5-04 and P5-05 |
+| P5-19 | P5 | Pick path optimization (shortest path routing through warehouse) | pending | — | Compute optimal pick sequence through warehouse zones/locations; reduce travel distance per wave |
+| P5-20 | P5 | Task interleaving (combine putaway + pick for same operator/zone) | pending | — | Merge putaway and pick tasks in same zone to minimize empty travel; operator efficiency gains |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -153,6 +161,7 @@
 | P7-15 | P7 | Request ID propagation (HTTP header → context → log → gRPC → DB span) | pending | — | Extract/inject X-Request-ID at every boundary; structured log field; trace correlation |
 | P7-16 | P7 | Circuit breaker for integration adapters (WCS/RCS/MES/ERP failure isolation) | pending | — | Circuit breaker per adapter; half-open probing; fallback behavior; blocks Phase 4 integration reliability |
 | P7-17 | P7 | Secrets management (vault integration, encrypted config, no secrets in code) | pending | — | Externalize all secrets; HashiCorp Vault or cloud secrets manager; CI secret scanning |
+| P7-18 | P7 | Go fuzz testing (fuzz input parsers, validators, JSON unmarshal paths) | pending | — | go test -fuzz for CSV parser, JSON payloads, barcode validator; catch panics and edge cases |
 
 ## Phase 8: Observability & Operations
 
@@ -201,15 +210,49 @@
 | P11-04 | P11 | Slotting optimization (ML-based ABC + dynamic assignment) | pending | — | Combines velocity data + cube movement; continuous re-slot suggestions; what-if simulation |
 | P11-05 | P11 | Anomaly detection (unusual adjustments, suspicious pick patterns, shrink analysis) | pending | — | Statistical outlier detection on inventory adjustments; pick variance clustering; shrink root-cause |
 
+## Phase 12: Internationalization & Localization
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P12-01 | P12 | i18n framework setup (react-i18next, locale detection, translation file structure) | pending | — | Shared i18n config for admin + PDA; locale auto-detection from browser/navigator; translation namespace organization |
+| P12-02 | P12 | Chinese (zh-CN) translation — Admin UI | pending | — | Full translation of all admin pages, forms, tables, notifications; most common operator locale in APAC |
+| P12-03 | P12 | Japanese (ja-JP) translation — Admin UI | pending | — | Full translation of admin UI; important for Japan-market warehouses |
+| P12-04 | P12 | PDA UI translations (zh-CN, ja-JP) | pending | — | Mobile-optimized translations for PDA flows; short labels for small screens |
+| P12-05 | P12 | Date/time/number formatting by locale (dayjs locale integration) | pending | — | Locale-aware date formats, number separators, timezone display; consistent across all UI components |
+| P12-06 | P12 | RTL (right-to-left) layout foundation | pending | — | CSS logical properties; direction-aware components; Arabic/Hebrew readiness (UI only, no translation yet) |
+
+## Phase 13: Developer Experience & Tooling
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P13-01 | P13 | golangci-lint configuration (.golangci.yml with recommended linters) | pending | — | Enable errcheck, gosec, govet, staticcheck, revive; tune for DDD project conventions; CI integration |
+| P13-02 | P13 | Pre-commit hooks (go fmt, go vet, conventional commit check, no-debug-print) | pending | — | pre-commit or lefthook config; fast checks only (<5s); blocks commits that fail quality gate |
+| P13-03 | P13 | Go hot reload for development (air/CompileDaemon config) | pending | — | Watch .go files; auto-rebuild + restart on change; .air.toml config in repo; excludes vendor and testdata |
+| P13-04 | P13 | Frontend npm workspace + shared package (types, API client, hooks) | pending | — | Monorepo structure with packages/shared; shared TypeScript types, API client, auth hooks; admin + PDA both consume |
+| P13-05 | P13 | Frontend component testing (Vitest + React Testing Library setup) | pending | — | Test setup with jsdom; example tests for shared components; CI integration; snapshot testing for regression |
+| P13-06 | P13 | Environment-specific config templates (.env.dev, .env.staging, .env.prod) | pending | — | Documented env var templates per environment; .env.example checked in; .env in .gitignore; Docker Compose overrides per env |
+| P13-07 | P13 | Postman/Bruno API collection (pre-built requests for all endpoints) | pending | — | Collection file in repo; environment variables for local/dev/staging; pre-request scripts for auth token; self-documenting |
+
+## Phase 14: Compliance & Data Governance
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P14-01 | P14 | GDPR data export (user data export endpoint, right-to-access compliance) | pending | — | Aggregate all PII per user; JSON export endpoint; audit log of access requests |
+| P14-02 | P14 | GDPR data deletion (right-to-erasure, anonymization cascade) | pending | — | Anonymize or delete user PII while preserving inventory audit integrity; cascade rules per entity |
+| P14-03 | P14 | Data retention policies (configurable retention per entity type, auto-purge) | pending | — | Retention config (e.g., audit_logs: 7yr, inventory_transactions: 3yr); scheduled purge job; dry-run mode |
+| P14-04 | P14 | PII data classification (identify and tag PII fields, masking in logs) | pending | — | Tag PII fields in domain models; log masking middleware; data flow diagram of PII; compliance documentation |
+| P14-05 | P14 | Audit compliance report (pre-built report for SOC2/ISO27001 audit evidence) | pending | — | Pre-built report covering access controls, change management, data encryption, backup verification; exportable as PDF |
+| P14-06 | P14 | Consent management (cookie consent banner, data processing consent records) | pending | — | Consent UI for admin/PDA; record consent timestamp + version; consent withdrawal flow; privacy policy page |
+
 ## Evolution Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 138 |
+| Total tasks | 164 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 129 |
+| Pending | 155 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 10: expanded Phases 8–11, added 53 new tasks, split P3-01→P3-01+P3-02, split P5-04→P5-04+P5-05+P5-17+P5-18, promoted P1-20 to P1) |
+| Last grooming | 2026-07-20 (Round 11: reordered P1 for correct dependency flow; added P1-24 Redis, P1-25 migration tooling; split P2-03→P2-03+P2-04; added P2-11 shared API client; added P5-19 pick path + P5-20 task interleaving; added P7-18 fuzz testing; new Phases 12 i18n, 13 DevX, 14 Compliance — 35 net new tasks) |
