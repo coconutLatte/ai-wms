@@ -213,3 +213,55 @@ func (h *InventoryHandler) GetTransactions(w http.ResponseWriter, r *http.Reques
 		Pagination: NewPaginationMeta(total, page, pageSize),
 	})
 }
+
+// GetOldestInventory handles GET /api/v1/inventory/fifo
+// Returns available inventory sorted by received_at ASC (oldest first — FIFO).
+func (h *InventoryHandler) GetOldestInventory(w http.ResponseWriter, r *http.Request) {
+	input := service.InventoryRetrievalInput{
+		WarehouseID: QueryParam(r, "warehouse_id", ""),
+		SKUID:       QueryParam(r, "sku_id", ""),
+		Limit:       QueryParamInt(r, "limit", 0),
+	}
+
+	results, err := h.svc.GetOldestInventory(r.Context(), input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]inventoryResponse, 0, len(results))
+	for _, inv := range results {
+		resp = append(resp, toInventoryResponse(inv))
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]any{
+		"data":  resp,
+		"count": len(results),
+	})
+}
+
+// GetExpiringInventory handles GET /api/v1/inventory/fefo
+// Returns available inventory sorted by expiry_date ASC NULLS LAST (earliest expiring first — FEFO).
+func (h *InventoryHandler) GetExpiringInventory(w http.ResponseWriter, r *http.Request) {
+	input := service.InventoryRetrievalInput{
+		WarehouseID: QueryParam(r, "warehouse_id", ""),
+		SKUID:       QueryParam(r, "sku_id", ""),
+		Limit:       QueryParamInt(r, "limit", 0),
+	}
+
+	results, err := h.svc.GetExpiringInventory(r.Context(), input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]inventoryResponse, 0, len(results))
+	for _, inv := range results {
+		resp = append(resp, toInventoryResponse(inv))
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]any{
+		"data":  resp,
+		"count": len(results),
+	})
+}

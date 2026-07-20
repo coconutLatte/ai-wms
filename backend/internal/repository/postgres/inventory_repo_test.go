@@ -807,3 +807,288 @@ func TestInventoryRepo_CreateInventory_WithDates(t *testing.T) {
 		t.Errorf("expiry_date = %v, want %v", got.ExpiryDate, expDate)
 	}
 }
+
+// ── FEFO / FIFO Repository Tests ───────────────────────────
+
+func TestInventoryRepo_GetOldestInventory_FIFO(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+
+	sku := &domain.SKU{
+		Code: "TEST-SKU-FIFO-001",
+		Name: "FIFO SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	// Create inventory records — they will have sequential received_at timestamps
+	// because CreateInventory sets ReceivedAt = time.Now().
+	inv1 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "FIFO-BATCH-1", Qty: 100, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv1); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond) // Ensure distinct ReceivedAt
+
+	inv2 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "FIFO-BATCH-2", Qty: 200, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv2); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond)
+
+	inv3 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "FIFO-BATCH-3", Qty: 0, Status: domain.InventoryStatusAvailable, // Zero qty — excluded
+	}
+	if err := invRepo.CreateInventory(ctx, inv3); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	results, err := invRepo.GetOldestInventory(ctx, repository.InventoryRetrievalFilter{
+		SKUID: sku.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetOldestInventory failed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results (excluding zero-qty), got %d", len(results))
+	}
+	// FIFO: oldest first
+	if results[0].BatchNo != "FIFO-BATCH-1" {
+		t.Errorf("first should be FIFO-BATCH-1 (oldest), got %s", results[0].BatchNo)
+	}
+	if results[1].BatchNo != "FIFO-BATCH-2" {
+		t.Errorf("second should be FIFO-BATCH-2, got %s", results[1].BatchNo)
+	}
+}
+
+func TestInventoryRepo_GetOldestInventory_QuarantineExcluded(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+
+	sku := &domain.SKU{
+		Code: "TEST-SKU-FIFO-Q-001",
+		Name: "FIFO Quarantine SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "Q-BATCH", Qty: 500, Status: domain.InventoryStatusQuarantine,
+	}
+	if err := invRepo.CreateInventory(ctx, inv); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	results, err := invRepo.GetOldestInventory(ctx, repository.InventoryRetrievalFilter{
+		SKUID: sku.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetOldestInventory failed: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results (quarantine excluded), got %d", len(results))
+	}
+}
+
+func TestInventoryRepo_GetExpiringInventory_FEFO(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+
+	sku := &domain.SKU{
+		Code: "TEST-SKU-FEFO-001",
+		Name: "FEFO SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	expEarly := time.Now().Add(30 * 24 * time.Hour)
+	expLater := time.Now().Add(90 * 24 * time.Hour)
+
+	// Earliest expiry — should be first
+	inv1 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "FEFO-EARLY", Qty: 100, Status: domain.InventoryStatusAvailable,
+		ExpiryDate: &expEarly,
+	}
+	if err := invRepo.CreateInventory(ctx, inv1); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	// Later expiry — should be second
+	inv2 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "FEFO-LATE", Qty: 200, Status: domain.InventoryStatusAvailable,
+		ExpiryDate: &expLater,
+	}
+	if err := invRepo.CreateInventory(ctx, inv2); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	// No expiry — should be last
+	inv3 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		BatchNo: "FEFO-NONE", Qty: 50, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv3); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	results, err := invRepo.GetExpiringInventory(ctx, repository.InventoryRetrievalFilter{
+		SKUID: sku.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetExpiringInventory failed: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+	if results[0].BatchNo != "FEFO-EARLY" {
+		t.Errorf("first should be FEFO-EARLY (earliest expiry), got %s", results[0].BatchNo)
+	}
+	if results[1].BatchNo != "FEFO-LATE" {
+		t.Errorf("second should be FEFO-LATE, got %s", results[1].BatchNo)
+	}
+	if results[2].BatchNo != "FEFO-NONE" {
+		t.Errorf("third should be FEFO-NONE (no expiry, last), got %s", results[2].BatchNo)
+	}
+}
+
+func TestInventoryRepo_GetExpiringInventory_WarehouseFilter(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh1, loc1 := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	wh2, loc2 := createTestWarehouseZoneLocation(t, ctx, whRepo)
+
+	sku := &domain.SKU{
+		Code: "TEST-SKU-FEFO-WH-001",
+		Name: "FEFO WH Filter SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv1 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc1.ID, WarehouseID: wh1.ID,
+		BatchNo: "WH1-BATCH", Qty: 100, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv1); err != nil {
+		t.Fatalf("CreateInventory wh1 failed: %v", err)
+	}
+
+	inv2 := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc2.ID, WarehouseID: wh2.ID,
+		BatchNo: "WH2-BATCH", Qty: 200, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv2); err != nil {
+		t.Fatalf("CreateInventory wh2 failed: %v", err)
+	}
+
+	results, err := invRepo.GetExpiringInventory(ctx, repository.InventoryRetrievalFilter{
+		SKUID:       sku.ID,
+		WarehouseID: wh1.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetExpiringInventory failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for wh1, got %d", len(results))
+	}
+	if results[0].WarehouseID != wh1.ID {
+		t.Errorf("warehouse_id = %s, want %s", results[0].WarehouseID, wh1.ID)
+	}
+}
+
+func TestInventoryRepo_GetOldestInventory_Limit(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+
+	sku := &domain.SKU{
+		Code: "TEST-SKU-FIFO-LIMIT-001",
+		Name: "FIFO Limit SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	for i := range 5 {
+		inv := &domain.Inventory{
+			SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+			BatchNo: "FIFO-LIMIT-" + string(rune('A'+i)), Qty: float64((i+1)*10),
+			Status: domain.InventoryStatusAvailable,
+		}
+		if err := invRepo.CreateInventory(ctx, inv); err != nil {
+			t.Fatalf("CreateInventory %d failed: %v", i, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	results, err := invRepo.GetOldestInventory(ctx, repository.InventoryRetrievalFilter{
+		SKUID: sku.ID,
+		Limit: 3,
+	})
+	if err != nil {
+		t.Fatalf("GetOldestInventory with limit failed: %v", err)
+	}
+	if len(results) != 3 {
+		t.Errorf("expected 3 results (limit=3), got %d", len(results))
+	}
+}

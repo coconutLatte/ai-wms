@@ -180,6 +180,75 @@ func (m *mockInventoryRepo) CountInventory(ctx context.Context, filter repositor
 	return count, nil
 }
 
+func (m *mockInventoryRepo) GetOldestInventory(ctx context.Context, filter repository.InventoryRetrievalFilter) ([]*domain.Inventory, error) {
+	var result []*domain.Inventory
+	for _, inv := range m.inventories {
+		if inv.Status != domain.InventoryStatusAvailable || inv.Qty <= 0 {
+			continue
+		}
+		if filter.WarehouseID != uuid.Nil && inv.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.SKUID != uuid.Nil && inv.SKUID != filter.SKUID {
+			continue
+		}
+		result = append(result, inv)
+	}
+	// Sort by ReceivedAt ASC (oldest first)
+	sortInventoryByReceivedAt(result)
+	if filter.Limit > 0 && filter.Limit < len(result) {
+		result = result[:filter.Limit]
+	}
+	return result, nil
+}
+
+func (m *mockInventoryRepo) GetExpiringInventory(ctx context.Context, filter repository.InventoryRetrievalFilter) ([]*domain.Inventory, error) {
+	var result []*domain.Inventory
+	for _, inv := range m.inventories {
+		if inv.Status != domain.InventoryStatusAvailable || inv.Qty <= 0 {
+			continue
+		}
+		if filter.WarehouseID != uuid.Nil && inv.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.SKUID != uuid.Nil && inv.SKUID != filter.SKUID {
+			continue
+		}
+		result = append(result, inv)
+	}
+	// Sort by ExpiryDate ASC NULLS LAST (earliest expiring first)
+	sortInventoryByExpiryDate(result)
+	if filter.Limit > 0 && filter.Limit < len(result) {
+		result = result[:filter.Limit]
+	}
+	return result, nil
+}
+
+// sortInventoryByReceivedAt sorts inventory by ReceivedAt ASC (oldest first).
+func sortInventoryByReceivedAt(inv []*domain.Inventory) {
+	for i := 0; i < len(inv); i++ {
+		for j := i + 1; j < len(inv); j++ {
+			if inv[j].ReceivedAt.Before(inv[i].ReceivedAt) {
+				inv[i], inv[j] = inv[j], inv[i]
+			}
+		}
+	}
+}
+
+// sortInventoryByExpiryDate sorts inventory by ExpiryDate ASC NULLS LAST.
+// Nil expiry dates (never expires) sort last.
+func sortInventoryByExpiryDate(inv []*domain.Inventory) {
+	for i := 0; i < len(inv); i++ {
+		for j := i + 1; j < len(inv); j++ {
+			if inv[i].ExpiryDate == nil && inv[j].ExpiryDate != nil {
+				inv[i], inv[j] = inv[j], inv[i]
+			} else if inv[i].ExpiryDate != nil && inv[j].ExpiryDate != nil && inv[j].ExpiryDate.Before(*inv[i].ExpiryDate) {
+				inv[i], inv[j] = inv[j], inv[i]
+			}
+		}
+	}
+}
+
 func (m *mockInventoryRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) {
 	count := 0
 	for _, tx := range m.transactions {

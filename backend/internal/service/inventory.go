@@ -276,3 +276,68 @@ func (s *InventoryService) GetTransactions(ctx context.Context, inventoryID uuid
 
 	return txs, total, nil
 }
+
+// InventoryRetrievalInput is the input for FEFO / FIFO inventory retrieval queries.
+// These queries are designed for picking decisions: they return only available,
+// non-zero inventory records sorted by the appropriate strategy key.
+type InventoryRetrievalInput struct {
+	WarehouseID string `json:"warehouse_id,omitempty"`
+	SKUID       string `json:"sku_id,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+}
+
+// ToRetrievalFilter converts the input to a repository InventoryRetrievalFilter.
+func (in *InventoryRetrievalInput) ToRetrievalFilter() (repository.InventoryRetrievalFilter, error) {
+	f := repository.InventoryRetrievalFilter{
+		Limit: in.Limit,
+	}
+
+	if in.WarehouseID != "" {
+		id, err := uuid.Parse(in.WarehouseID)
+		if err != nil {
+			return f, pkgerrors.NewInvalidInput("invalid warehouse_id UUID")
+		}
+		f.WarehouseID = id
+	}
+	if in.SKUID != "" {
+		id, err := uuid.Parse(in.SKUID)
+		if err != nil {
+			return f, pkgerrors.NewInvalidInput("invalid sku_id UUID")
+		}
+		f.SKUID = id
+	}
+
+	return f, nil
+}
+
+// GetOldestInventory returns available inventory sorted by received_at ASC
+// (oldest first — FIFO strategy). This is suitable for non-perishable goods
+// where the first stock received should be picked first.
+func (s *InventoryService) GetOldestInventory(ctx context.Context, input InventoryRetrievalInput) ([]*domain.Inventory, error) {
+	filter, err := input.ToRetrievalFilter()
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := s.repo.GetOldestInventory(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("inventory service: fifo: %w", err)
+	}
+	return results, nil
+}
+
+// GetExpiringInventory returns available inventory sorted by expiry_date ASC
+// NULLS LAST (earliest expiring first — FEFO strategy). This is the preferred
+// strategy for perishable goods to minimise waste.
+func (s *InventoryService) GetExpiringInventory(ctx context.Context, input InventoryRetrievalInput) ([]*domain.Inventory, error) {
+	filter, err := input.ToRetrievalFilter()
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := s.repo.GetExpiringInventory(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("inventory service: fefo: %w", err)
+	}
+	return results, nil
+}

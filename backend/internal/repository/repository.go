@@ -54,6 +54,10 @@ type InventoryRepository interface {
 	UpdateInventoryQty(ctx context.Context, id uuid.UUID, deltaQty, deltaReserved float64) error
 	CountInventory(ctx context.Context, filter InventoryFilter) (int, error)
 
+	// FEFO / FIFO retrieval strategies
+	GetOldestInventory(ctx context.Context, filter InventoryRetrievalFilter) ([]*domain.Inventory, error)
+	GetExpiringInventory(ctx context.Context, filter InventoryRetrievalFilter) ([]*domain.Inventory, error)
+
 	// Inventory Transaction
 	CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error
 	ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error)
@@ -69,6 +73,16 @@ type InventoryFilter struct {
 	Status      domain.InventoryStatus
 	Limit       int
 	Offset      int
+}
+
+// InventoryRetrievalFilter defines query parameters for FEFO / FIFO retrieval strategies.
+// Unlike InventoryFilter (which is a general-purpose query), this filter is designed for
+// picking decisions: it returns only available, non-zero inventory sorted by the
+// appropriate strategy key (received_at for FIFO, expiry_date for FEFO).
+type InventoryRetrievalFilter struct {
+	WarehouseID uuid.UUID
+	SKUID       uuid.UUID
+	Limit       int
 }
 
 // OrderRepository manages order, order line, and ASN persistence.

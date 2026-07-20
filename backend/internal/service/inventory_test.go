@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -478,5 +479,230 @@ func TestInventoryService_GetTransactions_Empty(t *testing.T) {
 	}
 	if len(txs) != 0 {
 		t.Errorf("expected 0 transactions, got %d", len(txs))
+	}
+}
+
+// ── FEFO / FIFO Retrieval Tests ──────────────────────────────────────────────
+
+func TestInventoryService_GetOldestInventory_FIFO(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuID := uuid.New()
+	now := time.Now()
+
+	// Create inventory records with different received_at times.
+	inv1, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+	inv1.ReceivedAt = now.Add(-3 * time.Hour) // Oldest
+
+	inv2, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 200, Status: domain.InventoryStatusAvailable,
+	})
+	inv2.ReceivedAt = now.Add(-1 * time.Hour)
+
+	inv3, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 50, Status: domain.InventoryStatusQuarantine, // Not available — excluded
+	})
+	inv3.ReceivedAt = now.Add(-72 * time.Hour)
+
+	results, err := svc.GetOldestInventory(ctx, InventoryRetrievalInput{
+		SKUID: skuID.String(),
+	})
+	if err != nil {
+		t.Fatalf("GetOldestInventory failed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 available results, got %d", len(results))
+	}
+	// FIFO: oldest first
+	if results[0].ID != inv1.ID {
+		t.Errorf("first result should be oldest (inv1), got inv with qty=%f", results[0].Qty)
+	}
+	if results[1].ID != inv2.ID {
+		t.Errorf("second result should be inv2, got inv with qty=%f", results[1].Qty)
+	}
+}
+
+func TestInventoryService_GetOldestInventory_NoAvailableStock(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuID := uuid.New()
+
+	// All inventory is quarantined or has zero qty.
+	_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 50, Status: domain.InventoryStatusQuarantine,
+	})
+	_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 0, Status: domain.InventoryStatusAvailable,
+	})
+
+	results, err := svc.GetOldestInventory(ctx, InventoryRetrievalInput{
+		SKUID: skuID.String(),
+	})
+	if err != nil {
+		t.Fatalf("GetOldestInventory failed: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results, got %d", len(results))
+	}
+}
+
+func TestInventoryService_GetOldestInventory_Limit(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuID := uuid.New()
+	now := time.Now()
+
+	for i := 0; i < 5; i++ {
+		inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+			SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+			Qty: 10, Status: domain.InventoryStatusAvailable,
+		})
+		inv.ReceivedAt = now.Add(-time.Duration(5-i) * time.Hour)
+	}
+
+	results, err := svc.GetOldestInventory(ctx, InventoryRetrievalInput{
+		SKUID: skuID.String(),
+		Limit: 3,
+	})
+	if err != nil {
+		t.Fatalf("GetOldestInventory failed: %v", err)
+	}
+	if len(results) != 3 {
+		t.Errorf("expected 3 results (limit=3), got %d", len(results))
+	}
+}
+
+func TestInventoryService_GetExpiringInventory_FEFO(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuID := uuid.New()
+
+	// Create inventory with different expiry dates.
+	expEarly := time.Now().Add(30 * 24 * time.Hour)  // Expires in 30 days
+	expLater := time.Now().Add(90 * 24 * time.Hour)  // Expires in 90 days
+
+	inv1, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+	inv1.ExpiryDate = &expEarly // Earliest expiry — should be first
+
+	inv2, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 200, Status: domain.InventoryStatusAvailable,
+	})
+	inv2.ExpiryDate = &expLater
+
+	inv3, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 50, Status: domain.InventoryStatusAvailable,
+	})
+	inv3.ExpiryDate = nil // No expiry — should be last
+
+	results, err := svc.GetExpiringInventory(ctx, InventoryRetrievalInput{
+		SKUID: skuID.String(),
+	})
+	if err != nil {
+		t.Fatalf("GetExpiringInventory failed: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+	// FEFO: earliest expiring first, nil expiry last
+	if results[0].ID != inv1.ID {
+		t.Errorf("first result should be earliest expiring (inv1)")
+	}
+	if results[1].ID != inv2.ID {
+		t.Errorf("second result should be later expiring (inv2)")
+	}
+	if results[2].ID != inv3.ID {
+		t.Errorf("third result should be no expiry (inv3)")
+	}
+}
+
+func TestInventoryService_GetExpiringInventory_NoExpiryDates(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuID := uuid.New()
+
+	// All inventory has nil expiry dates — sorting is stable.
+	for i := 0; i < 3; i++ {
+		_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
+			SKUID: skuID, LocationID: uuid.New(), WarehouseID: uuid.New(),
+			Qty: float64((i + 1) * 10), Status: domain.InventoryStatusAvailable,
+		})
+	}
+
+	results, err := svc.GetExpiringInventory(ctx, InventoryRetrievalInput{
+		SKUID: skuID.String(),
+	})
+	if err != nil {
+		t.Fatalf("GetExpiringInventory failed: %v", err)
+	}
+	if len(results) != 3 {
+		t.Errorf("expected 3 results (all no expiry), got %d", len(results))
+	}
+}
+
+func TestInventoryService_GetExpiringInventory_WarehouseFilter(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuID := uuid.New()
+	wh1 := uuid.New()
+	wh2 := uuid.New()
+
+	_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: wh1,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+	_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: wh2,
+		Qty: 200, Status: domain.InventoryStatusAvailable,
+	})
+
+	results, err := svc.GetExpiringInventory(ctx, InventoryRetrievalInput{
+		SKUID:       skuID.String(),
+		WarehouseID: wh1.String(),
+	})
+	if err != nil {
+		t.Fatalf("GetExpiringInventory failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("expected 1 result for wh1, got %d", len(results))
+	}
+	if results[0].WarehouseID != wh1 {
+		t.Errorf("warehouse_id = %s, want %s", results[0].WarehouseID, wh1)
+	}
+}
+
+func TestInventoryService_GetExpiringInventory_InvalidUUID(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	_, err := svc.GetExpiringInventory(ctx, InventoryRetrievalInput{
+		WarehouseID: "not-a-uuid",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid warehouse_id UUID")
+	}
+
+	_, err = svc.GetOldestInventory(ctx, InventoryRetrievalInput{
+		SKUID: "also-not-a-uuid",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid sku_id UUID")
 	}
 }

@@ -407,6 +407,83 @@ func (r *InventoryRepo) CountInventory(ctx context.Context, filter repository.In
 	return count, nil
 }
 
+// ── FEFO / FIFO Retrieval ─────────────────────────────────
+
+// GetOldestInventory returns available, non-zero inventory records for the given
+// filter, sorted by received_at ASC (oldest first — FIFO). This is the default
+// retrieval strategy for non-perishable goods.
+func (r *InventoryRepo) GetOldestInventory(ctx context.Context, filter repository.InventoryRetrievalFilter) ([]*domain.Inventory, error) {
+	return r.queryWithOrder(ctx, filter, "received_at ASC")
+}
+
+// GetExpiringInventory returns available, non-zero inventory records for the given
+// filter, sorted by expiry_date ASC NULLS LAST (earliest expiring first — FEFO).
+// This is the preferred retrieval strategy for perishable goods.
+func (r *InventoryRepo) GetExpiringInventory(ctx context.Context, filter repository.InventoryRetrievalFilter) ([]*domain.Inventory, error) {
+	return r.queryWithOrder(ctx, filter, "expiry_date ASC NULLS LAST")
+}
+
+// queryWithOrder is a shared helper that builds a parameterised query for
+// FEFO / FIFO retrieval with a given ORDER BY clause.
+func (r *InventoryRepo) queryWithOrder(ctx context.Context, filter repository.InventoryRetrievalFilter, orderClause string) ([]*domain.Inventory, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	// Only return available inventory with positive on-hand quantity.
+	conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+	args = append(args, domain.InventoryStatusAvailable)
+	argIdx++
+
+	conditions = append(conditions, fmt.Sprintf("qty > $%d", argIdx))
+	args = append(args, 0.0)
+	argIdx++
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.SKUID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("sku_id = $%d", argIdx))
+		args = append(args, filter.SKUID)
+		argIdx++
+	}
+
+	query := `
+		SELECT id, sku_id, location_id, warehouse_id, batch_no,
+		       qty, reserved_qty, status, production_date, expiry_date,
+		       received_at, updated_at
+		FROM inventory
+		WHERE ` + strings.Join(conditions, " AND ") + `
+		ORDER BY ` + orderClause
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("fefo/fifo query: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*domain.Inventory
+	for rows.Next() {
+		inv, err := r.scanInventoryFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan inventory: %w", err)
+		}
+		results = append(results, inv)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inventory: %w", err)
+	}
+	return results, nil
+}
+
 // ── Inventory Transaction ──────────────────────────────────
 
 // CreateTransaction records a new inventory transaction.
