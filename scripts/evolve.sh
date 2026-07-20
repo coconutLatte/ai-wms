@@ -19,6 +19,12 @@
 
 set -euo pipefail
 
+# ── Cron needs explicit PATH and env vars ────────────────────
+export PATH="/home/claude-dev/.local/bin:/usr/local/go/bin:$PATH"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://one-api.server22.jz}"
+export ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-sk-4v2AKtxcYlM3RNbemF3SMMoZTzxbBJt5fRqYpawSLKR4xGE1}"
+export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-deepseek-v4-pro[1m]}"
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
