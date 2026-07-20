@@ -28,13 +28,13 @@
 | P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | completed | 2026-07-20 | Task CRUD + filter + assign + status flow + CompleteTask; Wave CRUD + status flow + UUID arrays; 24 integration tests pass |
 | P1-06 | P1 | PostgreSQL repository implementation (ASN lines) | completed | 2026-07-20 | 4 methods + scan helper; 7 integration tests pass; CreateASNLine/GetASNLines/UpdateASNLineStatus/UpdateASNLineReceivedQty |
 | P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | completed | 2026-07-20 | User CRUD + GetUserByUsername + GetUserByEmail + ListUsers with filter + UpdateUserStatus; Role CRUD + JSONB permissions + ListRoles + UpdateRole; AuditLog Create + List with UserID/Action/Resource filter + pagination; 19 integration tests pass |
-| P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | pending | — | chi/v5 middleware; req-id propagation, structured request logging, panic recovery, CORS config |
+| P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | completed | 2026-07-20 | RequestID (context propagation + response header), Logger (structured slog per-request with method/path/status/duration/remote_addr), Recovery (panic→500 JSON+stack trace), CORS (configurable origins/methods/headers/credentials/MaxAge, preflight handler); 17 tests pass; wired into cmd/admin + cmd/pda |
 | P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | pending | — | chi/v5 REST endpoints; thin handlers delegating to WarehouseService |
 | P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | pending | — | chi/v5 REST endpoints; thin handlers delegating to SKUService |
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | pending | — | With inventory transaction audit; check negative qty constraint |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
-| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede middleware + service tasks |
+| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; logger partially wired by P1-08 (slog.Logger injected into middleware); remaining: Config.Load() call in cmd, wire config into repos/services |
 | P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
 | P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx; needed before services |
 | P1-17 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository; blocks P5-02 |
@@ -46,7 +46,7 @@
 | P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development; basic role/user seed already in 000001 |
 | P1-24 | P1 | Redis client initialization + connection pool + health check | pending | — | Wire go-redis/v9 into cmd entry points; RedisAddr() in config already; connection pool config; /readyz Redis ping; needed for sessions + caching |
 | P1-25 | P1 | Database migration tooling (golang-migrate or goose CLI integration) | pending | — | Replace docker-entrypoint auto-migration with explicit migration tool; `make migrate-up` / `make migrate-down`; migration version tracking table |
-| P1-26 | P1 | HTTP server bootstrap + graceful shutdown skeleton | pending | — | chi router init in cmd/admin + cmd/pda; listen on configured ports; SIGTERM/SIGINT handler; basic /healthz endpoint; services mount routes onto this skeleton |
+| P1-26 | P1 | HTTP server bootstrap + graceful shutdown skeleton | pending | — | chi router init in cmd/admin + cmd/pda; listen on configured ports; SIGTERM/SIGINT handler; basic /healthz endpoint; services mount routes onto this skeleton; note: middleware chain + structured logging + graceful shutdown already done by P1-08; remaining: chi router init, route mounting |
 | P1-27 | P2 | In-process domain event bus (publish/subscribe for domain events) | pending | — | Simple typed event publisher; subscriber registration; events: InventoryChanged, OrderStatusChanged, TaskCompleted; used by notification + audit + WebSocket push |
 | P1-28 | P1 | Wave membership management repo methods | pending | — | Add AddTaskToWave/RemoveTaskFromWave/AddOrderToWave/RemoveOrderToWave to TaskRepository; enables dynamic wave composition during planning (P5-01); updates PostgreSQL UUID[] arrays with array_append/array_remove |
 | P1-29 | P2 | Task statistics query methods (count by status, count by type) | pending | — | Add CountTasksByStatus(ctx, warehouseID, status) int64 and CountTasksByType to TaskRepository; needed by dashboard KPIs (P2-09) and PDA task list badges |
@@ -55,6 +55,9 @@
 | P1-32 | P2 | AuditLog date-range filter repo method | pending | — | Add date-range filtering (from/to timestamps) to ListAuditLogs; needed by P5-07 audit log viewer for compliance reporting |
 | P1-33 | P2 | Database performance indexes migration (composite indexes for hot query paths) | pending | — | Add composite indexes: tasks(warehouse_id, status, assigned_to), orders(warehouse_id, order_type, status), inventory(warehouse_id, sku_id), audit_logs(created_at, action); EXPLAIN ANALYZE review before/after; migration file 000002 |
 | P1-34 | P1 | Environment config validation on startup | pending | — | Validate required env vars (DB_HOST, DB_USER, etc.) on boot; check port range validity; verify DB URL format; fail fast with clear error messages before starting server |
+| P1-35 | P2 | CORS origin pattern matching (wildcard subdomain support) | pending | — | Upgrade CORS middleware from exact origin match to glob/wildcard patterns (e.g., *.example.com, https://*.example.com:*/); needed when admin/PDA run on dynamic subdomains; depends on P1-08 |
+| P1-36 | P2 | Request timeout middleware | pending | — | Add configurable per-request timeout via context.WithTimeout; return 504 Gateway Timeout on expiry; configurable timeout per route; integrate with graceful shutdown (cancel in-flight on shutdown); depends on P1-08 |
+| P1-37 | P2 | Response header security middleware (CSP, X-Content-Type-Options, etc.) | pending | — | Add security headers: Content-Security-Policy, X-Content-Type-Options:nosniff, X-Frame-Options:DENY, Strict-Transport-Security, Referrer-Policy; configurable per environment; complements P1-08 CORS + P7-06 security hardening |
 
 ## Phase 2: Admin Frontend
 
@@ -219,7 +222,7 @@
 | P7-12 | P7 | Dependency auditing + SBOM generation (govulncheck, npx audit, SPDX) | pending | — | Vulnerability scanning in CI; SBOM for compliance; automated updates |
 | P7-13 | P7 | Redis caching layer (hot inventory data, session storage, rate limit counters) | pending | — | Cache-aside for QueryInventory; TTL policies; cache invalidation on inventory change; depends on P1-24 Redis client; blocks P7-19 idempotency dedup store |
 | P7-14 | P7 | Data export + import (CSV bulk import for SKUs, orders; data export for reporting) | pending | — | Bulk endpoints; streaming CSV parser; validation on import |
-| P7-15 | P7 | Request ID propagation (HTTP header → context → log → gRPC → DB span) | pending | — | Extract/inject X-Request-ID at every boundary; structured log field; trace correlation |
+| P7-15 | P7 | Request ID propagation (HTTP header → context → log → gRPC → DB span) | pending | — | Extract/inject X-Request-ID at every boundary; structured log field; trace correlation; HTTP-layer propagation done by P1-08 middleware; remaining: gRPC interceptor, DB span injection, cross-service propagation |
 | P7-16 | P7 | Circuit breaker for integration adapters (WCS/RCS/MES/ERP failure isolation) | pending | — | Circuit breaker per adapter; half-open probing; fallback behavior; blocks Phase 4 integration reliability |
 | P7-17 | P7 | Secrets management (vault integration, encrypted config, no secrets in code) | pending | — | Externalize all secrets; HashiCorp Vault or cloud secrets manager; CI secret scanning |
 | P7-18 | P7 | Go fuzz testing (fuzz input parsers, validators, JSON unmarshal paths) | pending | — | go test -fuzz for CSV parser, JSON payloads, barcode validator; catch panics and edge cases |
@@ -441,11 +444,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 301 |
-| Completed | 13 |
+| Total tasks | 304 |
+| Completed | 14 |
 | In progress | 0 |
-| Pending | 288 |
+| Pending | 290 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 7: P1-07 User+Role+AuditLog repos) |
+| Last evolution | 2026-07-20 (Round 8: P1-08 HTTP middleware stack) |
 | Last grooming | 2026-07-20 (Round 5: reordered P1 by ID; added 12 tasks: P1-33/34, P4-14, P5-47, P6-31/32/33/34/35, P7-36/37, P8-13) |

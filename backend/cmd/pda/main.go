@@ -4,18 +4,35 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/ai-wms/ai-wms/backend/internal/api/middleware"
+	"github.com/ai-wms/ai-wms/backend/pkg/logger"
 )
 
 func main() {
 	port := os.Getenv("PDA_PORT")
 	if port == "" {
 		port = "8081"
+	}
+
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+
+	// Initialize structured logger.
+	log := logger.New(logLevel)
+
+	// Initialize CORS configuration from environment or defaults.
+	corsConfig := middleware.DefaultCORSConfig()
+	if origin := os.Getenv("CORS_ALLOWED_ORIGINS"); origin != "" {
+		corsConfig.AllowedOrigins = []string{origin}
 	}
 
 	// TODO: Initialize database connection (PostgreSQL)
@@ -25,7 +42,7 @@ func main() {
 	// TODO: Initialize API router (chi/v5) with middleware
 	// TODO: Register PDA API routes
 
-	// Placeholder server for now
+	// Build the middleware chain.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -33,9 +50,18 @@ func main() {
 		fmt.Fprintf(w, `{"status":"ok","service":"pda","version":"0.1.0"}`)
 	})
 
+	// Apply middleware stack: RequestID → Recovery → Logger → CORS → handler.
+	handler := middleware.RequestID(
+		middleware.Recovery(log.Logger)(
+			middleware.Logger(log.Logger)(
+				middleware.CORS(corsConfig)(mux),
+			),
+		),
+	)
+
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -47,18 +73,27 @@ func main() {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 
-		log.Println("Shutting down PDA service...")
+		log.Info("Shutting down PDA service...",
+			slog.String("service", "pda"),
+			slog.String("port", port))
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Fatalf("PDA service forced to shutdown: %v", err)
+			log.Error("PDA service forced to shutdown", slog.String("error", err.Error()))
 		}
-		log.Println("PDA service stopped")
+		log.Info("PDA service stopped", slog.String("service", "pda"))
 	}()
 
-	log.Printf("PDA service starting on :%s (http://localhost:%s/health)", port, port)
+	log.Info("PDA service starting",
+		slog.String("service", "pda"),
+		slog.String("port", port),
+		slog.String("health_url", fmt.Sprintf("http://localhost:%s/health", port)),
+	)
+
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("PDA service failed: %v", err)
+		log.Error("PDA service failed", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 }
