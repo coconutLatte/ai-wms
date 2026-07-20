@@ -63,6 +63,11 @@ func RegisterOrderRoutes(mux *http.ServeMux, h *OrderHandler) {
 	mux.HandleFunc("POST /api/v1/orders/{id}/lines", h.AddOrderLine)
 }
 
+// RegisterAuditLogRoutes registers audit log API routes on the given mux (Admin only).
+func RegisterAuditLogRoutes(mux *http.ServeMux, h *AuditLogHandler) {
+	mux.HandleFunc("GET /api/v1/audit-logs", h.ListAuditLogs)
+}
+
 // RegisterTaskRoutes registers task API routes on the given mux.
 // Tasks are accessible from both Admin (management) and PDA (execution).
 func RegisterTaskRoutes(mux *http.ServeMux, h *TaskHandler) {
