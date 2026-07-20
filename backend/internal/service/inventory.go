@@ -134,17 +134,23 @@ func (in *QueryInventoryInput) ToFilter() (repository.InventoryFilter, error) {
 // ── Service Methods ──────────────────────────────────────────────────────────────────────
 
 // QueryInventory searches inventory records with optional filters.
-func (s *InventoryService) QueryInventory(ctx context.Context, input QueryInventoryInput) ([]*domain.Inventory, error) {
+func (s *InventoryService) QueryInventory(ctx context.Context, input QueryInventoryInput) ([]*domain.Inventory, int, error) {
 	filter, err := input.ToFilter()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	results, err := s.repo.QueryInventory(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("inventory service: query: %w", err)
+		return nil, 0, fmt.Errorf("inventory service: query: %w", err)
 	}
-	return results, nil
+
+	total, err := s.repo.CountInventory(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("inventory service: count: %w", err)
+	}
+
+	return results, total, nil
 }
 
 // GetInventory retrieves a single inventory record by ID.

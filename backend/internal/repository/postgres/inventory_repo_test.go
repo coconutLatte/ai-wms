@@ -248,7 +248,7 @@ func TestInventoryRepo_ListSKUs(t *testing.T) {
 		}
 	}
 
-	skus, err := repo.ListSKUs(ctx)
+	skus, err := repo.ListSKUs(ctx, 0, 0)
 	if err != nil {
 		t.Fatalf("ListSKUs failed: %v", err)
 	}

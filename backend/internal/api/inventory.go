@@ -104,17 +104,20 @@ type adjustResponse struct {
 
 // QueryInventory handles GET /api/v1/inventory
 func (h *InventoryHandler) QueryInventory(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
 	input := service.QueryInventoryInput{
 		WarehouseID: QueryParam(r, "warehouse_id", ""),
 		SKUID:       QueryParam(r, "sku_id", ""),
 		LocationID:  QueryParam(r, "location_id", ""),
 		BatchNo:     QueryParam(r, "batch_no", ""),
 		Status:      domain.InventoryStatus(QueryParam(r, "status", "")),
-		Limit:       QueryParamInt(r, "limit", 0),
-		Offset:      QueryParamInt(r, "offset", 0),
+		Limit:       pageSize,
+		Offset:      offset,
 	}
 
-	results, err := h.svc.QueryInventory(r.Context(), input)
+	results, total, err := h.svc.QueryInventory(r.Context(), input)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -125,7 +128,10 @@ func (h *InventoryHandler) QueryInventory(w http.ResponseWriter, r *http.Request
 		resp = append(resp, toInventoryResponse(inv))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[inventoryResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // GetInventory handles GET /api/v1/inventory/{id}

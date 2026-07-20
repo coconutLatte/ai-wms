@@ -79,6 +79,23 @@ func (m *mockOrderRepo) UpdateOrderStatus(ctx context.Context, id uuid.UUID, sta
 	return nil
 }
 
+func (m *mockOrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilter) (int, error) {
+	count := 0
+	for _, o := range m.orders {
+		if filter.WarehouseID != uuid.Nil && o.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.OrderType != "" && o.OrderType != filter.OrderType {
+			continue
+		}
+		if filter.Status != "" && o.Status != filter.Status {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
 // ── OrderLine ───────────────────────────────────────────────
 
 func (m *mockOrderRepo) CreateOrderLine(ctx context.Context, line *domain.OrderLine) error {
@@ -424,7 +441,7 @@ func TestOrderService_ListOrders(t *testing.T) {
 	})
 
 	// All orders.
-	all, err := svc.ListOrders(ctx, repository.OrderFilter{})
+	all, _, err := svc.ListOrders(ctx, repository.OrderFilter{})
 	if err != nil {
 		t.Fatalf("ListOrders failed: %v", err)
 	}
@@ -433,7 +450,7 @@ func TestOrderService_ListOrders(t *testing.T) {
 	}
 
 	// Filter by warehouse.
-	wh1Orders, err := svc.ListOrders(ctx, repository.OrderFilter{WarehouseID: wh1})
+	wh1Orders, _, err := svc.ListOrders(ctx, repository.OrderFilter{WarehouseID: wh1})
 	if err != nil {
 		t.Fatalf("ListOrders wh1 failed: %v", err)
 	}
@@ -442,7 +459,7 @@ func TestOrderService_ListOrders(t *testing.T) {
 	}
 
 	// Filter by order_type.
-	inbound, err := svc.ListOrders(ctx, repository.OrderFilter{OrderType: domain.OrderTypeInbound})
+	inbound, _, err := svc.ListOrders(ctx, repository.OrderFilter{OrderType: domain.OrderTypeInbound})
 	if err != nil {
 		t.Fatalf("ListOrders inbound failed: %v", err)
 	}

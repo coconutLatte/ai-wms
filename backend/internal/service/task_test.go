@@ -98,6 +98,26 @@ func (m *mockTaskRepo) CompleteTask(ctx context.Context, id uuid.UUID, actualQty
 	return nil
 }
 
+func (m *mockTaskRepo) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) {
+	count := 0
+	for _, t := range m.tasks {
+		if filter.WarehouseID != uuid.Nil && t.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.TaskType != "" && t.TaskType != filter.TaskType {
+			continue
+		}
+		if filter.Status != "" && t.Status != filter.Status {
+			continue
+		}
+		if filter.AssignedTo != "" && t.AssignedTo != filter.AssignedTo {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
 // ── Wave (not used by TaskService tests) ────────────────────
 
 func (m *mockTaskRepo) CreateWave(ctx context.Context, w *domain.Wave) error { return nil }
@@ -352,7 +372,7 @@ func TestTaskService_ListTasks(t *testing.T) {
 	})
 
 	// All tasks.
-	all, err := svc.ListTasks(ctx, repository.TaskFilter{})
+	all, _, err := svc.ListTasks(ctx, repository.TaskFilter{})
 	if err != nil {
 		t.Fatalf("ListTasks failed: %v", err)
 	}
@@ -361,7 +381,7 @@ func TestTaskService_ListTasks(t *testing.T) {
 	}
 
 	// Filter by warehouse.
-	wh1Tasks, err := svc.ListTasks(ctx, repository.TaskFilter{WarehouseID: wh1})
+	wh1Tasks, _, err := svc.ListTasks(ctx, repository.TaskFilter{WarehouseID: wh1})
 	if err != nil {
 		t.Fatalf("ListTasks wh1 failed: %v", err)
 	}
@@ -370,7 +390,7 @@ func TestTaskService_ListTasks(t *testing.T) {
 	}
 
 	// Filter by task type.
-	picks, err := svc.ListTasks(ctx, repository.TaskFilter{TaskType: domain.TaskTypePick})
+	picks, _, err := svc.ListTasks(ctx, repository.TaskFilter{TaskType: domain.TaskTypePick})
 	if err != nil {
 		t.Fatalf("ListTasks pick failed: %v", err)
 	}

@@ -30,7 +30,7 @@ func TestInventoryService_QueryInventory_ByWarehouse(t *testing.T) {
 		Qty:         50,
 	})
 
-	results, err := svc.QueryInventory(ctx, QueryInventoryInput{
+	results, _, err := svc.QueryInventory(ctx, QueryInventoryInput{
 		WarehouseID: whID.String(),
 	})
 	if err != nil {
@@ -59,7 +59,7 @@ func TestInventoryService_QueryInventory_BySKU(t *testing.T) {
 		Qty:         100,
 	})
 
-	results, err := svc.QueryInventory(ctx, QueryInventoryInput{
+	results, _, err := svc.QueryInventory(ctx, QueryInventoryInput{
 		SKUID: skuID.String(),
 	})
 	if err != nil {
@@ -89,7 +89,7 @@ func TestInventoryService_QueryInventory_ByStatus(t *testing.T) {
 		Status:      domain.InventoryStatusQuarantine,
 	})
 
-	results, err := svc.QueryInventory(ctx, QueryInventoryInput{
+	results, _, err := svc.QueryInventory(ctx, QueryInventoryInput{
 		Status: domain.InventoryStatusQuarantine,
 	})
 	if err != nil {
@@ -104,7 +104,7 @@ func TestInventoryService_QueryInventory_InvalidUUID(t *testing.T) {
 	ctx := context.Background()
 	svc := NewInventoryService(newMockInventoryRepo())
 
-	_, err := svc.QueryInventory(ctx, QueryInventoryInput{
+	_, _, err := svc.QueryInventory(ctx, QueryInventoryInput{
 		WarehouseID: "not-a-uuid",
 	})
 	if err == nil {

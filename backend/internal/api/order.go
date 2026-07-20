@@ -175,9 +175,12 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 
 // ListOrders handles GET /api/v1/orders
 func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
 	filter := repository.OrderFilter{
-		Limit:  QueryParamInt(r, "limit", 50),
-		Offset: QueryParamInt(r, "offset", 0),
+		Limit:  pageSize,
+		Offset: offset,
 	}
 
 	if raw := QueryParam(r, "warehouse_id", ""); raw != "" {
@@ -195,7 +198,7 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		filter.Status = domain.OrderStatus(raw)
 	}
 
-	orders, err := h.svc.ListOrders(r.Context(), filter)
+	orders, total, err := h.svc.ListOrders(r.Context(), filter)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -206,7 +209,10 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toOrderSummaryResponse(o))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[orderSummaryResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // UpdateOrderStatus handles PUT /api/v1/orders/{id}/status

@@ -111,13 +111,17 @@ func (s *SKUService) GetSKUByCode(ctx context.Context, code string) (*domain.SKU
 	return sku, nil
 }
 
-// ListSKUs returns all SKUs.
-func (s *SKUService) ListSKUs(ctx context.Context) ([]*domain.SKU, error) {
-	skus, err := s.repo.ListSKUs(ctx)
+// ListSKUs returns all SKUs with pagination support.
+func (s *SKUService) ListSKUs(ctx context.Context, limit, offset int) ([]*domain.SKU, int, error) {
+	skus, err := s.repo.ListSKUs(ctx, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("sku service: list: %w", err)
+		return nil, 0, fmt.Errorf("sku service: list: %w", err)
 	}
-	return skus, nil
+	total, err := s.repo.CountSKUs(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("sku service: count: %w", err)
+	}
+	return skus, total, nil
 }
 
 // UpdateSKU validates and partially updates an existing SKU.

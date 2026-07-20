@@ -72,13 +72,19 @@ func (s *WarehouseService) GetWarehouse(ctx context.Context, id uuid.UUID) (*dom
 	return w, nil
 }
 
-// ListWarehouses returns all warehouses.
-func (s *WarehouseService) ListWarehouses(ctx context.Context) ([]*domain.Warehouse, error) {
-	warehouses, err := s.repo.ListWarehouses(ctx)
+// ListWarehouses returns all warehouses with pagination support.
+func (s *WarehouseService) ListWarehouses(ctx context.Context, limit, offset int) ([]*domain.Warehouse, int, error) {
+	warehouses, err := s.repo.ListWarehouses(ctx, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("warehouse service: list: %w", err)
+		return nil, 0, fmt.Errorf("warehouse service: list: %w", err)
 	}
-	return warehouses, nil
+
+	total, err := s.repo.CountWarehouses(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: count: %w", err)
+	}
+
+	return warehouses, total, nil
 }
 
 // UpdateWarehouseInput is the input for updating a warehouse.
@@ -191,18 +197,24 @@ func (s *WarehouseService) GetZone(ctx context.Context, id uuid.UUID) (*domain.Z
 	return z, nil
 }
 
-// ListZones returns all zones in a warehouse.
-func (s *WarehouseService) ListZones(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Zone, error) {
+// ListZones returns all zones in a warehouse with pagination support.
+func (s *WarehouseService) ListZones(ctx context.Context, warehouseID uuid.UUID, limit, offset int) ([]*domain.Zone, int, error) {
 	// Verify warehouse exists.
 	if _, err := s.repo.GetWarehouse(ctx, warehouseID); err != nil {
-		return nil, fmt.Errorf("warehouse service: list zones: %w", err)
+		return nil, 0, fmt.Errorf("warehouse service: list zones: %w", err)
 	}
 
-	zones, err := s.repo.ListZonesByWarehouse(ctx, warehouseID)
+	zones, err := s.repo.ListZonesByWarehouse(ctx, warehouseID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("warehouse service: list zones: %w", err)
+		return nil, 0, fmt.Errorf("warehouse service: list zones: %w", err)
 	}
-	return zones, nil
+
+	total, err := s.repo.CountZonesByWarehouse(ctx, warehouseID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: count zones: %w", err)
+	}
+
+	return zones, total, nil
 }
 
 // ── Location ─────────────────────────────────────────────────────────────────────────────
@@ -273,18 +285,24 @@ func (s *WarehouseService) GetLocation(ctx context.Context, id uuid.UUID) (*doma
 	return loc, nil
 }
 
-// ListLocations returns all locations in a zone.
-func (s *WarehouseService) ListLocations(ctx context.Context, zoneID uuid.UUID) ([]*domain.Location, error) {
+// ListLocations returns all locations in a zone with pagination support.
+func (s *WarehouseService) ListLocations(ctx context.Context, zoneID uuid.UUID, limit, offset int) ([]*domain.Location, int, error) {
 	// Verify zone exists.
 	if _, err := s.repo.GetZone(ctx, zoneID); err != nil {
-		return nil, fmt.Errorf("warehouse service: list locations: %w", err)
+		return nil, 0, fmt.Errorf("warehouse service: list locations: %w", err)
 	}
 
-	locs, err := s.repo.ListLocationsByZone(ctx, zoneID)
+	locs, err := s.repo.ListLocationsByZone(ctx, zoneID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("warehouse service: list locations: %w", err)
+		return nil, 0, fmt.Errorf("warehouse service: list locations: %w", err)
 	}
-	return locs, nil
+
+	total, err := s.repo.CountLocationsByZone(ctx, zoneID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: count locations: %w", err)
+	}
+
+	return locs, total, nil
 }
 
 // UpdateLocationStatus updates the status of a location.

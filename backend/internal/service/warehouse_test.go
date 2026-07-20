@@ -43,7 +43,7 @@ func (m *mockWarehouseRepo) GetWarehouse(ctx context.Context, id uuid.UUID) (*do
 	return w, nil
 }
 
-func (m *mockWarehouseRepo) ListWarehouses(ctx context.Context) ([]*domain.Warehouse, error) {
+func (m *mockWarehouseRepo) ListWarehouses(ctx context.Context, limit, offset int) ([]*domain.Warehouse, error) {
 	var result []*domain.Warehouse
 	for _, w := range m.warehouses {
 		result = append(result, w)
@@ -57,6 +57,10 @@ func (m *mockWarehouseRepo) UpdateWarehouse(ctx context.Context, w *domain.Wareh
 	}
 	m.warehouses[w.ID] = w
 	return nil
+}
+
+func (m *mockWarehouseRepo) CountWarehouses(ctx context.Context) (int, error) {
+	return len(m.warehouses), nil
 }
 
 // ── Zone ──────────────────────────────────────────
@@ -77,7 +81,7 @@ func (m *mockWarehouseRepo) GetZone(ctx context.Context, id uuid.UUID) (*domain.
 	return z, nil
 }
 
-func (m *mockWarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Zone, error) {
+func (m *mockWarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID, limit, offset int) ([]*domain.Zone, error) {
 	var result []*domain.Zone
 	for _, z := range m.zones {
 		if z.WarehouseID == warehouseID {
@@ -85,6 +89,16 @@ func (m *mockWarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseI
 		}
 	}
 	return result, nil
+}
+
+func (m *mockWarehouseRepo) CountZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) (int, error) {
+	count := 0
+	for _, z := range m.zones {
+		if z.WarehouseID == warehouseID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // ── Location ──────────────────────────────────────
@@ -114,7 +128,7 @@ func (m *mockWarehouseRepo) GetLocationByBarcode(ctx context.Context, barcode st
 	return nil, pkgerrors.NewNotFound("location", barcode)
 }
 
-func (m *mockWarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUID) ([]*domain.Location, error) {
+func (m *mockWarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUID, limit, offset int) ([]*domain.Location, error) {
 	var result []*domain.Location
 	for _, loc := range m.locations {
 		if loc.ZoneID == zoneID {
@@ -131,6 +145,16 @@ func (m *mockWarehouseRepo) UpdateLocationStatus(ctx context.Context, id uuid.UU
 	}
 	loc.Status = status
 	return nil
+}
+
+func (m *mockWarehouseRepo) CountLocationsByZone(ctx context.Context, zoneID uuid.UUID) (int, error) {
+	count := 0
+	for _, loc := range m.locations {
+		if loc.ZoneID == zoneID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -202,12 +226,15 @@ func TestWarehouseService_ListWarehouses(t *testing.T) {
 	svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "W1"})
 	svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-002", Name: "W2"})
 
-	list, err := svc.ListWarehouses(ctx)
+	list, total, err := svc.ListWarehouses(ctx, 0, 0)
 	if err != nil {
 		t.Fatalf("ListWarehouses failed: %v", err)
 	}
 	if len(list) != 2 {
 		t.Errorf("expected 2 warehouses, got %d", len(list))
+	}
+	if total != 2 {
+		t.Errorf("expected total 2, got %d", total)
 	}
 }
 
@@ -311,12 +338,15 @@ func TestWarehouseService_ListZones(t *testing.T) {
 	svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
 	svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-02", Name: "Z2", ZoneType: domain.ZoneTypePicking})
 
-	zones, err := svc.ListZones(ctx, wh.ID)
+	zones, total, err := svc.ListZones(ctx, wh.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("ListZones failed: %v", err)
 	}
 	if len(zones) != 2 {
 		t.Errorf("expected 2 zones, got %d", len(zones))
+	}
+	if total != 2 {
+		t.Errorf("expected total 2, got %d", total)
 	}
 }
 

@@ -82,7 +82,10 @@ func (h *WarehouseHandler) GetWarehouse(w http.ResponseWriter, r *http.Request) 
 
 // ListWarehouses handles GET /api/v1/warehouses
 func (h *WarehouseHandler) ListWarehouses(w http.ResponseWriter, r *http.Request) {
-	warehouses, err := h.svc.ListWarehouses(r.Context())
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	warehouses, total, err := h.svc.ListWarehouses(r.Context(), pageSize, offset)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -93,7 +96,10 @@ func (h *WarehouseHandler) ListWarehouses(w http.ResponseWriter, r *http.Request
 		resp = append(resp, toWarehouseResponse(wh))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[warehouseResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // UpdateWarehouse handles PUT /api/v1/warehouses/{id}
@@ -194,7 +200,10 @@ func (h *WarehouseHandler) ListZones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zones, err := h.svc.ListZones(r.Context(), warehouseID)
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	zones, total, err := h.svc.ListZones(r.Context(), warehouseID, pageSize, offset)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -205,7 +214,10 @@ func (h *WarehouseHandler) ListZones(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toZoneResponse(z))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[zoneResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // ── Location Handlers ───────────────────────────────────────────────────────────────────
@@ -288,7 +300,10 @@ func (h *WarehouseHandler) ListLocations(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	locs, err := h.svc.ListLocations(r.Context(), zoneID)
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	locs, total, err := h.svc.ListLocations(r.Context(), zoneID, pageSize, offset)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -299,7 +314,10 @@ func (h *WarehouseHandler) ListLocations(w http.ResponseWriter, r *http.Request)
 		resp = append(resp, toLocationResponse(loc))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[locationResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // UpdateLocationStatus handles PATCH /api/v1/locations/{id}/status

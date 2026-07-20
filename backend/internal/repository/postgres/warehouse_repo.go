@@ -66,13 +66,25 @@ func (r *WarehouseRepo) GetWarehouse(ctx context.Context, id uuid.UUID) (*domain
 	return w, nil
 }
 
-// ListWarehouses returns all warehouses.
-func (r *WarehouseRepo) ListWarehouses(ctx context.Context) ([]*domain.Warehouse, error) {
-	const query = `
+// ListWarehouses returns warehouses with optional pagination.
+func (r *WarehouseRepo) ListWarehouses(ctx context.Context, limit, offset int) ([]*domain.Warehouse, error) {
+	query := `
 		SELECT id, code, name, address, status, created_at, updated_at
 		FROM warehouses ORDER BY created_at DESC`
+	var args []any
+	argIdx := 1
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+		argIdx++
+	}
+	if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, offset)
+		argIdx++
+	}
 
-	rows, err := r.db.Pool.Query(ctx, query)
+	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list warehouses: %w", err)
 	}
@@ -108,6 +120,16 @@ func (r *WarehouseRepo) UpdateWarehouse(ctx context.Context, w *domain.Warehouse
 		return fmt.Errorf("update warehouse %s: not found", w.ID)
 	}
 	return nil
+}
+
+// CountWarehouses returns the total number of warehouses.
+func (r *WarehouseRepo) CountWarehouses(ctx context.Context) (int, error) {
+	const query = `SELECT COUNT(*) FROM warehouses`
+	var count int
+	if err := r.db.Pool.QueryRow(ctx, query).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count warehouses: %w", err)
+	}
+	return count, nil
 }
 
 // ── Zone ───────────────────────────────────────────────────
@@ -155,13 +177,26 @@ func (r *WarehouseRepo) GetZone(ctx context.Context, id uuid.UUID) (*domain.Zone
 	return z, nil
 }
 
-// ListZonesByWarehouse returns all zones in a warehouse.
-func (r *WarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Zone, error) {
-	const query = `
+// ListZonesByWarehouse returns all zones in a warehouse with optional pagination.
+func (r *WarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID, limit, offset int) ([]*domain.Zone, error) {
+	query := `
 		SELECT id, warehouse_id, code, name, zone_type, status, created_at, updated_at
 		FROM zones WHERE warehouse_id = $1 ORDER BY code`
+	var args []any
+	args = append(args, warehouseID)
+	argIdx := 2
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+		argIdx++
+	}
+	if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, offset)
+		argIdx++
+	}
 
-	rows, err := r.db.Pool.Query(ctx, query, warehouseID)
+	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list zones: %w", err)
 	}
@@ -176,6 +211,16 @@ func (r *WarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uu
 		zones = append(zones, z)
 	}
 	return zones, rows.Err()
+}
+
+// CountZonesByWarehouse returns the total number of zones in a warehouse.
+func (r *WarehouseRepo) CountZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) (int, error) {
+	const query = `SELECT COUNT(*) FROM zones WHERE warehouse_id = $1`
+	var count int
+	if err := r.db.Pool.QueryRow(ctx, query, warehouseID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count zones by warehouse: %w", err)
+	}
+	return count, nil
 }
 
 // ── Location ───────────────────────────────────────────────
@@ -293,14 +338,27 @@ func (r *WarehouseRepo) GetLocationByBarcode(ctx context.Context, barcode string
 	return loc, nil
 }
 
-// ListLocationsByZone returns all locations in a zone.
-func (r *WarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUID) ([]*domain.Location, error) {
-	const query = `
+// ListLocationsByZone returns all locations in a zone with optional pagination.
+func (r *WarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUID, limit, offset int) ([]*domain.Location, error) {
+	query := `
 		SELECT id, zone_id, warehouse_id, code, barcode, location_type, status,
 		       max_weight, max_volume, max_qty, created_at, updated_at
 		FROM locations WHERE zone_id = $1 ORDER BY code`
+	var args []any
+	args = append(args, zoneID)
+	argIdx := 2
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+		argIdx++
+	}
+	if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, offset)
+		argIdx++
+	}
 
-	rows, err := r.db.Pool.Query(ctx, query, zoneID)
+	rows, err := r.db.Pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list locations: %w", err)
 	}
@@ -336,6 +394,16 @@ func (r *WarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUI
 		locations = append(locations, loc)
 	}
 	return locations, rows.Err()
+}
+
+// CountLocationsByZone returns the total number of locations in a zone.
+func (r *WarehouseRepo) CountLocationsByZone(ctx context.Context, zoneID uuid.UUID) (int, error) {
+	const query = `SELECT COUNT(*) FROM locations WHERE zone_id = $1`
+	var count int
+	if err := r.db.Pool.QueryRow(ctx, query, zoneID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count locations by zone: %w", err)
+	}
+	return count, nil
 }
 
 // UpdateLocationStatus updates the status of a location.

@@ -112,7 +112,10 @@ func (h *SKUHandler) GetSKU(w http.ResponseWriter, r *http.Request) {
 
 // ListSKUs handles GET /api/v1/skus
 func (h *SKUHandler) ListSKUs(w http.ResponseWriter, r *http.Request) {
-	skus, err := h.svc.ListSKUs(r.Context())
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	skus, total, err := h.svc.ListSKUs(r.Context(), pageSize, offset)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -123,7 +126,10 @@ func (h *SKUHandler) ListSKUs(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toSKUResponse(s))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[skuResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // UpdateSKU handles PUT /api/v1/skus/{id}

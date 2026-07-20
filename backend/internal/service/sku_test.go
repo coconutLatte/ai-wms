@@ -63,7 +63,7 @@ func (m *mockInventoryRepo) GetSKUByCode(ctx context.Context, code string) (*dom
 	return s, nil
 }
 
-func (m *mockInventoryRepo) ListSKUs(ctx context.Context) ([]*domain.SKU, error) {
+func (m *mockInventoryRepo) ListSKUs(ctx context.Context, limit, offset int) ([]*domain.SKU, error) {
 	var result []*domain.SKU
 	for _, s := range m.skus {
 		result = append(result, s)
@@ -148,6 +148,35 @@ func (m *mockInventoryRepo) ListTransactions(ctx context.Context, inventoryID uu
 		}
 	}
 	return result, nil
+}
+
+// ── Count methods ────────────────────────────
+
+func (m *mockInventoryRepo) CountSKUs(ctx context.Context) (int, error) {
+	return len(m.skus), nil
+}
+
+func (m *mockInventoryRepo) CountInventory(ctx context.Context, filter repository.InventoryFilter) (int, error) {
+	count := 0
+	for _, inv := range m.inventories {
+		if (filter.WarehouseID == uuid.Nil || inv.WarehouseID == filter.WarehouseID) &&
+			(filter.SKUID == uuid.Nil || inv.SKUID == filter.SKUID) &&
+			(filter.LocationID == uuid.Nil || inv.LocationID == filter.LocationID) &&
+			(filter.Status == "" || inv.Status == filter.Status) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (m *mockInventoryRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) {
+	count := 0
+	for _, tx := range m.transactions {
+		if tx.InventoryID == inventoryID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -280,12 +309,15 @@ func TestSKUService_ListSKUs(t *testing.T) {
 	svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-002", Name: "S2", UOM: domain.UOM{BaseUnit: "EA"}})
 	svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-003", Name: "S3", UOM: domain.UOM{BaseUnit: "EA"}})
 
-	list, err := svc.ListSKUs(ctx)
+	list, total, err := svc.ListSKUs(ctx, 0, 0)
 	if err != nil {
 		t.Fatalf("ListSKUs failed: %v", err)
 	}
 	if len(list) != 3 {
 		t.Errorf("expected 3 skus, got %d", len(list))
+	}
+	if total != 3 {
+		t.Errorf("expected total 3, got %d", total)
 	}
 }
 
@@ -293,7 +325,7 @@ func TestSKUService_ListSKUs_Empty(t *testing.T) {
 	ctx := context.Background()
 	svc := NewSKUService(newMockInventoryRepo())
 
-	list, err := svc.ListSKUs(ctx)
+	list, total, err := svc.ListSKUs(ctx, 0, 0)
 	if err != nil {
 		t.Fatalf("ListSKUs failed: %v", err)
 	}
@@ -301,6 +333,9 @@ func TestSKUService_ListSKUs_Empty(t *testing.T) {
 	// normalizes it to an empty JSON array.
 	if len(list) != 0 {
 		t.Errorf("expected 0 skus, got %d", len(list))
+	}
+	if total != 0 {
+		t.Errorf("expected total 0, got %d", total)
 	}
 }
 

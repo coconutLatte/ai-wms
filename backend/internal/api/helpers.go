@@ -44,3 +44,27 @@ func QueryParamInt(r *http.Request, key string, defaultVal int) int {
 	}
 	return n
 }
+
+// PaginationParams extracts page and page_size from query parameters with defaults.
+// page defaults to 1, page_size defaults to 20, max page_size is 100.
+func PaginationParams(r *http.Request) (page, pageSize int) {
+	page = QueryParamInt(r, "page", 1)
+	if page < 1 {
+		page = 1
+	}
+
+	pageSize = QueryParamInt(r, "page_size", 20)
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	return page, pageSize
+}
+
+// paginationOffset computes the SQL offset from page and pageSize (0-indexed).
+func paginationOffset(page, pageSize int) int {
+	return (page - 1) * pageSize
+}

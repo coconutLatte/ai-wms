@@ -121,14 +121,27 @@ func (r *InventoryRepo) GetSKUByCode(ctx context.Context, code string) (*domain.
 }
 
 // ListSKUs returns all SKUs.
-func (r *InventoryRepo) ListSKUs(ctx context.Context) ([]*domain.SKU, error) {
-	const query = `
+func (r *InventoryRepo) ListSKUs(ctx context.Context, limit, offset int) ([]*domain.SKU, error) {
+	query := `
 		SELECT id, code, name, description, barcode, base_unit, pack_unit, pack_qty,
 		       weight, volume, length, width, height, category, attributes, status,
 		       created_at, updated_at
 		FROM skus ORDER BY created_at DESC`
+	var args []any
+	argIdx := 1
 
-	rows, err := r.query(ctx, query)
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+		argIdx++
+	}
+	if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list skus: %w", err)
 	}
@@ -176,6 +189,18 @@ func (r *InventoryRepo) UpdateSKU(ctx context.Context, s *domain.SKU) error {
 		return fmt.Errorf("update sku %s: not found", s.ID)
 	}
 	return nil
+}
+
+// CountSKUs returns the total number of SKUs.
+func (r *InventoryRepo) CountSKUs(ctx context.Context) (int, error) {
+	const query = `SELECT COUNT(*) FROM skus`
+
+	var count int
+	err := r.queryRow(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count skus: %w", err)
+	}
+	return count, nil
 }
 
 // ── Inventory ──────────────────────────────────────────────
@@ -337,6 +362,51 @@ func (r *InventoryRepo) UpdateInventoryQty(ctx context.Context, id uuid.UUID, de
 	return nil
 }
 
+// CountInventory returns the total count of inventory records matching the filter.
+func (r *InventoryRepo) CountInventory(ctx context.Context, filter repository.InventoryFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.SKUID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("sku_id = $%d", argIdx))
+		args = append(args, filter.SKUID)
+		argIdx++
+	}
+	if filter.LocationID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("location_id = $%d", argIdx))
+		args = append(args, filter.LocationID)
+		argIdx++
+	}
+	if filter.BatchNo != "" {
+		conditions = append(conditions, fmt.Sprintf("batch_no = $%d", argIdx))
+		args = append(args, filter.BatchNo)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+
+	query := `SELECT COUNT(*) FROM inventory`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.queryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count inventory: %w", err)
+	}
+	return count, nil
+}
+
 // ── Inventory Transaction ──────────────────────────────────
 
 // CreateTransaction records a new inventory transaction.
@@ -413,6 +483,18 @@ func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.U
 		return nil, fmt.Errorf("iterate transactions: %w", err)
 	}
 	return txs, nil
+}
+
+// CountTransactions returns the total number of transactions for an inventory record.
+func (r *InventoryRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) {
+	const query = `SELECT COUNT(*) FROM inventory_transactions WHERE inventory_id = $1`
+
+	var count int
+	err := r.queryRow(ctx, query, inventoryID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count transactions: %w", err)
+	}
+	return count, nil
 }
 
 // ── Helpers ────────────────────────────────────────────────

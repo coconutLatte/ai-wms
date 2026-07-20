@@ -97,7 +97,7 @@ func TestWarehouseRepo_ListWarehouses(t *testing.T) {
 		}
 	}
 
-	warehouses, err := repo.ListWarehouses(ctx)
+	warehouses, err := repo.ListWarehouses(ctx, 0, 0)
 	if err != nil {
 		t.Fatalf("ListWarehouses failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestWarehouseRepo_ListZonesByWarehouse(t *testing.T) {
 		}
 	}
 
-	zones, err := repo.ListZonesByWarehouse(ctx, wh.ID)
+	zones, err := repo.ListZonesByWarehouse(ctx, wh.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("ListZonesByWarehouse failed: %v", err)
 	}

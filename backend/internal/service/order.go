@@ -220,12 +220,18 @@ func (s *OrderService) GetOrderByNo(ctx context.Context, orderNo string) (*domai
 }
 
 // ListOrders returns orders matching the specified filter.
-func (s *OrderService) ListOrders(ctx context.Context, filter repository.OrderFilter) ([]*domain.Order, error) {
+func (s *OrderService) ListOrders(ctx context.Context, filter repository.OrderFilter) ([]*domain.Order, int, error) {
 	orders, err := s.repo.ListOrders(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("order service: list: %w", err)
+		return nil, 0, fmt.Errorf("order service: list: %w", err)
 	}
-	return orders, nil
+
+	total, err := s.repo.CountOrders(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("order service: count: %w", err)
+	}
+
+	return orders, total, nil
 }
 
 // UpdateOrderStatus validates the state transition and updates the order status.

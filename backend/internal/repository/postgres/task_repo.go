@@ -217,6 +217,46 @@ func (r *TaskRepo) CompleteTask(ctx context.Context, id uuid.UUID, actualQty flo
 	return nil
 }
 
+// CountTasks returns the total count of tasks matching the filter.
+func (r *TaskRepo) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.TaskType != "" {
+		conditions = append(conditions, fmt.Sprintf("task_type = $%d", argIdx))
+		args = append(args, filter.TaskType)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+	if filter.AssignedTo != "" {
+		conditions = append(conditions, fmt.Sprintf("assigned_to = $%d", argIdx))
+		args = append(args, filter.AssignedTo)
+		argIdx++
+	}
+
+	query := `SELECT COUNT(*) FROM tasks`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count tasks: %w", err)
+	}
+	return count, nil
+}
+
 // ── Wave ────────────────────────────────────────────────────
 
 // CreateWave inserts a new wave.

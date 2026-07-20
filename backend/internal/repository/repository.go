@@ -14,20 +14,23 @@ type WarehouseRepository interface {
 	// Warehouse
 	CreateWarehouse(ctx context.Context, w *domain.Warehouse) error
 	GetWarehouse(ctx context.Context, id uuid.UUID) (*domain.Warehouse, error)
-	ListWarehouses(ctx context.Context) ([]*domain.Warehouse, error)
+	ListWarehouses(ctx context.Context, limit, offset int) ([]*domain.Warehouse, error)
 	UpdateWarehouse(ctx context.Context, w *domain.Warehouse) error
+	CountWarehouses(ctx context.Context) (int, error)
 
 	// Zone
 	CreateZone(ctx context.Context, z *domain.Zone) error
 	GetZone(ctx context.Context, id uuid.UUID) (*domain.Zone, error)
-	ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Zone, error)
+	ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID, limit, offset int) ([]*domain.Zone, error)
+	CountZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) (int, error)
 
 	// Location
 	CreateLocation(ctx context.Context, l *domain.Location) error
 	GetLocation(ctx context.Context, id uuid.UUID) (*domain.Location, error)
 	GetLocationByBarcode(ctx context.Context, barcode string) (*domain.Location, error)
-	ListLocationsByZone(ctx context.Context, zoneID uuid.UUID) ([]*domain.Location, error)
+	ListLocationsByZone(ctx context.Context, zoneID uuid.UUID, limit, offset int) ([]*domain.Location, error)
 	UpdateLocationStatus(ctx context.Context, id uuid.UUID, status domain.LocationStatus) error
+	CountLocationsByZone(ctx context.Context, zoneID uuid.UUID) (int, error)
 }
 
 // InventoryRepository manages SKU, inventory, and transaction persistence.
@@ -37,8 +40,9 @@ type InventoryRepository interface {
 	GetSKU(ctx context.Context, id uuid.UUID) (*domain.SKU, error)
 	GetSKUByBarcode(ctx context.Context, barcode string) (*domain.SKU, error)
 	GetSKUByCode(ctx context.Context, code string) (*domain.SKU, error)
-	ListSKUs(ctx context.Context) ([]*domain.SKU, error)
+	ListSKUs(ctx context.Context, limit, offset int) ([]*domain.SKU, error)
 	UpdateSKU(ctx context.Context, s *domain.SKU) error
+	CountSKUs(ctx context.Context) (int, error)
 
 	// Inventory
 	CreateInventory(ctx context.Context, inv *domain.Inventory) error
@@ -46,10 +50,12 @@ type InventoryRepository interface {
 	GetInventoryAtLocation(ctx context.Context, skuID, locationID uuid.UUID, batchNo string) (*domain.Inventory, error)
 	QueryInventory(ctx context.Context, filter InventoryFilter) ([]*domain.Inventory, error)
 	UpdateInventoryQty(ctx context.Context, id uuid.UUID, deltaQty, deltaReserved float64) error
+	CountInventory(ctx context.Context, filter InventoryFilter) (int, error)
 
 	// Inventory Transaction
 	CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error
 	ListTransactions(ctx context.Context, inventoryID uuid.UUID) ([]*domain.InventoryTransaction, error)
+	CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error)
 }
 
 // InventoryFilter defines query parameters for inventory search.
@@ -71,6 +77,7 @@ type OrderRepository interface {
 	GetOrderByNo(ctx context.Context, orderNo string) (*domain.Order, error)
 	ListOrders(ctx context.Context, filter OrderFilter) ([]*domain.Order, error)
 	UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error
+	CountOrders(ctx context.Context, filter OrderFilter) (int, error)
 
 	// OrderLine
 	CreateOrderLine(ctx context.Context, line *domain.OrderLine) error
@@ -109,6 +116,7 @@ type TaskRepository interface {
 	AssignTask(ctx context.Context, id uuid.UUID, assignedTo string) error
 	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error
 	CompleteTask(ctx context.Context, id uuid.UUID, actualQty float64, toLocationID *uuid.UUID) error
+	CountTasks(ctx context.Context, filter TaskFilter) (int, error)
 
 	// Wave
 	CreateWave(ctx context.Context, w *domain.Wave) error

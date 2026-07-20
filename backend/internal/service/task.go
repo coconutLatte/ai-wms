@@ -153,12 +153,18 @@ func (s *TaskService) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, 
 }
 
 // ListTasks returns tasks matching the specified filter, ordered by priority desc then age asc.
-func (s *TaskService) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
+func (s *TaskService) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, int, error) {
 	tasks, err := s.repo.ListTasks(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("task service: list: %w", err)
+		return nil, 0, fmt.Errorf("task service: list: %w", err)
 	}
-	return tasks, nil
+
+	total, err := s.repo.CountTasks(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("task service: count: %w", err)
+	}
+
+	return tasks, total, nil
 }
 
 // AssignTask assigns a pending task to a worker.

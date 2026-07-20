@@ -151,6 +151,41 @@ func (r *OrderRepo) ListOrders(ctx context.Context, filter repository.OrderFilte
 	return orders, nil
 }
 
+// CountOrders returns the total number of orders matching the specified filter.
+func (r *OrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.OrderType != "" {
+		conditions = append(conditions, fmt.Sprintf("order_type = $%d", argIdx))
+		args = append(args, filter.OrderType)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+
+	query := "SELECT COUNT(*) FROM orders"
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count orders: %w", err)
+	}
+	return count, nil
+}
+
 // UpdateOrderStatus transitions an order to a new status.
 func (r *OrderRepo) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error {
 	updatedAt := time.Now()

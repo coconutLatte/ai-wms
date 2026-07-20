@@ -131,9 +131,12 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 
 // ListTasks handles GET /api/v1/tasks
 func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
 	filter := repository.TaskFilter{
-		Limit:  QueryParamInt(r, "limit", 50),
-		Offset: QueryParamInt(r, "offset", 0),
+		Limit:  pageSize,
+		Offset: offset,
 	}
 
 	if raw := QueryParam(r, "warehouse_id", ""); raw != "" {
@@ -154,7 +157,7 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		filter.AssignedTo = raw
 	}
 
-	tasks, err := h.svc.ListTasks(r.Context(), filter)
+	tasks, total, err := h.svc.ListTasks(r.Context(), filter)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -165,7 +168,10 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toTaskResponse(t))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[taskResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }
 
 // AssignTask handles POST /api/v1/tasks/{id}/assign (PDA: assign task to worker)

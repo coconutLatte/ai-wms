@@ -3,10 +3,45 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 
 	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
 )
+
+// PaginationMeta holds pagination metadata for list endpoints.
+type PaginationMeta struct {
+	Total      int `json:"total"`
+	Page       int `json:"page"`
+	PageSize   int `json:"page_size"`
+	TotalPages int `json:"total_pages"`
+}
+
+// NewPaginationMeta computes pagination metadata from the total count, page, and page size.
+func NewPaginationMeta(total, page, pageSize int) PaginationMeta {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	totalPages := 0
+	if total > 0 {
+		totalPages = int(math.Ceil(float64(total) / float64(pageSize)))
+	}
+	return PaginationMeta{
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	}
+}
+
+// ListResponse wraps a paginated list of items with pagination metadata.
+type ListResponse[T any] struct {
+	Data       []T            `json:"data"`
+	Pagination PaginationMeta `json:"pagination"`
+}
 
 // WriteJSON writes a JSON response with the given status code and body.
 func WriteJSON(w http.ResponseWriter, status int, data any) {

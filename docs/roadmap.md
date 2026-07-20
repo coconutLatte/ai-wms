@@ -39,7 +39,7 @@
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
 | P2-01 | P1 | DB transaction support for atomic inventory operations | completed | 2026-07-20 | TxManager interface + pgx impl; inventory qty+txn are now atomic via WithTx; 5 integration tests |
-| P2-02 | P1 | Pagination metadata for all list endpoints | pending | — | Total count + page_token; every list API needs this |
+| P2-02 | P1 | Pagination metadata for all list endpoints | completed | 2026-07-20 | `ListResponse[T]` generic envelope with total/page/page_size/total_pages; Count* methods on all repos; 8 endpoints updated |
 | P2-03 | P1 | Domain unit tests (state machines, business rules) | pending | — | Pure Go tests for Order/Task status transitions, Inventory invariants |
 | P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | pending | — | Blocks admin login page |
 | P2-05 | P1 | Makefile: run-admin, run-pda, migrate targets | pending | — | Dev workflow; build/test/lint already work |
