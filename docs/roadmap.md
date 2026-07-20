@@ -31,13 +31,16 @@
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | pending | — | With inventory transaction audit; check negative qty constraint |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
-| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading |
-| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers |
+| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede service tasks |
+| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; should precede API handler tasks |
 | P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx |
 | P1-17 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository; blocks P5-02 |
 | P1-18 | P2 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results; add to all list endpoints |
 | P1-19 | P2 | Authentication service (JWT login, token refresh, session management) | pending | — | JWT generation + validation middleware; refresh token rotation; blocks P2-02 |
-| P1-20 | P2 | Domain unit tests (state machines, business rules, validation) | pending | — | Pure Go tests — no infrastructure; test Order/Task status transitions, Inventory invariants |
+| P1-20 | P1 | Domain unit tests (state machines, business rules, validation) | pending | — | Pure Go tests — no infrastructure; test Order/Task status transitions, Inventory invariants; promoted from P2 to P1 as foundational quality gate |
+| P1-21 | P1 | Proto code generation workflow (buf generate + CI check) | pending | — | Run buf generate to produce Go stubs; add CI step to verify generated code matches proto sources |
+| P1-22 | P1 | Makefile dev targets (run, test, migrate, lint, generate) | pending | — | `make run-admin`, `make run-pda`, `make test`, `make migrate`, `make lint`, `make proto` |
+| P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development |
 
 ## Phase 2: Admin Frontend
 
@@ -57,16 +60,17 @@
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
-| P3-01 | P3 | PDA frontend scaffold (React + Vite + mobile-first CSS + PWA) | pending | — | Mobile-optimized layout; bottom tabs; offline-ready with service worker |
-| P3-02 | P3 | PDA auth + bootstrap (login, warehouse selection, task list) | pending | — | Simple login; session persistence; pull-to-refresh task list |
-| P3-03 | P3 | Barcode scanner component (camera-based + manual input) | pending | — | Browser Barcode Detection API or ZXing; fallback to manual keyboard input |
-| P3-04 | P3 | Receiving flow (scan ASN → confirm receipt → generate putaway tasks) | pending | — | Scan ASN barcode; verify expected vs actual qty; auto-create putaway tasks |
-| P3-05 | P3 | Putaway flow (scan location → scan SKU → confirm → inventory update) | pending | — | Guided putaway: scan target location → scan item barcode → confirm qty |
-| P3-06 | P3 | Picking flow (wave task → scan location → scan SKU → confirm pick) | pending | — | Pick list view; scan source location; validate correct SKU; report shorts |
-| P3-07 | P3 | Cycle counting flow (count task → scan → submit → variance review) | pending | — | Blind count option; variance auto-detection; recount workflow |
-| P3-08 | P3 | Shipping flow (scan outbound order → verify → confirm ship) | pending | — | Load verification; carrier integration; shipment confirmation |
-| P3-09 | P3 | PDA exception handling (item not found, damaged, wrong location) | pending | — | Exception flow: report issue, attach reason, trigger supervisor review |
-| P3-10 | P3 | PDA offline queue + sync (background sync when connectivity restored) | pending | — | IndexedDB queue; task completion can be queued offline; conflict resolution |
+| P3-01 | P3 | PDA frontend scaffold (React + Vite + mobile-first CSS) | pending | — | Mobile-optimized layout; bottom tabs; touch-friendly components; responsive breakpoints |
+| P3-02 | P3 | PDA PWA setup (service worker, offline manifest, install prompt) | pending | — | Offline-ready with service worker; app manifest; install-to-home-screen; split from P3-01 for granularity |
+| P3-03 | P3 | PDA auth + bootstrap (login, warehouse selection, task list) | pending | — | Simple login; session persistence; pull-to-refresh task list |
+| P3-04 | P3 | Barcode scanner component (camera-based + manual input) | pending | — | Browser Barcode Detection API or ZXing; fallback to manual keyboard input |
+| P3-05 | P3 | Receiving flow (scan ASN → confirm receipt → generate putaway tasks) | pending | — | Scan ASN barcode; verify expected vs actual qty; auto-create putaway tasks |
+| P3-06 | P3 | Putaway flow (scan location → scan SKU → confirm → inventory update) | pending | — | Guided putaway: scan target location → scan item barcode → confirm qty |
+| P3-07 | P3 | Picking flow (wave task → scan location → scan SKU → confirm pick) | pending | — | Pick list view; scan source location; validate correct SKU; report shorts |
+| P3-08 | P3 | Cycle counting flow (count task → scan → submit → variance review) | pending | — | Blind count option; variance auto-detection; recount workflow |
+| P3-09 | P3 | Shipping flow (scan outbound order → verify → confirm ship) | pending | — | Load verification; carrier integration; shipment confirmation |
+| P3-10 | P3 | PDA exception handling (item not found, damaged, wrong location) | pending | — | Exception flow: report issue, attach reason, trigger supervisor review |
+| P3-11 | P3 | PDA offline queue + sync (background sync when connectivity restored) | pending | — | IndexedDB queue; task completion can be queued offline; conflict resolution |
 
 ## Phase 4: Integrations
 
@@ -92,13 +96,21 @@
 | P5-01 | P5 | Wave planning engine (batch, zone, carrier-based wave creation) | pending | — | Wave generation from orders; configurable grouping strategies |
 | P5-02 | P5 | Inventory allocation engine (FIFO, FEFO, lot-specific, manual override) | pending | — | Auto-allocate inventory to order lines; reservation lifecycle; depends on P1-17 |
 | P5-03 | P5 | Multi-level inventory (warehouse → zone → location → container/LPN) | pending | — | Container/LPN domain entity; nested inventory; container movements |
-| P5-04 | P5 | Report engine (inventory turnover, aging, ABC analysis, order fill rate) | pending | — | Scheduled + on-demand reports; CSV/PDF export; email delivery |
-| P5-05 | P5 | RBAC permissions (role-based access control UI + API enforcement) | pending | — | Permission middleware; resource/action checks on every API call; depends on P2-09 |
-| P5-06 | P5 | Audit log viewer (operation history, traceability, compliance export) | pending | — | Filterable audit log UI; date range; export for compliance audit |
-| P5-07 | P5 | Inventory alerts engine (low stock, expiry, stranded, slow-moving) | pending | — | Configurable thresholds; notification channels (in-app, email, webhook) |
-| P5-08 | P5 | Multi-warehouse support (cross-warehouse transfers, global inventory view) | pending | — | Transfer orders between warehouses; consolidated inventory dashboard |
-| P5-09 | P5 | Lot/batch traceability (raw material → WIP → finished goods — full chain) | pending | — | Lot genealogy; forward and backward trace; recall support |
-| P5-10 | P5 | Replenishment engine (min/max levels, demand-driven, auto task generation) | pending | — | Replenishment rules per SKU/zone; auto-create replenishment tasks when low |
+| P5-04 | P5 | Inventory reports (turnover, aging, ABC analysis) | pending | — | Compute and display inventory KPIs; depends on P5-18 for export |
+| P5-05 | P5 | Operational reports (order fill rate, pick accuracy, cycle count variance) | pending | — | Operational KPI dashboards; date-range filtering; drill-down |
+| P5-06 | P5 | RBAC permissions (role-based access control UI + API enforcement) | pending | — | Permission middleware; resource/action checks on every API call; depends on P2-09 |
+| P5-07 | P5 | Audit log viewer (operation history, traceability, compliance export) | pending | — | Filterable audit log UI; date range; export for compliance audit |
+| P5-08 | P5 | Inventory alerts engine (low stock, expiry, stranded, slow-moving) | pending | — | Configurable thresholds; notification channels (in-app, email, webhook) |
+| P5-09 | P5 | Multi-warehouse support (cross-warehouse transfers, global inventory view) | pending | — | Transfer orders between warehouses; consolidated inventory dashboard |
+| P5-10 | P5 | Lot/batch traceability (raw material → WIP → finished goods — full chain) | pending | — | Lot genealogy; forward and backward trace; recall support |
+| P5-11 | P5 | Replenishment engine (min/max levels, demand-driven, auto task generation) | pending | — | Replenishment rules per SKU/zone; auto-create replenishment tasks when low |
+| P5-12 | P5 | Dynamic slotting engine (velocity-based SKU → location optimization) | pending | — | ABC classification by pick frequency; auto-suggest optimal storage locations |
+| P5-13 | P5 | Quality inspection workflow (QC checkpoints, sampling rules, hold/release) | pending | — | Sampling plans (AQL); inspection results; hold/release inventory; NCR tracking |
+| P5-14 | P5 | Cross-docking flow (receiving → sort → ship, bypass storage) | pending | — | Identify cross-dock candidates; sort-by-destination; time-window management |
+| P5-15 | P5 | Kitting / de-kitting (bundle and unbundle SKUs) | pending | — | Kit BOM definition; kit assembly tasks; component consumption; kit disassembly |
+| P5-16 | P5 | Cartonization engine (optimal packaging per order) | pending | — | Box selection by item dimensions/weight; multi-carton split; packing slip generation |
+| P5-17 | P5 | Scheduled report generation (cron-based, email delivery, PDF) | pending | — | Schedule daily/weekly/monthly reports; email with PDF attachment; report history |
+| P5-18 | P5 | CSV/PDF export engine (generic export for all list views) | pending | — | Streaming CSV writer for large datasets; PDF with header/logo; used by P5-04 and P5-05 |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -116,6 +128,9 @@
 | P6-10 | P6 | Health check endpoints (liveness, readiness, DB/Redis connectivity) | pending | — | /livez (process alive), /readyz (DB+Redis ok), /healthz (combined) |
 | P6-11 | P6 | gRPC server implementation (inter-service communication + integration adapters) | pending | — | gRPC server bootstrap; reflection; interceptors (auth, logging, tracing) |
 | P6-12 | P6 | Graceful shutdown + connection draining | pending | — | SIGTERM handler; drain HTTP connections; close DB pool; flush logs |
+| P6-13 | P6 | Terraform/IaC for cloud infrastructure (DB, cache, compute, networking) | pending | — | Terraform modules for AWS/GCP; state management; environment workspaces |
+| P6-14 | P6 | Blue-green deployment strategy (zero-downtime rollout, smoke tests, rollback) | pending | — | Deployment automation; smoke test after cutover; automated rollback on failure |
+| P6-15 | P6 | Log aggregation pipeline (stdout → Loki/ELK → searchable archive) | pending | — | DaemonSet collectors; structured log parsing; retention policies; log-based alerts |
 
 ## Phase 7: Quality, Security & Hardening
 
@@ -135,16 +150,66 @@
 | P7-12 | P7 | Dependency auditing + SBOM generation (govulncheck, npx audit, SPDX) | pending | — | Vulnerability scanning in CI; SBOM for compliance; automated updates |
 | P7-13 | P7 | Redis caching layer (hot inventory data, session storage, rate limit counters) | pending | — | Cache-aside for QueryInventory; TTL policies; cache invalidation on inventory change |
 | P7-14 | P7 | Data export + import (CSV bulk import for SKUs, orders; data export for reporting) | pending | — | Bulk endpoints; streaming CSV parser; validation on import |
+| P7-15 | P7 | Request ID propagation (HTTP header → context → log → gRPC → DB span) | pending | — | Extract/inject X-Request-ID at every boundary; structured log field; trace correlation |
+| P7-16 | P7 | Circuit breaker for integration adapters (WCS/RCS/MES/ERP failure isolation) | pending | — | Circuit breaker per adapter; half-open probing; fallback behavior; blocks Phase 4 integration reliability |
+| P7-17 | P7 | Secrets management (vault integration, encrypted config, no secrets in code) | pending | — | Externalize all secrets; HashiCorp Vault or cloud secrets manager; CI secret scanning |
+
+## Phase 8: Observability & Operations
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P8-01 | P8 | Grafana dashboards (pre-built WMS KPIs: order volume, pick rate, accuracy) | pending | — | Dashboard JSON in repo; importable via Grafana provisioning; depends on P6-05 metrics |
+| P8-02 | P8 | AlertManager rules + notification routing (PagerDuty, Slack, email) | pending | — | Alert rules: service down, DB pool exhaustion, error rate spike, task backlog; severity routing |
+| P8-03 | P8 | SLO/SLI definitions + tracking (API latency, availability, throughput) | pending | — | Define SLOs (e.g., 99.9% API availability, p95 < 500ms); error budget burn alerts |
+| P8-04 | P8 | Incident runbook documentation (common failure modes, recovery steps) | pending | — | Runbook per service; DB failover procedure; integration adapter recovery; escalation paths |
+| P8-05 | P8 | Synthetic monitoring (external health probes simulating user flows) | pending | — | Blackbox exporter probes for critical API paths; login → dashboard → order create flow |
+| P8-06 | P8 | Cloud resource tagging + cost allocation (per-environment cost tracking) | pending | — | Standard tags (env, service, owner); cost dashboards; unused resource detection |
+| P8-07 | P8 | Chaos engineering baseline (controlled failure injection, resilience validation) | pending | — | Kill a DB replica, kill a pod, network partition; verify graceful degradation and recovery |
+
+## Phase 9: Advanced WMS Features
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P9-01 | P9 | Yard management (truck check-in, dock door scheduling, trailer tracking) | pending | — | Dock calendar; trailer status (arrived, at-dock, loaded, departed); live yard map |
+| P9-02 | P9 | Labor management (productivity tracking, standard times, performance dashboards) | pending | — | Engineered standards per task type; actual vs standard time; operator scorecards |
+| P9-03 | P9 | Returns management (RMA workflow, disposition, inspection, refurbishment) | pending | — | RMA intake; disposition (restock, refurb, scrap, return-to-vendor); credit memo trigger |
+| P9-04 | P9 | Value-added services (labeling, gift wrap, assembly, quality check) | pending | — | VAS work order; task generation for VAS steps; cost tracking per VAS type |
+| P9-05 | P9 | Dangerous goods handling (segregation rules, storage zones, compliance labels) | pending | — | DG classification per SKU; segregation validation on putaway; hazmat shipping docs |
+| P9-06 | P9 | Multi-client / 3PL support (client segregation, billing, client portal) | pending | — | Client entity; ownership on inventory; client-isolated views; activity-based billing data |
+| P9-07 | P9 | Voice picking integration (headset-directed picking via Vocollect/Honeywell) | pending | — | Voice template per task type; audio feedback; hands-free confirmation; error correction dialogue |
+| P9-08 | P9 | Pick-to-light / put-to-light hardware integration | pending | — | Light device registry; pick/put commands via MQTT or TCP; confirmation sensor handling |
+| P9-09 | P9 | Automated palletizing/de-palletizing (robotic arm integration via RCS) | pending | — | Pallet build plan; layer-by-layer sequence; mix-SKU pallets; de-palletizing for receiving |
+
+## Phase 10: Integration Hub & API Ecosystem
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P10-01 | P10 | Webhook system (configurable outbound webhooks for domain events) | pending | — | Event subscription per external system; retry with backoff; webhook delivery log |
+| P10-02 | P10 | Integration testing sandbox (mock WCS/RCS/MES/ERP adapters) | pending | — | Mock adapters return realistic responses; record/replay mode; sandbox UI for manual testing |
+| P10-03 | P10 | EDI support (EDIFACT DESADV/ORDERS/INVOIC messages for enterprise) | pending | — | EDI translator; mapping between WMS domain and EDIFACT; AS2 or SFTP transport |
+| P10-04 | P10 | CSV/flat-file integration adapter (for legacy system onboarding) | pending | — | Watch folder → parse CSV → validate → import; configurable field mappings; error file output |
+| P10-05 | P10 | API usage analytics + rate-limit quota management | pending | — | Per-client metrics; usage dashboards; hard/soft quota enforcement; overage billing data |
+| P10-06 | P10 | Partner API developer portal (docs, sandbox keys, interactive console) | pending | — | Public-facing API docs; sandbox API key self-service; API explorer/console; depends on P6-08 |
+
+## Phase 11: Data & Analytics
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P11-01 | P11 | CDC pipeline (PostgreSQL WAL → analytical store for reporting) | pending | — | Debezium or pgoutput logical replication; materialized views in analytics DB |
+| P11-02 | P11 | Real-time warehouse operations dashboard (live map, heatmap, bottleneck view) | pending | — | SVG-based warehouse map; task heatmap by zone; bottleneck detection (queue depth, wait time) |
+| P11-03 | P11 | ML-based demand forecasting (predict inbound/outbound volume by SKU) | pending | — | Time-series forecasting; seasonal adjustment; staff planning integration; depends on P11-01 |
+| P11-04 | P11 | Slotting optimization (ML-based ABC + dynamic assignment) | pending | — | Combines velocity data + cube movement; continuous re-slot suggestions; what-if simulation |
+| P11-05 | P11 | Anomaly detection (unusual adjustments, suspicious pick patterns, shrink analysis) | pending | — | Statistical outlier detection on inventory adjustments; pick variance clustering; shrink root-cause |
 
 ## Evolution Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 84 |
+| Total tasks | 138 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 75 |
+| Pending | 129 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 10: expanded Phases 6-7, split large tasks, reprioritized) |
+| Last grooming | 2026-07-20 (Round 10: expanded Phases 8–11, added 53 new tasks, split P3-01→P3-01+P3-02, split P5-04→P5-04+P5-05+P5-17+P5-18, promoted P1-20 to P1) |
