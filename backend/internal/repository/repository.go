@@ -49,6 +49,7 @@ type InventoryRepository interface {
 	// Inventory
 	CreateInventory(ctx context.Context, inv *domain.Inventory) error
 	GetInventory(ctx context.Context, id uuid.UUID) (*domain.Inventory, error)
+	GetAndLockInventory(ctx context.Context, id uuid.UUID) (*domain.Inventory, error)
 	GetInventoryAtLocation(ctx context.Context, skuID, locationID uuid.UUID, batchNo string) (*domain.Inventory, error)
 	QueryInventory(ctx context.Context, filter InventoryFilter) ([]*domain.Inventory, error)
 	UpdateInventoryQty(ctx context.Context, id uuid.UUID, deltaQty, deltaReserved float64) error

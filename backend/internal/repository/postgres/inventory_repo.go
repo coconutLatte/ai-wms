@@ -253,6 +253,31 @@ func (r *InventoryRepo) GetInventory(ctx context.Context, id uuid.UUID) (*domain
 	return inv, nil
 }
 
+// GetAndLockInventory retrieves an inventory record by ID with a row-level
+// lock (SELECT ... FOR UPDATE). Must be called inside a transaction; the
+// lock is held until the transaction commits or rolls back.
+//
+// This prevents race conditions in multi-step operations like
+// AdjustInventory where the business-rule check (e.g. "qty must not go
+// negative") must be performed against a stable snapshot.
+func (r *InventoryRepo) GetAndLockInventory(ctx context.Context, id uuid.UUID) (*domain.Inventory, error) {
+	const query = `
+		SELECT id, sku_id, location_id, warehouse_id, batch_no,
+		       qty, reserved_qty, status, production_date, expiry_date,
+		       received_at, updated_at
+		FROM inventory WHERE id = $1
+		FOR UPDATE`
+
+	inv, err := r.scanInventory(r.queryRow(ctx, query, id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("get and lock inventory %s: %w", id, err)
+		}
+		return nil, fmt.Errorf("get and lock inventory: %w", err)
+	}
+	return inv, nil
+}
+
 // GetInventoryAtLocation retrieves inventory for a specific SKU at a specific location and batch.
 func (r *InventoryRepo) GetInventoryAtLocation(ctx context.Context, skuID, locationID uuid.UUID, batchNo string) (*domain.Inventory, error) {
 	const query = `

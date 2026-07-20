@@ -165,28 +165,13 @@ func (s *InventoryService) GetInventory(ctx context.Context, id uuid.UUID) (*dom
 // AdjustInventory adjusts the quantity of an inventory record and records a transaction.
 // Business rule: qty (on-hand) must never go below zero.
 //
-// When a TxManager is configured, the quantity update and transaction creation
-// are executed within a single database transaction, ensuring atomicity.
+// When a TxManager is configured, the entire read-check-write flow executes within
+// a single database transaction. Inside that transaction, GetAndLockInventory
+// acquires a row-level lock (SELECT ... FOR UPDATE), preventing concurrent
+// adjustments from racing on stale reads.
 func (s *InventoryService) AdjustInventory(ctx context.Context, id uuid.UUID, input AdjustInventoryInput) (*domain.Inventory, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
-	}
-
-	// Read current state (outside transaction — a subsequent stock check on
-	// negative qty still happens inside the transaction boundary when the tx
-	// manager is available).
-	inv, err := s.repo.GetInventory(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("inventory service: adjust %s: %w", id, err)
-	}
-
-	// Check negative qty constraint.
-	newQty := inv.Qty + input.DeltaQty
-	if newQty < 0 {
-		return nil, pkgerrors.NewInvalidInput(
-			fmt.Sprintf("adjustment would result in negative quantity: current=%.2f, delta=%.2f",
-				inv.Qty, input.DeltaQty),
-		)
 	}
 
 	// Parse reference ID.
@@ -195,8 +180,26 @@ func (s *InventoryService) AdjustInventory(ctx context.Context, id uuid.UUID, in
 		refID, _ = uuid.Parse(input.ReferenceID)
 	}
 
-	// Execute the write operations within a transaction when a TxManager is available.
+	// The write+audit closure, now also responsible for reading with a lock
+	// when inside a transaction.
 	doWrites := func(ctx context.Context) error {
+		// Read current state with a row-level lock when inside a transaction.
+		// Outside a transaction, GetAndLockInventory falls back to a plain
+		// SELECT (no lock) — the caller accepts the weaker guarantee.
+		inv, err := s.repo.GetAndLockInventory(ctx, id)
+		if err != nil {
+			return fmt.Errorf("get inventory: %w", err)
+		}
+
+		// Check negative qty constraint against locked data.
+		newQty := inv.Qty + input.DeltaQty
+		if newQty < 0 {
+			return pkgerrors.NewInvalidInput(
+				fmt.Sprintf("adjustment would result in negative quantity: current=%.2f, delta=%.2f",
+					inv.Qty, input.DeltaQty),
+			)
+		}
+
 		if err := s.repo.UpdateInventoryQty(ctx, id, input.DeltaQty, 0); err != nil {
 			return fmt.Errorf("update qty: %w", err)
 		}

@@ -99,6 +99,12 @@ func (m *mockInventoryRepo) GetInventory(ctx context.Context, id uuid.UUID) (*do
 	return inv, nil
 }
 
+func (m *mockInventoryRepo) GetAndLockInventory(ctx context.Context, id uuid.UUID) (*domain.Inventory, error) {
+	// In the mock, GetAndLockInventory behaves identically to GetInventory
+	// (there is no concurrent access to guard against in unit tests).
+	return m.GetInventory(ctx, id)
+}
+
 func (m *mockInventoryRepo) GetInventoryAtLocation(ctx context.Context, skuID, locationID uuid.UUID, batchNo string) (*domain.Inventory, error) {
 	for _, inv := range m.inventories {
 		if inv.SKUID == skuID && inv.LocationID == locationID && inv.BatchNo == batchNo {
