@@ -339,6 +339,88 @@ func (r *OrderRepo) UpdateASNStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
+// ── ASNLine ─────────────────────────────────────────────────
+
+// CreateASNLine inserts a new ASN line.
+func (r *OrderRepo) CreateASNLine(ctx context.Context, line *domain.ASNLine) error {
+	if line.ID == uuid.Nil {
+		line.ID = uuid.New()
+	}
+	if line.Status == "" {
+		line.Status = domain.ASNLineStatusPending
+	}
+
+	const query = `
+		INSERT INTO asn_lines (id, asn_id, sku_id, expected_qty, received_qty,
+		                       batch_no, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err := r.db.Pool.Exec(ctx, query,
+		line.ID, line.ASNID, line.SKUID,
+		line.ExpectedQty, line.ReceivedQty,
+		nullString(line.BatchNo), line.Status,
+	)
+	if err != nil {
+		return fmt.Errorf("create asn line: %w", err)
+	}
+	return nil
+}
+
+// GetASNLines retrieves all lines for an ASN.
+func (r *OrderRepo) GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain.ASNLine, error) {
+	const query = `
+		SELECT id, asn_id, sku_id, expected_qty, received_qty,
+		       batch_no, status
+		FROM asn_lines WHERE asn_id = $1 ORDER BY id`
+
+	rows, err := r.db.Pool.Query(ctx, query, asnID)
+	if err != nil {
+		return nil, fmt.Errorf("get asn lines: %w", err)
+	}
+	defer rows.Close()
+
+	var lines []*domain.ASNLine
+	for rows.Next() {
+		l, err := r.scanASNLineFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan asn line: %w", err)
+		}
+		lines = append(lines, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate asn lines: %w", err)
+	}
+	return lines, nil
+}
+
+// UpdateASNLineStatus transitions an ASN line to a new status.
+func (r *OrderRepo) UpdateASNLineStatus(ctx context.Context, id uuid.UUID, status domain.ASNLineStatus) error {
+	const query = `UPDATE asn_lines SET status=$1 WHERE id=$2`
+
+	tag, err := r.db.Pool.Exec(ctx, query, status, id)
+	if err != nil {
+		return fmt.Errorf("update asn line status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update asn line status %s: not found", id)
+	}
+	return nil
+}
+
+// UpdateASNLineReceivedQty sets the received quantity of an ASN line.
+func (r *OrderRepo) UpdateASNLineReceivedQty(ctx context.Context, id uuid.UUID, qty float64) error {
+	const query = `UPDATE asn_lines SET received_qty=$1 WHERE id=$2`
+
+	tag, err := r.db.Pool.Exec(ctx, query, qty, id)
+	if err != nil {
+		return fmt.Errorf("update asn line received qty: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update asn line received qty %s: not found", id)
+	}
+	return nil
+}
+
 // ── Helpers ────────────────────────────────────────────────
 
 // scanOrder scans a single order row.
@@ -451,4 +533,25 @@ func (r *OrderRepo) scanASN(row pgx.Row) (*domain.ASN, error) {
 	}
 
 	return a, nil
+}
+
+// scanASNLineFromRows scans an ASN line row from a Rows iterator.
+func (r *OrderRepo) scanASNLineFromRows(rows pgx.Rows) (*domain.ASNLine, error) {
+	l := &domain.ASNLine{}
+	var batchNo *string
+
+	err := rows.Scan(
+		&l.ID, &l.ASNID, &l.SKUID,
+		&l.ExpectedQty, &l.ReceivedQty,
+		&batchNo, &l.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if batchNo != nil {
+		l.BatchNo = *batchNo
+	}
+
+	return l, nil
 }

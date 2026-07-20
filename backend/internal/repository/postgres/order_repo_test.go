@@ -854,3 +854,418 @@ func TestOrderRepo_CreateASN_WithOrder(t *testing.T) {
 		t.Errorf("order_id = %s, want %s", got.OrderID, o.ID)
 	}
 }
+
+// ── ASNLine Tests ─────────────────────────────────────────
+
+func TestOrderRepo_CreateAndGetASNLines(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+	sku1 := createTestSKU(t, ctx, invRepo)
+	sku2 := createTestSKU(t, ctx, invRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-LINES-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	// Create lines
+	line1 := &domain.ASNLine{
+		ASNID:       asn.ID,
+		SKUID:       sku1.ID,
+		ExpectedQty: 500.0,
+		BatchNo:     "BATCH-2026-01",
+	}
+	line2 := &domain.ASNLine{
+		ASNID:       asn.ID,
+		SKUID:       sku2.ID,
+		ExpectedQty: 300.0,
+		BatchNo:     "BATCH-2026-02",
+	}
+
+	if err := orderRepo.CreateASNLine(ctx, line1); err != nil {
+		t.Fatalf("CreateASNLine [1] failed: %v", err)
+	}
+	if line1.ID == uuid.Nil {
+		t.Error("expected line ID to be set")
+	}
+	if line1.Status != domain.ASNLineStatusPending {
+		t.Errorf("line1 status = %q, want pending", line1.Status)
+	}
+
+	if err := orderRepo.CreateASNLine(ctx, line2); err != nil {
+		t.Fatalf("CreateASNLine [2] failed: %v", err)
+	}
+
+	// Get lines
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(lines))
+	}
+
+	// Verify line data (order-independent — UUID ordering is not insertion order)
+	foundSKU1 := false
+	foundSKU2 := false
+	for _, l := range lines {
+		if l.SKUID == sku1.ID {
+			foundSKU1 = true
+			if l.ExpectedQty != 500.0 {
+				t.Errorf("line sku1 expected_qty = %f, want 500.0", l.ExpectedQty)
+			}
+			if l.BatchNo != "BATCH-2026-01" {
+				t.Errorf("line sku1 batch_no = %q, want BATCH-2026-01", l.BatchNo)
+			}
+		}
+		if l.SKUID == sku2.ID {
+			foundSKU2 = true
+			if l.ExpectedQty != 300.0 {
+				t.Errorf("line sku2 expected_qty = %f, want 300.0", l.ExpectedQty)
+			}
+			if l.BatchNo != "BATCH-2026-02" {
+				t.Errorf("line sku2 batch_no = %q, want BATCH-2026-02", l.BatchNo)
+			}
+		}
+		if l.ReceivedQty != 0.0 {
+			t.Errorf("received_qty = %f, want 0.0 (default)", l.ReceivedQty)
+		}
+		if l.Status != domain.ASNLineStatusPending {
+			t.Errorf("status = %q, want pending", l.Status)
+		}
+	}
+	if !foundSKU1 {
+		t.Error("sku1 not found in lines")
+	}
+	if !foundSKU2 {
+		t.Error("sku2 not found in lines")
+	}
+}
+
+func TestOrderRepo_GetASNLines_Empty(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-EMPTY-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if len(lines) != 0 {
+		t.Errorf("expected 0 lines for ASN with no lines, got %d", len(lines))
+	}
+}
+
+func TestOrderRepo_UpdateASNLineStatus(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+	sku := createTestSKU(t, ctx, invRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-LSTAT-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	line := &domain.ASNLine{
+		ASNID:       asn.ID,
+		SKUID:       sku.ID,
+		ExpectedQty: 200.0,
+	}
+	if err := orderRepo.CreateASNLine(ctx, line); err != nil {
+		t.Fatalf("CreateASNLine failed: %v", err)
+	}
+
+	// Transition to partial
+	if err := orderRepo.UpdateASNLineStatus(ctx, line.ID, domain.ASNLineStatusPartial); err != nil {
+		t.Fatalf("UpdateASNLineStatus -> partial failed: %v", err)
+	}
+
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if lines[0].Status != domain.ASNLineStatusPartial {
+		t.Errorf("status = %q, want partial", lines[0].Status)
+	}
+
+	// Transition to received
+	if err := orderRepo.UpdateASNLineStatus(ctx, line.ID, domain.ASNLineStatusReceived); err != nil {
+		t.Fatalf("UpdateASNLineStatus -> received failed: %v", err)
+	}
+
+	lines, err = orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if lines[0].Status != domain.ASNLineStatusReceived {
+		t.Errorf("status = %q, want received", lines[0].Status)
+	}
+
+	// Not found
+	err = orderRepo.UpdateASNLineStatus(ctx, uuid.New(), domain.ASNLineStatusPartial)
+	if err == nil {
+		t.Error("expected error for nonexistent ASN line")
+	}
+}
+
+func TestOrderRepo_UpdateASNLineReceivedQty(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+	sku := createTestSKU(t, ctx, invRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-LQTY-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	line := &domain.ASNLine{
+		ASNID:       asn.ID,
+		SKUID:       sku.ID,
+		ExpectedQty: 500.0,
+	}
+	if err := orderRepo.CreateASNLine(ctx, line); err != nil {
+		t.Fatalf("CreateASNLine failed: %v", err)
+	}
+
+	// Partial receive
+	if err := orderRepo.UpdateASNLineReceivedQty(ctx, line.ID, 200.0); err != nil {
+		t.Fatalf("UpdateASNLineReceivedQty [200] failed: %v", err)
+	}
+
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if lines[0].ReceivedQty != 200.0 {
+		t.Errorf("received_qty = %f, want 200.0", lines[0].ReceivedQty)
+	}
+
+	// Full receive
+	if err := orderRepo.UpdateASNLineReceivedQty(ctx, line.ID, 500.0); err != nil {
+		t.Fatalf("UpdateASNLineReceivedQty [500] failed: %v", err)
+	}
+
+	lines, err = orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if lines[0].ReceivedQty != 500.0 {
+		t.Errorf("received_qty = %f, want 500.0", lines[0].ReceivedQty)
+	}
+
+	// Not found
+	err = orderRepo.UpdateASNLineReceivedQty(ctx, uuid.New(), 100.0)
+	if err == nil {
+		t.Error("expected error for nonexistent ASN line")
+	}
+}
+
+func TestOrderRepo_CreateASNLine_Defaults(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+	sku := createTestSKU(t, ctx, invRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-LDEF-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	// Minimal line with no explicit status
+	line := &domain.ASNLine{
+		ASNID:       asn.ID,
+		SKUID:       sku.ID,
+		ExpectedQty: 150.0,
+	}
+	if err := orderRepo.CreateASNLine(ctx, line); err != nil {
+		t.Fatalf("CreateASNLine failed: %v", err)
+	}
+	if line.Status != domain.ASNLineStatusPending {
+		t.Errorf("status = %q, want pending (default)", line.Status)
+	}
+	if line.ReceivedQty != 0.0 {
+		t.Errorf("received_qty = %f, want 0.0 (default)", line.ReceivedQty)
+	}
+
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if lines[0].ReceivedQty != 0.0 {
+		t.Errorf("received_qty = %f, want 0.0", lines[0].ReceivedQty)
+	}
+}
+
+func TestOrderRepo_CreateASNLine_WithMultipleLines(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+	sku := createTestSKU(t, ctx, invRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-MULTI-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	// Create 5 lines
+	for i := 1; i <= 5; i++ {
+		line := &domain.ASNLine{
+			ASNID:       asn.ID,
+			SKUID:       sku.ID,
+			ExpectedQty: float64(i * 100),
+		}
+		if err := orderRepo.CreateASNLine(ctx, line); err != nil {
+			t.Fatalf("CreateASNLine [%d] failed: %v", i, err)
+		}
+	}
+
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 lines, got %d", len(lines))
+	}
+
+	// Verify expected quantities (order-independent)
+	qtySet := make(map[float64]bool)
+	for _, l := range lines {
+		qtySet[l.ExpectedQty] = true
+	}
+	for i := 1; i <= 5; i++ {
+		if !qtySet[float64(i*100)] {
+			t.Errorf("expected_qty %d not found in lines", i*100)
+		}
+	}
+}
+
+func TestOrderRepo_UpdateASNLineStatus_TransitionToReceived(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+	sku := createTestSKU(t, ctx, invRepo)
+
+	asn := &domain.ASN{
+		ASNNo:       "TEST-ASN-RCVD-001",
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateASN(ctx, asn); err != nil {
+		t.Fatalf("CreateASN failed: %v", err)
+	}
+
+	line := &domain.ASNLine{
+		ASNID:       asn.ID,
+		SKUID:       sku.ID,
+		ExpectedQty: 500.0,
+	}
+	if err := orderRepo.CreateASNLine(ctx, line); err != nil {
+		t.Fatalf("CreateASNLine failed: %v", err)
+	}
+
+	// Receive full qty and transition to received
+	if err := orderRepo.UpdateASNLineReceivedQty(ctx, line.ID, 500.0); err != nil {
+		t.Fatalf("UpdateASNLineReceivedQty failed: %v", err)
+	}
+	if err := orderRepo.UpdateASNLineStatus(ctx, line.ID, domain.ASNLineStatusReceived); err != nil {
+		t.Fatalf("UpdateASNLineStatus -> received failed: %v", err)
+	}
+
+	lines, err := orderRepo.GetASNLines(ctx, asn.ID)
+	if err != nil {
+		t.Fatalf("GetASNLines failed: %v", err)
+	}
+	if lines[0].Status != domain.ASNLineStatusReceived {
+		t.Errorf("status = %q, want received", lines[0].Status)
+	}
+	if lines[0].ReceivedQty != 500.0 {
+		t.Errorf("received_qty = %f, want 500.0", lines[0].ReceivedQty)
+	}
+}
