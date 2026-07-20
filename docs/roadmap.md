@@ -62,7 +62,7 @@
 | P2-08 | P2 | Task monitoring dashboard (task list, status filter, assignment) | pending | — | Task table by status; assign worker; view task detail with instructions |
 | P2-09 | P2 | Dashboard home page (KPIs, charts, alerts summary) | pending | — | Inventory turnover, order volume, task completion rate, low-stock alerts; depends on P2-03 through P2-08 (aggregates data from all management pages); should be last Phase 2 UI task |
 | P2-10 | P2 | User & Role management pages | pending | — | User CRUD; role editor with permission matrix; blocks P5-06 UI |
-| P2-11 | P2 | Shared API client + TypeScript types (generated from OpenAPI or handwritten) | pending | — | Typed API client shared between admin and PDA; request/response types; error handling; reduces frontend integration bugs; blocks P2-03 through P2-08 (admin pages need typed API client); depends on P6-08 for OpenAPI generation |
+| P2-11 | P2 | Shared API client + TypeScript types (generated from OpenAPI or handwritten) | pending | — | Typed API client shared between admin and PDA; request/response types; error handling; reduces frontend integration bugs; blocks P2-03 through P2-08 (admin pages need typed API client); start with handwritten types; upgrade to auto-generated from OpenAPI when P6-08 is complete |
 
 ## Phase 3: PDA Operations
 
@@ -79,6 +79,7 @@
 | P3-09 | P3 | Shipping flow (scan outbound order → verify → confirm ship) | pending | — | Load verification; carrier integration; shipment confirmation |
 | P3-10 | P3 | PDA exception handling (item not found, damaged, wrong location) | pending | — | Exception flow: report issue, attach reason, trigger supervisor review; blocks P15-04 for standardized reason codes (initially works with hardcoded codes) |
 | P3-11 | P3 | PDA offline queue + sync (background sync when connectivity restored) | pending | — | IndexedDB queue; task completion can be queued offline; conflict resolution |
+| P3-12 | P3 | PDA task batching (group multiple tasks for single operator, optimized route) | pending | — | Batch assignment (N tasks per operator); optimized pick route within batch; sequential/parallel execution mode; batch start/complete/progress; reduces travel between tasks |
 
 ## Phase 4: Integrations
 
@@ -132,6 +133,10 @@
 | P5-28 | P5 | Catch weight management (variable-weight SKUs, scale integration) | pending | — | Catch weight flag on SKU; expected vs actual weight capture at receiving/shipping; weight tolerance thresholds; scale integration via serial/TCP; price-by-weight support; catch weight audit trail |
 | P5-29 | P5 | Blind receiving workflow (receive without pre-advice, identify on dock) | pending | — | Scan barcode → identify SKU → capture qty → generate putaway; unknown barcode exception flow; mobile-first receiving screen for PDA; inventory created without ASN pre-notification; links to P3-05/P3-10 |
 | P5-30 | P5 | Order consolidation engine (merge orders by destination/customer, wave grouping) | pending | — | Identify consolidatable orders (same customer, destination, carrier, ship-date); auto-merge into consolidated pick wave; consolidated packing (all items for one destination packed together); split back if consolidation fails; consolidation audit log; reduces pick+pack labor for multi-order customers |
+| P5-31 | P5 | Container/LPN domain entity + CRUD (container types, hierarchy, inventory assignment) | pending | — | Container entity (type: pallet/tote/case, barcode, dimensions, tare weight); container-inventory relationship (which SKUs in which container); nested container hierarchy (cases on pallet); container movement as single unit; container status (empty, partial, full, in-transit); foundational for P5-03 multi-level inventory |
+| P5-32 | P5 | Backorder management (short-pick tracking, auto-release on inventory arrival) | pending | — | Track unfulfilled order lines with backorder status; auto-detect when inventory arrives and matches backordered SKU; priority-based release rules (FIFO, priority, customer-tier); backorder aging report; manual release override; backorder notification to customer service |
+| P5-33 | P5 | Space utilization analytics (cube/weight %, empty location %, occupancy trends) | pending | — | Compute utilization by zone: cube % (occupied volume / total volume), weight % (occupied weight / max weight), empty location %; utilization heatmap by zone/aisle; trend charts over time; what-if re-slotting impact analysis; utilization alerts (zone > 90% full) |
+| P5-34 | P5 | Inbound QC inspection routing (per-SKU rules, AQL sampling, disposition routing) | pending | — | Per-SKU inspection rules (skip, spot-check, full-inspect); AQL sampling tables (ANSI/ASQ Z1.4); inspection result: accept → putaway, reject → quarantine, rework → rework area; inspection task generation on ASN arrival; inspection history per SKU/supplier; extends P5-13 quality inspection with inbound-specific routing |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -161,6 +166,7 @@
 | P6-22 | P6 | K8s pod topology spread constraints (zone/region-aware pod placement) | pending | — | topologySpreadConstraints per deployment; maxSkew=1 across zones; requiredDuringScheduling for critical services; prevent all replicas in single AZ; combined with P6-18 HPA for resilience |
 | P6-23 | P6 | Database migration in CI/CD pipeline (automated migration run, pre-check, rollback) | pending | — | Run migrations as pre-deploy step in CI; migration dry-run validation before apply; rollback plan on migration failure; migration lock to prevent concurrent runs; depends on P1-25 migration tooling |
 | P6-24 | P6 | Service mesh readiness (Istio/Envoy sidecar annotations, mTLS, traffic routing) | pending | — | Pod annotations for Istio sidecar injection; mTLS strict mode between services; VirtualService for canary routing; DestinationRule for circuit breaking at mesh layer; Gateway for ingress; complements P7-16 circuit breaker at app layer |
+| P6-25 | P6 | Scheduled job infrastructure (in-process cron scheduler, job registry, execution history) | pending | — | Job registry with registered job types; cron expression scheduling per job; execution history with status (success/failure/running) and duration; concurrency control (prevent overlapping runs of same job); retry on failure with backoff; needed by P5-22 cycle count scheduling, P5-17 scheduled reports, P14-03 data retention purge |
 
 ## Phase 7: Quality, Security & Hardening
 
@@ -196,6 +202,8 @@
 | P7-28 | P7 | Graceful degradation framework (degraded mode when dependencies are unhealthy) | pending | — | Degraded mode tiers: cache-down (skip Redis, direct DB), replica-down (route reads to primary), notification-down (queue alerts for later); auto-detect health via P6-10 checks; auto-recovery when dependency restores; admin alert on degradation; per-endpoint degradation behavior config |
 | P7-29 | P7 | Database table partitioning (partition inventory_transactions + audit_logs by month) | pending | — | Declarative partitioning by month on high-volume tables; automated partition creation via cron; partition-aware queries (pruning); partition archival/detach for old data; complements P14-03 data retention; requires migration for partition setup |
 | P7-30 | P7 | Application-level deadlock detection + retry (concurrent resource ordering) | pending | — | Detect deadlock cycles in concurrent inventory/location acquisition; deterministic resource ordering to prevent deadlocks; transaction retry with exponential backoff + jitter on deadlock; deadlock event logging for diagnostics; builds on P1-16 tx patterns + P7-22 optimistic locking |
+| P7-31 | P7 | API versioning strategy (URL-based versioning, deprecation headers, sunset policy) | pending | — | URL-based versioning: /api/v1/ → /api/v2/; Sunset and Deprecation HTTP headers on deprecated endpoints; version deprecation policy (N-1 support: current + one previous); API changelog page; backwards-compatible changes within a version; breaking changes require new version |
+| P7-32 | P7 | API key management for integrations (CRUD, scoped permissions, rotation, tracking) | pending | — | API key entity (hashed storage, reveal-once on creation); scoped permissions per key (read-only, specific resources); key rotation with overlap window; expiry with auto-disable; usage tracking (last used, request count); rate limit per key; needed for Phase 4 integrations + Phase 10 API ecosystem |
 
 ## Phase 8: Observability & Operations
 
@@ -356,11 +364,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 231 |
+| Total tasks | 239 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 222 |
+| Pending | 230 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 15: added 15 new tasks — P5-30 order consolidation; P15-07 wireless printer support; P16-05 camera capture; Phase 19 workflow & approval engine (4 tasks); Phase 20 data migration & onboarding (5 tasks); Phase 21 email & communications (3 tasks); added dependency notes for P2-11) |
+| Last grooming | 2026-07-20 (Round 16: added 8 new tasks — P3-12 PDA task batching; P5-31 Container/LPN entity; P5-32 backorder management; P5-33 space utilization analytics; P5-34 inbound QC inspection routing; P6-25 scheduled job infrastructure; P7-31 API versioning strategy; P7-32 API key management; fixed P2-11 dependency note for OpenAPI timing) |
