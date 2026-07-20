@@ -12,7 +12,7 @@ Found a bug? Have a feature idea? Want to improve docs?
 
 ### 2. Let the AI Evolve It
 
-The self-evolution engine runs every 10 minutes. It:
+The self-evolution engine runs every 30 minutes. It:
 1. Reads `docs/roadmap.md` for pending tasks
 2. Implements the highest-priority one
 3. Runs tests and quality checks

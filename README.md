@@ -5,9 +5,9 @@
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis)](https://redis.io/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Evolving](https://img.shields.io/badge/evolving-every%2010min-ff69b4)](https://github.com/coconutLatte/ai-wms)
+[![Evolving](https://img.shields.io/badge/evolving-every%2030min-ff69b4)](https://github.com/coconutLatte/ai-wms)
 
-> **A WMS that writes itself.** Every 10 minutes, Claude Code picks the highest-priority task from a self-expanding roadmap, implements it, runs tests, and pushes to this repo — fully autonomous.
+> **A WMS that writes itself.** Every 30 minutes, Claude Code picks the highest-priority task from a self-expanding roadmap, implements it, runs tests, and pushes to this repo — fully autonomous.
 
 ## 🎯 What Is This?
 
@@ -18,7 +18,7 @@ AI-WMS is a complete Warehouse Management System with:
 - **⬇️ Downward Integration** — WCS (conveyors, sorters), RCS (AGV/AMR robots)
 - **⬆️ Upward Integration** — MES (production), ERP (purchase/sales)
 
-The twist: **the codebase evolves autonomously.** A cron job triggers `scripts/evolve.sh` every 10 minutes, which reads the roadmap, constructs a prompt, invokes Claude Code to implement the task, runs quality gates, commits, and pushes. The roadmap itself self-expands via periodic grooming rounds.
+The twist: **the codebase evolves autonomously.** A cron job triggers `scripts/evolve.sh` every 30 minutes, which reads the roadmap, constructs a prompt, invokes Claude Code to implement the task, runs quality gates, commits, and pushes. The roadmap itself self-expands via periodic grooming rounds.
 
 ## 🏗️ Architecture
 
@@ -62,7 +62,7 @@ The twist: **the codebase evolves autonomously.** A cron job triggers `scripts/e
 
 ```
 ┌──────────────────────────────────────────────────┐
-│              Every 10 Minutes                     │
+│              Every 30 Minutes                    │
 │                                                  │
 │  📖 Roadmap → 🎯 Pick Task → 🤖 Claude Code      │
 │       │                                      │    │
@@ -133,10 +133,10 @@ make evolve-dry     # Preview next task only
 <!-- EVOLUTION-STATS-START -->
 | Metric | Value |
 |--------|-------|
-| Total tasks | 111 |
+| Total tasks | 137 |
 | Completed | 31 |
-| Pending | 80 |
-| Evolution rounds | 25 |
+| Pending | 106 |
+| Evolution rounds | 26 |
 | Last evolution | 2026-07-20 |
 <!-- EVOLUTION-STATS-END -->
 
@@ -164,4 +164,4 @@ MIT — see [LICENSE](LICENSE) for details.
 
 ---
 
-*Built by Claude Code, driven by DeepSeek, every 10 minutes.*
+*Built by Claude Code, every 30 minutes.*
