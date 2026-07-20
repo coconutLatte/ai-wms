@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-WMS — Self-Evolving Warehouse Management System</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --purple: #bc8cff; --orange: #d2991d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+  .hero { text-align: center; padding: 80px 20px 60px; border-bottom: 1px solid var(--border); }
+  .hero h1 { font-size: 3em; margin-bottom: 10px; }
+  .hero h1 span { color: var(--purple); }
+  .hero p { color: var(--muted); font-size: 1.2em; max-width: 700px; margin: 0 auto 30px; }
+  .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+  .badge { padding: 4px 12px; border-radius: 20px; font-size: .85em; border: 1px solid var(--border); }
+  .badge.go { border-color: #00ADD8; color: #00ADD8; }
+  .badge.pg { border-color: #316192; color: #316192; }
+  .badge.redis { border-color: #DC382D; color: #DC382D; }
+  .badge.react { border-color: #61DAFB; color: #61DAFB; }
+  .badge.evolve { border-color: var(--purple); color: var(--purple); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+  h2 { font-size: 1.8em; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+  h3 { font-size: 1.2em; margin: 20px 0 10px; color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+  .card h4 { font-size: 1.1em; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: .95em; }
+  .arch-layer { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 8px 0; text-align: center; }
+  .arch-layer.top { border-color: var(--accent); }
+  .arch-layer.mid { border-color: var(--green); margin-left: 40px; }
+  .arch-layer.low { border-color: var(--orange); margin-left: 80px; }
+  .arch-row { display: flex; gap: 8px; justify-content: center; }
+  .arch-chip { padding: 4px 12px; border-radius: 4px; font-size: .85em; border: 1px solid var(--border); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; text-align: center; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .stat .num { font-size: 2em; font-weight: bold; color: var(--accent); }
+  .stat .label { color: var(--muted); font-size: .9em; }
+  .flow { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 20px; }
+  .flow-step { padding: 10px 16px; border-radius: 6px; font-size: .9em; border: 1px solid var(--border); }
+  .flow-arrow { color: var(--muted); font-size: 1.2em; }
+  pre { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 16px; overflow-x: auto; }
+  code { font-family: 'SF Mono',Consolas,monospace; font-size: .9em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .footer { text-align: center; padding: 40px; color: var(--muted); border-top: 1px solid var(--border); margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="badges">
+    <span class="badge go">Go 1.26</span>
+    <span class="badge pg">PostgreSQL 16</span>
+    <span class="badge redis">Redis 7</span>
+    <span class="badge react">React 18</span>
+    <span class="badge evolve">⚡ Evolving Hourly</span>
+  </div>
+  <h1>🤖 AI-<span>WMS</span></h1>
+  <p>A production-grade Warehouse Management System that <strong>writes itself</strong>. Every hour, Claude Code autonomously implements the next feature, runs tests, and ships code.</p>
+  <a href="https://github.com/coconutLatte/ai-wms" style="display:inline-block;padding:12px 28px;background:var(--accent);color:#fff;border-radius:6px;font-weight:bold;margin-top:10px;">View on GitHub →</a>
+</section>
+
+<div class="container">
+  <h2>📦 What It Does</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>📊 Admin Dashboard</h4>
+      <p>React + Ant Design web UI for warehouse managers — inventory visibility, order management, real-time dashboards.</p>
+    </div>
+    <div class="card">
+      <h4>📱 PDA Operations</h4>
+      <p>React mobile web app for warehouse operators — barcode scanning, receiving, picking, putaway, cycle counting.</p>
+    </div>
+    <div class="card">
+      <h4>⬇️ Hardware Integration</h4>
+      <p>Downward adapters for WCS (conveyors, sorters) and RCS (AGV/AMR robots) — task dispatch, status feedback.</p>
+    </div>
+    <div class="card">
+      <h4>⬆️ Business Integration</h4>
+      <p>Upward adapters for MES (production orders) and ERP (purchase/sales orders) — order sync, inventory reconciliation.</p>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <h2>🧬 Self-Evolution Engine</h2>
+  <div class="flow">
+    <span class="flow-step">📖 Roadmap</span><span class="flow-arrow">→</span>
+    <span class="flow-step">🎯 Pick Task</span><span class="flow-arrow">→</span>
+    <span class="flow-step">🤖 Claude Code</span><span class="flow-arrow">→</span>
+    <span class="flow-step">✅ Tests</span><span class="flow-arrow">→</span>
+    <span class="flow-step">📝 Commit</span><span class="flow-arrow">→</span>
+    <span class="flow-step">🚀 Push</span>
+  </div>
+  <p style="color:var(--muted);text-align:center;">Triggered every hour by cron. Lean roadmap: max 10 pending tasks. Auto-discovers new work when running low.</p>
+</div>
+
+<div class="container">
+  <h2>🏗️ Architecture</h2>
+  <div class="arch-layer top">
+    <strong>Presentation</strong>
+    <div class="arch-row" style="margin-top:8px">
+      <span class="arch-chip">Admin UI (React)</span>
+      <span class="arch-chip">PDA UI (React)</span>
+    </div>
+  </div>
+  <div class="arch-layer mid">
+    <strong>API &amp; Services</strong>
+    <div class="arch-row" style="margin-top:8px">
+      <span class="arch-chip">REST (Go 1.22+)</span>
+      <span class="arch-chip">gRPC</span>
+      <span class="arch-chip">Middleware</span>
+      <span class="arch-chip">Warehouse</span>
+      <span class="arch-chip">Inventory</span>
+      <span class="arch-chip">Order</span>
+      <span class="arch-chip">Task</span>
+    </div>
+  </div>
+  <div class="arch-layer low">
+    <strong>Domain &amp; Data</strong>
+    <div class="arch-row" style="margin-top:8px">
+      <span class="arch-chip">Domain Entities</span>
+      <span class="arch-chip">PostgreSQL 16</span>
+      <span class="arch-chip">Redis 7</span>
+      <span class="arch-chip">pgx/v5</span>
+    </div>
+  </div>
+  <div class="arch-layer low">
+    <strong>Integrations</strong>
+    <div class="arch-row" style="margin-top:8px">
+      <span class="arch-chip">WCS</span>
+      <span class="arch-chip">RCS</span>
+      <span class="arch-chip">MES</span>
+      <span class="arch-chip">ERP</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <h2>📊 Live Evolution Stats</h2>
+  <div class="stats">
+    <!-- EVOLUTION-STATS-START -->
+    <div class="stat"><div class="num">31</div><div class="label">Total Tasks</div></div>
+    <div class="stat"><div class="num">21</div><div class="label">Completed</div></div>
+    <div class="stat"><div class="num">10</div><div class="label">Pending</div></div>
+    <div class="stat"><div class="num">20</div><div class="label">Evo Rounds</div></div>
+    <!-- EVOLUTION-STATS-END -->
+  </div>
+</div>
+
+<div class="container">
+  <h2>🚀 Quick Start</h2>
+  <pre><code>git clone git@github.com:coconutLatte/ai-wms.git
+cd ai-wms
+make setup          # Install deps, start PostgreSQL + Redis
+make build          # Build all services
+make test           # Run tests
+make run-admin      # Admin API → http://localhost:8080
+make run-pda        # PDA API  → http://localhost:8081</code></pre>
+</div>
+
+<div class="container">
+  <h2>📂 Project Structure</h2>
+  <div class="grid">
+    <div class="card"><h4>backend/</h4><p>Go monolith — DDD layered (domain → service → repository → api) with PostgreSQL and Redis.</p></div>
+    <div class="card"><h4>frontend/</h4><p>React SPAs — Admin (Ant Design) and PDA (mobile-first) with Vite + TypeScript.</p></div>
+    <div class="card"><h4>scripts/</h4><p>evolve.sh — the auto-evolution engine that drives autonomous development.</p></div>
+    <div class="card"><h4>docs/</h4><p>Architecture, domain model, roadmap, and this homepage.</p></div>
+  </div>
+</div>
+
+<div class="container" style="text-align:center">
+  <h2>🔗 Links</h2>
+  <p style="font-size:1.1em">
+    <a href="https://github.com/coconutLatte/ai-wms">GitHub Repo</a> &nbsp;·&nbsp;
+    <a href="https://github.com/coconutLatte/ai-wms/blob/master/docs/architecture.md">Architecture</a> &nbsp;·&nbsp;
+    <a href="https://github.com/coconutLatte/ai-wms/blob/master/docs/roadmap.md">Roadmap</a> &nbsp;·&nbsp;
+    <a href="https://github.com/coconutLatte/ai-wms/blob/master/CONTRIBUTING.md">Contribute</a>
+  </p>
+</div>
+
+<div class="footer">
+  Built autonomously by <strong>Claude Code</strong>, driven by DeepSeek, every hour.<br>
+  <span style="color:var(--muted)">© 2026 AI-WMS · MIT License</span>
+</div>
+
+</body>
+</html>

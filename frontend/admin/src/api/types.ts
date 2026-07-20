@@ -60,25 +60,61 @@ export interface Warehouse {
   updated_at: string
 }
 
+export interface CreateWarehouseRequest {
+  code: string
+  name: string
+  address: string
+}
+
+export interface UpdateWarehouseRequest {
+  name?: string
+  address?: string
+  status?: string
+}
+
 export interface Zone {
   id: string
   warehouse_id: string
   code: string
   name: string
-  type: string
+  zone_type: string
   status: string
   created_at: string
   updated_at: string
 }
 
+export interface CreateZoneRequest {
+  code: string
+  name: string
+  zone_type: string
+}
+
 export interface Location {
   id: string
   zone_id: string
+  warehouse_id: string
   code: string
   barcode: string
+  location_type: string
+  capacity?: {
+    max_weight: number
+    max_volume: number
+    max_qty: number
+  }
   status: string
   created_at: string
   updated_at: string
+}
+
+export interface CreateLocationRequest {
+  code: string
+  barcode?: string
+  location_type: string
+  capacity?: {
+    max_weight: number
+    max_volume: number
+    max_qty: number
+  }
 }
 
 // ── SKU ────────────────────────────────────────────────────────────────────
