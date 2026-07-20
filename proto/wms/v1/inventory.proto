@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package wms.v1;
+
+option go_package = "github.com/ai-wms/ai-wms/proto/wms/v1;wmsv1";
+
+import "google/protobuf/timestamp.proto";
+
+message SKU {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  string barcode = 5;
+  string base_unit = 6;
+  string pack_unit = 7;
+  int32 pack_qty = 8;
+  double weight = 9;
+  double volume = 10;
+  double length = 11;
+  double width = 12;
+  double height = 13;
+  string category = 14;
+  string status = 15;  // active, inactive, discontinued
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message Inventory {
+  string id = 1;
+  string sku_id = 2;
+  string location_id = 3;
+  string warehouse_id = 4;
+  string batch_no = 5;
+  double qty = 6;
+  double reserved_qty = 7;
+  string status = 8;  // available, quarantine, damaged, expired
+  google.protobuf.Timestamp production_date = 9;
+  google.protobuf.Timestamp expiry_date = 10;
+  google.protobuf.Timestamp received_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message InventoryTransaction {
+  string id = 1;
+  string inventory_id = 2;
+  string sku_id = 3;
+  string location_id = 4;
+  string type = 5;  // receipt, putaway, pick, ship, transfer, adjustment, return
+  double delta_qty = 6;
+  double resulting_qty = 7;
+  string reference_type = 8;
+  string reference_id = 9;
+  google.protobuf.Timestamp created_at = 10;
+  string created_by = 11;
+}
+
+service InventoryService {
+  rpc QueryInventory(QueryInventoryRequest) returns (QueryInventoryResponse);
+  rpc AdjustInventory(AdjustInventoryRequest) returns (InventoryTransaction);
+  rpc TransferInventory(TransferInventoryRequest) returns (InventoryTransaction);
+}
+
+message QueryInventoryRequest {
+  string warehouse_id = 1;
+  string sku_id = 2;
+  string location_id = 3;
+  string batch_no = 4;
+  string status = 5;
+  int32 page_size = 6;
+  string page_token = 7;
+}
+
+message QueryInventoryResponse {
+  repeated Inventory inventory = 1;
+  string next_page_token = 2;
+}
+
+message AdjustInventoryRequest {
+  string inventory_id = 1;
+  double delta_qty = 2;
+  string reason = 3;
+  string created_by = 4;
+}
+
+message TransferInventoryRequest {
+  string inventory_id = 1;
+  string to_location_id = 2;
+  double qty = 3;
+  string created_by = 4;
+}

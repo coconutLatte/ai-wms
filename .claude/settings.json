@@ -1,0 +1,65 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go:*)",
+      "Bash(make:*)",
+      "Bash(docker:*)",
+      "Bash(ls:*)",
+      "Bash(cd:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(git:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(chmod:*)",
+      "Bash(crontab:*)",
+      "Bash(which:*)",
+      "Bash(go:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(curl:*)",
+      "Bash(head:*)",
+      "Bash(sort:*)",
+      "Bash(sleep:*)",
+      "Bash(date:*)",
+      "Bash(psql:*)",
+      "Bash(redis-cli:*)",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "gofmt -w ${CLAUDE_PROJECT_ROOT}/backend/**/*.go 2>/dev/null; goimports -w ${CLAUDE_PROJECT_ROOT}/backend/**/*.go 2>/dev/null; true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd ${CLAUDE_PROJECT_ROOT} && go build ./... 2>&1 | head -20"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "claude-opus-4-8"
+}

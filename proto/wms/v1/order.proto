@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package wms.v1;
+
+option go_package = "github.com/ai-wms/ai-wms/proto/wms/v1;wmsv1";
+
+import "google/protobuf/timestamp.proto";
+
+message Order {
+  string id = 1;
+  string order_no = 2;
+  string order_type = 3;  // inbound, outbound, transfer, return
+  string warehouse_id = 4;
+  string status = 5;  // draft, confirmed, processing, partial, completed, cancelled
+  string priority = 6;  // low, normal, high, urgent
+  string external_ref = 7;
+  string external_type = 8;
+  repeated OrderLine lines = 9;
+  string notes = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+  string created_by = 14;
+}
+
+message OrderLine {
+  string id = 1;
+  string order_id = 2;
+  int32 line_no = 3;
+  string sku_id = 4;
+  double ordered_qty = 5;
+  double fulfilled_qty = 6;
+  string uom = 7;
+  string batch_no = 8;
+  string status = 9;  // pending, allocated, partial, fulfilled, cancelled
+  string notes = 10;
+}
+
+message ASN {
+  string id = 1;
+  string asn_no = 2;
+  string warehouse_id = 3;
+  string order_id = 4;
+  string carrier = 5;
+  string tracking_no = 6;
+  google.protobuf.Timestamp expected_at = 7;
+  google.protobuf.Timestamp arrived_at = 8;
+  repeated ASNLine lines = 9;
+  string status = 10;  // pending, arrived, receiving, partial, received
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message ASNLine {
+  string id = 1;
+  string asn_id = 2;
+  string sku_id = 3;
+  double expected_qty = 4;
+  double received_qty = 5;
+  string batch_no = 6;
+  string status = 7;  // pending, partial, received
+}
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (Order);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (Order);
+  rpc CancelOrder(CancelOrderRequest) returns (Order);
+  rpc CreateASN(CreateASNRequest) returns (ASN);
+  rpc ReceiveASN(ReceiveASNRequest) returns (ASN);
+}
+
+message CreateOrderRequest {
+  string order_type = 1;
+  string warehouse_id = 2;
+  string priority = 3;
+  string external_ref = 4;
+  string external_type = 5;
+  repeated CreateOrderLineRequest lines = 6;
+  string notes = 7;
+  string created_by = 8;
+}
+
+message CreateOrderLineRequest {
+  string sku_id = 1;
+  double ordered_qty = 2;
+  string uom = 3;
+  string batch_no = 4;
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message ListOrdersRequest {
+  string warehouse_id = 1;
+  string order_type = 2;
+  string status = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  string next_page_token = 2;
+}
+
+message UpdateOrderStatusRequest {
+  string id = 1;
+  string status = 2;
+}
+
+message CancelOrderRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message CreateASNRequest {
+  string warehouse_id = 1;
+  string order_id = 2;
+  string carrier = 3;
+  string tracking_no = 4;
+  google.protobuf.Timestamp expected_at = 5;
+  repeated CreateASNLineRequest lines = 6;
+}
+
+message CreateASNLineRequest {
+  string sku_id = 1;
+  double expected_qty = 2;
+  string batch_no = 3;
+}
+
+message ReceiveASNRequest {
+  string asn_id = 1;
+  repeated ReceiveASNLineRequest lines = 2;
+}
+
+message ReceiveASNLineRequest {
+  string asn_line_id = 1;
+  double received_qty = 2;
+}

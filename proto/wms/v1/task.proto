@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package wms.v1;
+
+option go_package = "github.com/ai-wms/ai-wms/proto/wms/v1;wmsv1";
+
+import "google/protobuf/timestamp.proto";
+
+message Task {
+  string id = 1;
+  string task_no = 2;
+  string task_type = 3;  // putaway, pick, replenish, transfer, cycle_count, load, unload
+  string warehouse_id = 4;
+  string order_id = 5;
+  string order_line_id = 6;
+  string priority = 7;  // low, normal, high, urgent
+  string status = 8;  // pending, assigned, in_progress, paused, completed, cancelled, exception
+  string assigned_to = 9;
+  string from_location_id = 10;
+  string to_location_id = 11;
+  string sku_id = 12;
+  double expected_qty = 13;
+  double actual_qty = 14;
+  string uom = 15;
+  string batch_no = 16;
+  string instructions = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp started_at = 19;
+  google.protobuf.Timestamp completed_at = 20;
+}
+
+message Wave {
+  string id = 1;
+  string wave_no = 2;
+  string warehouse_id = 3;
+  string wave_type = 4;  // single_order, batch, zone, carrier
+  string status = 5;  // created, released, in_progress, completed
+  repeated string order_ids = 6;
+  repeated string task_ids = 7;
+  int32 total_orders = 8;
+  int32 total_lines = 9;
+  double total_qty = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp released_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+}
+
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (Task);
+  rpc GetTask(GetTaskRequest) returns (Task);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc AssignTask(AssignTaskRequest) returns (Task);
+  rpc StartTask(StartTaskRequest) returns (Task);
+  rpc CompleteTask(CompleteTaskRequest) returns (Task);
+  rpc CancelTask(CancelTaskRequest) returns (Task);
+  rpc ReportException(ReportExceptionRequest) returns (Task);
+
+  // Wave management
+  rpc CreateWave(CreateWaveRequest) returns (Wave);
+  rpc ReleaseWave(ReleaseWaveRequest) returns (Wave);
+  rpc GetWave(GetWaveRequest) returns (Wave);
+}
+
+message CreateTaskRequest {
+  string task_type = 1;
+  string warehouse_id = 2;
+  string order_id = 3;
+  string order_line_id = 4;
+  string priority = 5;
+  string from_location_id = 6;
+  string to_location_id = 7;
+  string sku_id = 8;
+  double expected_qty = 9;
+  string uom = 10;
+  string batch_no = 11;
+  string instructions = 12;
+}
+
+message GetTaskRequest {
+  string id = 1;
+}
+
+message ListTasksRequest {
+  string warehouse_id = 1;
+  string task_type = 2;
+  string status = 3;
+  string assigned_to = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  string next_page_token = 2;
+}
+
+message AssignTaskRequest {
+  string id = 1;
+  string assigned_to = 2;
+}
+
+message StartTaskRequest {
+  string id = 1;
+}
+
+message CompleteTaskRequest {
+  string id = 1;
+  double actual_qty = 2;
+  string to_location_id = 3;  // Override if different from planned
+}
+
+message CancelTaskRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message ReportExceptionRequest {
+  string id = 1;
+  string description = 2;
+}
+
+message CreateWaveRequest {
+  string warehouse_id = 1;
+  string wave_type = 2;
+  repeated string order_ids = 3;
+}
+
+message ReleaseWaveRequest {
+  string id = 1;
+}
+
+message GetWaveRequest {
+  string id = 1;
+}

@@ -1,0 +1,53 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+backend/cmd/admin/admin
+backend/cmd/pda/pda
+
+# Test binary
+*.test
+
+# Go coverage
+*.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/*.log
+logs/*.log.*
+
+# Node modules
+node_modules/
+frontend/*/node_modules/
+
+# Build output
+frontend/*/dist/
+frontend/*/build/
+
+# Docker
+docker-compose.override.yml
+
+# Temporary files
+tmp/
+temp/
