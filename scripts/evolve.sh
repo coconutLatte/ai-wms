@@ -174,6 +174,11 @@ This is a meta-evolution round. Do NOT implement features. Instead, review and i
 - Split overly large tasks into smaller ones
 - Ensure task IDs are unique and sequential within phases
 
+**Update GitHub ecosystem files:**
+- Update README.md <!-- EVOLUTION-STATS --> block with current task counts and rounds
+- Verify LICENSE and CONTRIBUTING.md are present and current
+- If new major features were added, update README feature list and architecture diagram
+
 **Format for new tasks:**
 | P<phase>-<NN> | P<phase> | <description> | pending | — | <hint> |
 

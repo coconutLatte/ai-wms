@@ -187,7 +187,23 @@
 | P5-49 | P5 | Inventory snapshot/versioning (periodic inventory state snapshots for reconciliation) | pending | — | Scheduled inventory snapshot per warehouse (daily at midnight by default); snapshot captures: location, SKU, qty, reserved_qty, status at point in time; immutable snapshot records; snapshot comparison tool (diff between any two snapshots or snapshot vs current); snapshot retention policy; used for period-end reconciliation, audit verification, and inventory trend analysis; depends on P6-25 scheduled jobs |
 | P5-50 | P5 | Packing station workflow (scan order → scan items → pack → weigh → generate ship label) | pending | — | Packing station domain entity (station ID, zone, status, assigned operator); scan outbound order/container barcode → display packing list → scan each item → verify qty match → optional catch-weight capture (P5-28) → pack into carton (P5-16 cartonization) → weigh completed carton → generate + print shipping label (P15-02) and pack slip (P15-03) → hand-off to shipping (P3-09); carton content tracking (which items in which carton per order); packing SLA timer per order priority; pack station utilization metrics; catch-weight integration for weight-vs-expected validation; damage flag on pack (item damaged during packing → exception flow P3-10); depends on P5-16 cartonization + P15-02 label engine + P15-03 document printing |
 
-## Phase 6: Production Operations & DevOps
+## Phase 6: GitHub Ecosystem & Documentation
+
+> **Goal**: Maintain a polished GitHub presence — README, badges, diagrams, release notes.
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P6-EC01 | P1 | Keep README.md in sync with current architecture | completed | 2026-07-20 | Created README with badges, architecture diagram, evolution diagram |
+| P6-EC02 | P1 | Add LICENSE (MIT) | completed | 2026-07-20 | MIT license added |
+| P6-EC03 | P1 | Add CONTRIBUTING.md | completed | 2026-07-20 | Contributing guide for humans and AI |
+| P6-EC04 | P2 | Maintain README evolution stats (auto-update task count, rounds) | pending | — | Update <!-- EVOLUTION-STATS --> block each grooming round |
+| P6-EC05 | P2 | Add architecture diagrams as PNG/SVG in docs/ | pending | — | Generate from Mermaid/PlantUML; embed in README |
+| P6-EC06 | P2 | Create CHANGELOG.md (auto-generated from commits) | pending | — | Script or CI to build changelog from conventional commits |
+| P6-EC07 | P2 | Add GitHub issue templates (bug, feature, roadmap suggestion) | pending | — | .github/ISSUE_TEMPLATE/ directory |
+| P6-EC08 | P3 | GitHub Actions status badges in README | pending | — | Build, test, lint badges once CI is configured |
+| P6-EC09 | P3 | Project wiki or GitHub Pages for full documentation | pending | — | Longer-term: full docs site |
+
+## Phase 7: Production Operations & DevOps
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
