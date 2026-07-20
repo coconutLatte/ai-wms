@@ -54,8 +54,14 @@ func main() {
 	// Initialize repositories.
 	taskRepo := postgres.NewTaskRepo(db)
 
+	// Initialize transaction manager for future atomic multi-step operations.
+	txManager := postgres.NewTxManager(db)
+
 	// Initialize services.
 	taskSvc := service.NewTaskService(taskRepo)
+
+	// Suppress unused variable warning — TxManager will be wired into future services.
+	_ = txManager
 
 	// Initialize API handlers.
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)

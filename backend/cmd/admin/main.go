@@ -58,10 +58,13 @@ func main() {
 	taskRepo := postgres.NewTaskRepo(db)
 	userRepo := postgres.NewUserRepo(db)
 
+	// Initialize transaction manager for atomic multi-step operations.
+	txManager := postgres.NewTxManager(db)
+
 	// Initialize services.
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
 	skuSvc := service.NewSKUService(inventoryRepo)
-	inventorySvc := service.NewInventoryService(inventoryRepo)
+	inventorySvc := service.NewInventoryServiceWithTx(inventoryRepo, txManager)
 	orderSvc := service.NewOrderService(orderRepo)
 	taskSvc := service.NewTaskService(taskRepo)
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
