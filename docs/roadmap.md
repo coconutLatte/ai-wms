@@ -39,7 +39,7 @@
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
 | P1-20 | P1 | Domain unit tests (state machines, business rules, validation) | pending | — | Pure Go tests — no infrastructure; test Order/Task status transitions, Inventory invariants; promoted from P2 to P1 as foundational quality gate; P7-01 extends this to full 80%+ coverage |
 | P1-17 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository; blocks P5-02 |
-| P1-18 | P2 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results; add to all list endpoints |
+| P1-18 | P1 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results; add to all list endpoints; promoted from P2 to P1 — every list endpoint needs this |
 | P1-19 | P2 | Authentication service (JWT login, token refresh, session management) | pending | — | JWT generation + validation middleware; refresh token rotation; blocks P2-02 |
 | P1-27 | P2 | In-process domain event bus (publish/subscribe for domain events) | pending | — | Simple typed event publisher; subscriber registration; events: InventoryChanged, OrderStatusChanged, TaskCompleted; used by notification + audit + WebSocket push |
 | P1-21 | P1 | Proto code generation workflow (buf generate + CI check) | pending | — | Run buf generate to produce Go stubs; add CI step to verify generated code matches proto sources |
@@ -124,6 +124,10 @@
 | P5-20 | P5 | Task interleaving (combine putaway + pick for same operator/zone) | pending | — | Merge putaway and pick tasks in same zone to minimize empty travel; operator efficiency gains |
 | P5-21 | P5 | Putaway strategy engine (rule-based target location selection) | pending | — | Configurable strategies: nearest available, zone-fixed, ABC velocity-based; auto-select best location on receipt; respects capacity + segregation constraints |
 | P5-22 | P5 | Cycle count scheduling engine (ABC-based frequency, auto task generation) | pending | — | Schedule count tasks by ABC class (A=monthly, B=quarterly, C=annually); location-based rotation; calendar-aware scheduling; auto-create tasks on schedule |
+| P5-23 | P5 | Order splitting engine (split large orders across waves/zones by availability) | pending | — | Split single outbound order into multiple sub-waves when inventory is spread across zones; partial fulfillment tracking; split-by-zone and split-by-availability strategies; consolidation at shipping |
+| P5-24 | P5 | Pick face management (forward pick area replenishment from reserve storage) | pending | — | Define pick face locations with min/max levels per SKU; auto-trigger replenishment tasks when pick face drops below min; different from general replenishment P5-11 which is inventory-level; zone-level pick face configuration |
+| P5-25 | P5 | Serial number tracking (per-unit inventory granularity for high-value items) | pending | — | Serial number domain entity; serial-level inventory records (1:1 instead of qty); serial capture on receiving/picking/shipping; serial genealogy for traceability; opt-in per SKU (not all SKUs need serial tracking) |
+| P5-26 | P5 | Full-text search (PostgreSQL tsvector/tsquery for orders, SKUs, locations) | pending | — | GIN-indexed tsvector columns on searchable entities; search across SKU code/name/description, order_no, location code; ranked results with highlighting; search API endpoint; requires DB migration for tsvector columns + triggers |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -146,6 +150,10 @@
 | P6-15 | P6 | Log aggregation pipeline (stdout → Loki/ELK → searchable archive) | pending | — | DaemonSet collectors; structured log parsing; retention policies; log-based alerts |
 | P6-16 | P6 | Configuration hot-reload (no-restart config updates) | pending | — | File watcher or SIGHUP handler; reload log level, rate limits, feature flags without restart; apply to running server within seconds |
 | P6-17 | P6 | Database connection pool monitoring (pool stats, slow query detection) | pending | — | Expose pgxpool.Stat() via /metrics; track acquire latency, idle, max; slow query log threshold; connection exhaustion alert |
+| P6-18 | P6 | K8s Horizontal Pod Autoscaling (CPU/memory-based + custom metrics) | pending | — | HPA manifest per deployment; target 70% CPU / 80% memory; custom metrics from Prometheus (request rate, task queue depth); min/max replica bounds per env; scale-down stabilization window |
+| P6-19 | P6 | K8s NetworkPolicy + PodDisruptionBudget | pending | — | NetworkPolicy: allow only required pod-to-pod and pod-to-DB/Redis traffic; deny-by-default posture; PDB: maxUnavailable=1 for admin/pda; prevents full outage during voluntary disruptions |
+| P6-20 | P6 | Container image vulnerability scanning (Trivy in CI pipeline) | pending | — | Trivy scan on every image build; fail CI on CRITICAL/HIGH CVEs; SBOM attestation; scan results in GitHub Security tab; periodic rescan of latest base images |
+| P6-21 | P6 | Database read replica support (read/write split for reporting queries) | pending | — | Read replica connection pool in DB struct; Write() and Read() pool accessors; reporting endpoints use replica; repo-level read-vs-write hint; lag-aware health check; blocks P5-04/P5-05 report performance |
 
 ## Phase 7: Quality, Security & Hardening
 
@@ -172,6 +180,12 @@
 | P7-19 | P7 | Idempotency key support (safe retry for mutating endpoints) | pending | — | Idempotency-Key header handling; dedup store (Redis-backed); return cached response on replay; applies to order create, inventory adjust, task complete |
 | P7-20 | P7 | Feature flag system (runtime toggles, percentage rollout) | pending | — | Flag definitions in config/DB; per-request evaluation; admin UI for flag management; gradual rollout for risky changes; emergency kill-switch capability |
 | P7-21 | P7 | Bulk API operations (batch create/update for high-volume endpoints) | pending | — | Bulk create SKUs, bulk inventory adjust; partial success response format; streaming request body; applicable to orders, inventory, SKUs |
+| P7-22 | P7 | Optimistic concurrency control (row version column for concurrent write safety) | pending | — | Add `version` int column to inventory, orders, tasks; increment on update; WHERE version=$expected; detect conflict (RowsAffected=0); return 409 Conflict on concurrent modification; critical for inventory correctness under concurrent pick/putaway; builds on P1-16 tx patterns |
+| P7-23 | P7 | Soft delete implementation (deleted_at timestamps, restore capability) | pending | — | Add deleted_at TIMESTAMPTZ to all major entities; soft-delete filter in base queries; restore endpoint; cascade rules (delete order → soft-delete lines); purge policy for GDPR compliance (P14-03); critical for WMS undo and audit retention |
+| P7-24 | P7 | Test data factories (deterministic entity builders for all domain types) | pending | — | Go factory functions per domain entity; deterministic ID generation from seed; builder pattern for test customization; shared via internal/testutil/factory; used by P7-01, P7-02, P7-03; reduces test boilerplate and improves test reliability |
+| P7-25 | P7 | Contract testing (API compatibility verification between services) | pending | — | Pact or similar consumer-driven contract tests; admin API consumer → server contract; PDA API consumer → server contract; verify in CI on every PR; prevents accidental API breakage between frontend and backend |
+| P7-26 | P7 | API response compression (gzip/brotli middleware, content negotiation) | pending | — | chi compression middleware; gzip level 6 default, brotli for supporting clients; skip for already-compressed types (images); configurable min body size threshold; reduces bandwidth for mobile PDA on warehouse WiFi |
+| P7-27 | P7 | Request validation middleware (input sanitization, content-type enforcement) | pending | — | Validate Content-Type header; enforce max body size (1MB default); sanitize string inputs (trim, null-byte check); reject unknown JSON fields (strict mode); extend P1-15 error handling with validation error details |
 
 ## Phase 8: Observability & Operations
 
@@ -185,6 +199,7 @@
 | P8-06 | P8 | Cloud resource tagging + cost allocation (per-environment cost tracking) | pending | — | Standard tags (env, service, owner); cost dashboards; unused resource detection |
 | P8-07 | P8 | Chaos engineering baseline (controlled failure injection, resilience validation) | pending | — | Kill a DB replica, kill a pod, network partition; verify graceful degradation and recovery |
 | P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager |
+| P8-09 | P8 | SLO tracking & error budget dashboard (p50/p95/p99 per endpoint, burn rate) | pending | — | Grafana dashboard with per-endpoint latency histogram; SLO compliance gauges; error budget remaining/burn rate; 30-day rolling windows; depends on P6-05 metrics + P6-07 tracing; complements P8-03 SLO definitions |
 
 ## Phase 9: Advanced WMS Features
 
@@ -270,11 +285,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 181 |
+| Total tasks | 196 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 172 |
+| Pending | 187 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 12: added P1-26 server bootstrap, P1-27 domain event bus, P4-13 integration retry/DLQ, P5-21 putaway strategy, P5-22 cycle count scheduling, P6-16 config hot-reload, P6-17 DB pool monitoring, P7-19 idempotency, P7-20 feature flags, P7-21 bulk API, P8-08 notification infra; new Phase 15 Labeling/Printing/Carrier — 17 net new tasks; linked P4-02 to P1-27, P7-01 extends P1-20) |
+| Last grooming | 2026-07-20 (Round 13: promoted P1-18 to P1; added 15 new tasks — P5-23 order splitting, P5-24 pick face mgmt, P5-25 serial number tracking, P5-26 full-text search; P6-18 K8s HPA, P6-19 NetworkPolicy/PDB, P6-20 image scanning, P6-21 read replicas; P7-22 optimistic locking, P7-23 soft delete, P7-24 test factories, P7-25 contract testing, P7-26 response compression, P7-27 request validation; P8-09 SLO dashboard; linked P7-22→P1-16, P5-24→P5-11, P6-21→P5-04/P5-05) |
