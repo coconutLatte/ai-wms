@@ -126,3 +126,41 @@ type TaskFilter struct {
 	Limit       int
 	Offset      int
 }
+
+// UserRepository manages user, role, and audit log persistence.
+type UserRepository interface {
+	// User
+	CreateUser(ctx context.Context, u *domain.User) error
+	GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*domain.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	ListUsers(ctx context.Context, filter UserFilter) ([]*domain.User, error)
+	UpdateUser(ctx context.Context, u *domain.User) error
+	UpdateUserStatus(ctx context.Context, id uuid.UUID, status domain.UserStatus) error
+
+	// Role
+	CreateRole(ctx context.Context, r *domain.Role) error
+	GetRole(ctx context.Context, id uuid.UUID) (*domain.Role, error)
+	ListRoles(ctx context.Context) ([]*domain.Role, error)
+	UpdateRole(ctx context.Context, r *domain.Role) error
+
+	// AuditLog
+	CreateAuditLog(ctx context.Context, log *domain.AuditLog) error
+	ListAuditLogs(ctx context.Context, filter AuditLogFilter) ([]*domain.AuditLog, error)
+}
+
+// UserFilter defines query parameters for user search.
+type UserFilter struct {
+	Status domain.UserStatus
+	Limit  int
+	Offset int
+}
+
+// AuditLogFilter defines query parameters for audit log search.
+type AuditLogFilter struct {
+	UserID   uuid.UUID
+	Action   string
+	Resource string
+	Limit    int
+	Offset   int
+}

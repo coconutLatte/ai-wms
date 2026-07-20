@@ -26,10 +26,12 @@
 | P1-04 | P1 | PostgreSQL repository implementation (Order + OrderLine) | completed | 2026-07-20 | Order+OrderLine+ASN CRUD + filter; 15 integration tests pass; ASN line management pending (see P1-06) |
 | P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | completed | 2026-07-20 | Task CRUD + filter + assign + status flow + CompleteTask; Wave CRUD + status flow + UUID arrays; 24 integration tests pass |
 | P1-06 | P1 | PostgreSQL repository implementation (ASN lines) | completed | 2026-07-20 | 4 methods + scan helper; 7 integration tests pass; CreateASNLine/GetASNLines/UpdateASNLineStatus/UpdateASNLineReceivedQty |
-| P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | pending | — | User CRUD, role management, audit log insertion; needed for auth later |
+| P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | completed | 2026-07-20 | User CRUD + GetUserByUsername + GetUserByEmail + ListUsers with filter + UpdateUserStatus; Role CRUD + JSONB permissions + ListRoles + UpdateRole; AuditLog Create + List with UserID/Action/Resource filter + pagination; 19 integration tests pass |
 | P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede middleware + service tasks |
 | P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
 | P1-30 | P1 | ASN receiving service + Admin API | pending | — | ASN line-level receive operations; received_qty ≤ expected_qty validation; auto-update ASN header status when all lines received; auto-set arrived_at on first receive; build receiving audit trail; depends on P1-06 (ASN lines repo) + P1-04 (ASN repo) |
+| P1-31 | P1 | User password update + last login repo methods | pending | — | Add UpdatePassword(ctx, id, passwordHash) and UpdateLastLogin(ctx, id, timestamp) to UserRepository; needed before P1-19 auth service; also add GetRoleByName for role lookup during auth |
+| P1-32 | P2 | AuditLog date-range filter repo method | pending | — | Add date-range filtering (from/to timestamps) to ListAuditLogs; needed by P5-07 audit log viewer for compliance reporting |
 | P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | pending | — | chi/v5 middleware; req-id propagation, structured request logging, panic recovery, CORS config |
 | P1-26 | P1 | HTTP server bootstrap + graceful shutdown skeleton | pending | — | chi router init in cmd/admin + cmd/pda; listen on configured ports; SIGTERM/SIGINT handler; basic /healthz endpoint; services mount routes onto this skeleton |
 | P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx; needed before services |
@@ -426,11 +428,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 287 |
-| Completed | 12 |
+| Total tasks | 289 |
+| Completed | 13 |
 | In progress | 0 |
-| Pending | 275 |
+| Pending | 276 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 6: P1-06 ASN line repos) |
-| Last grooming | 2026-07-20 (Round 19: added 13 new tasks across 9 phases — P3-13 PDA adjustment flow; P5-41 express fast-path, P5-42 RTV, P5-43 dock ops, P5-44 pallet workstation, P5-45 inventory age, P5-46 count variance approval; P6-30 smoke tests; P8-12 ops KPI dashboards; P9-13 bonded warehouse; P15-08 shipping docs; P16-06 warehouse theme; P18-05 carrier portal; P20-06 legacy mapping templates) |
+| Last evolution | 2026-07-20 (Round 7: P1-07 User+Role+AuditLog repos) |
+| Last grooming | 2026-07-20 (Round 7: added P1-31 user password/last-login/GetRoleByName repo methods, P1-32 audit log date-range filter) |
