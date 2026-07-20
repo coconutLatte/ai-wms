@@ -135,12 +135,16 @@ Hint: ${TASK_NOTE}
    - Evolution rounds (.evolution-round file)
    - Last evolution date
    - Keep the format identical, just update the numbers
-6. **IMPORTANT — Roadmap Self-Evolution**: After implementing, review:
+6. **Update affected docs**: if this task changed architecture, APIs, or domain models:
+   - docs/architecture.md — new services, endpoints, or patterns added
+   - docs/domain-model.md — new entities, state machines, or business rules
+   - CLAUDE.md — if conventions or project structure changed
+7. **IMPORTANT — Roadmap Self-Evolution**: After implementing, review:
    - Are there follow-up tasks this implementation enables? Add them.
    - Are there edge cases or improvements you noticed? Add them as new roadmap entries.
    - Is a related task now obsolete? Mark it.
    - Keep total pending ≤ 10. If adding new tasks would exceed 10, remove the lowest-priority ones.
-7. Commit & push: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
+8. Commit & push: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
 ENDPROMPT
