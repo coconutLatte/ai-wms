@@ -44,7 +44,7 @@ func (r *OrderRepo) CreateOrder(ctx context.Context, o *domain.Order) error {
 		                    external_ref, external_type, notes, created_at, updated_at, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		o.ID, o.OrderNo, o.OrderType, o.WarehouseID, o.Status, o.Priority,
 		nullString(o.ExternalRef), nullString(o.ExternalType), nullString(o.Notes),
 		o.CreatedAt, o.UpdatedAt, nullString(o.CreatedBy),
@@ -62,7 +62,7 @@ func (r *OrderRepo) GetOrder(ctx context.Context, id uuid.UUID) (*domain.Order, 
 		       external_ref, external_type, notes, created_at, updated_at, completed_at, created_by
 		FROM orders WHERE id = $1`
 
-	o, err := r.scanOrder(r.db.Pool.QueryRow(ctx, query, id))
+	o, err := r.scanOrder(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get order %s: %w", id, err)
@@ -79,7 +79,7 @@ func (r *OrderRepo) GetOrderByNo(ctx context.Context, orderNo string) (*domain.O
 		       external_ref, external_type, notes, created_at, updated_at, completed_at, created_by
 		FROM orders WHERE order_no = $1`
 
-	o, err := r.scanOrder(r.db.Pool.QueryRow(ctx, query, orderNo))
+	o, err := r.scanOrder(r.queryRow(ctx, query, orderNo))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get order by no %s: %w", orderNo, err)
@@ -131,7 +131,7 @@ func (r *OrderRepo) ListOrders(ctx context.Context, filter repository.OrderFilte
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list orders: %w", err)
 	}
@@ -179,7 +179,7 @@ func (r *OrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilt
 	}
 
 	var count int
-	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	err := r.queryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count orders: %w", err)
 	}
@@ -197,11 +197,11 @@ func (r *OrderRepo) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status 
 	const query = `
 		UPDATE orders SET status=$1, updated_at=$2, completed_at=$3 WHERE id=$4`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, updatedAt, completedAt, id)
+	tag, err := r.exec(ctx, query, status, updatedAt, completedAt, id)
 	if err != nil {
 		return fmt.Errorf("update order status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update order status %s: not found", id)
 	}
 	return nil
@@ -226,7 +226,7 @@ func (r *OrderRepo) CreateOrderLine(ctx context.Context, line *domain.OrderLine)
 		                         uom, batch_no, status, notes)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		line.ID, line.OrderID, line.LineNo, line.SKUID,
 		line.OrderedQty, line.FulfilledQty,
 		line.UOM, nullString(line.BatchNo), line.Status, nullString(line.Notes),
@@ -244,7 +244,7 @@ func (r *OrderRepo) GetOrderLines(ctx context.Context, orderID uuid.UUID) ([]*do
 		       uom, batch_no, status, notes
 		FROM order_lines WHERE order_id = $1 ORDER BY line_no`
 
-	rows, err := r.db.Pool.Query(ctx, query, orderID)
+	rows, err := r.query(ctx, query, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("get order lines: %w", err)
 	}
@@ -268,11 +268,11 @@ func (r *OrderRepo) GetOrderLines(ctx context.Context, orderID uuid.UUID) ([]*do
 func (r *OrderRepo) UpdateOrderLineStatus(ctx context.Context, id uuid.UUID, status domain.OrderLineStatus) error {
 	const query = `UPDATE order_lines SET status=$1 WHERE id=$2`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, id)
+	tag, err := r.exec(ctx, query, status, id)
 	if err != nil {
 		return fmt.Errorf("update order line status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update order line status %s: not found", id)
 	}
 	return nil
@@ -282,11 +282,11 @@ func (r *OrderRepo) UpdateOrderLineStatus(ctx context.Context, id uuid.UUID, sta
 func (r *OrderRepo) UpdateOrderLineFulfilledQty(ctx context.Context, id uuid.UUID, qty float64) error {
 	const query = `UPDATE order_lines SET fulfilled_qty=$1 WHERE id=$2`
 
-	tag, err := r.db.Pool.Exec(ctx, query, qty, id)
+	tag, err := r.exec(ctx, query, qty, id)
 	if err != nil {
 		return fmt.Errorf("update order line fulfilled qty: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update order line fulfilled qty %s: not found", id)
 	}
 	return nil
@@ -309,7 +309,7 @@ func (r *OrderRepo) CreateASN(ctx context.Context, asn *domain.ASN) error {
 		                  expected_at, arrived_at, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		asn.ID, asn.ASNNo, asn.WarehouseID, nullUUID(asn.OrderID),
 		nullString(asn.Carrier), nullString(asn.TrackingNo),
 		asn.ExpectedAt, asn.ArrivedAt, asn.Status, asn.CreatedAt,
@@ -327,7 +327,7 @@ func (r *OrderRepo) GetASN(ctx context.Context, id uuid.UUID) (*domain.ASN, erro
 		       expected_at, arrived_at, status, created_at
 		FROM asns WHERE id = $1`
 
-	asn, err := r.scanASN(r.db.Pool.QueryRow(ctx, query, id))
+	asn, err := r.scanASN(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get asn %s: %w", id, err)
@@ -344,7 +344,7 @@ func (r *OrderRepo) GetASNByNo(ctx context.Context, asnNo string) (*domain.ASN, 
 		       expected_at, arrived_at, status, created_at
 		FROM asns WHERE asn_no = $1`
 
-	asn, err := r.scanASN(r.db.Pool.QueryRow(ctx, query, asnNo))
+	asn, err := r.scanASN(r.queryRow(ctx, query, asnNo))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get asn by no %s: %w", asnNo, err)
@@ -364,11 +364,11 @@ func (r *OrderRepo) UpdateASNStatus(ctx context.Context, id uuid.UUID, status do
 
 	const query = `UPDATE asns SET status=$1, arrived_at=$2 WHERE id=$3`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, arrivedAt, id)
+	tag, err := r.exec(ctx, query, status, arrivedAt, id)
 	if err != nil {
 		return fmt.Errorf("update asn status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update asn status %s: not found", id)
 	}
 	return nil
@@ -390,7 +390,7 @@ func (r *OrderRepo) CreateASNLine(ctx context.Context, line *domain.ASNLine) err
 		                       batch_no, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		line.ID, line.ASNID, line.SKUID,
 		line.ExpectedQty, line.ReceivedQty,
 		nullString(line.BatchNo), line.Status,
@@ -408,7 +408,7 @@ func (r *OrderRepo) GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain
 		       batch_no, status
 		FROM asn_lines WHERE asn_id = $1 ORDER BY id`
 
-	rows, err := r.db.Pool.Query(ctx, query, asnID)
+	rows, err := r.query(ctx, query, asnID)
 	if err != nil {
 		return nil, fmt.Errorf("get asn lines: %w", err)
 	}
@@ -432,11 +432,11 @@ func (r *OrderRepo) GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain
 func (r *OrderRepo) UpdateASNLineStatus(ctx context.Context, id uuid.UUID, status domain.ASNLineStatus) error {
 	const query = `UPDATE asn_lines SET status=$1 WHERE id=$2`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, id)
+	tag, err := r.exec(ctx, query, status, id)
 	if err != nil {
 		return fmt.Errorf("update asn line status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update asn line status %s: not found", id)
 	}
 	return nil
@@ -446,11 +446,11 @@ func (r *OrderRepo) UpdateASNLineStatus(ctx context.Context, id uuid.UUID, statu
 func (r *OrderRepo) UpdateASNLineReceivedQty(ctx context.Context, id uuid.UUID, qty float64) error {
 	const query = `UPDATE asn_lines SET received_qty=$1 WHERE id=$2`
 
-	tag, err := r.db.Pool.Exec(ctx, query, qty, id)
+	tag, err := r.exec(ctx, query, qty, id)
 	if err != nil {
 		return fmt.Errorf("update asn line received qty: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update asn line received qty %s: not found", id)
 	}
 	return nil
@@ -589,4 +589,41 @@ func (r *OrderRepo) scanASNLineFromRows(rows pgx.Rows) (*domain.ASNLine, error) 
 	}
 
 	return l, nil
+}
+
+// ── Transaction-aware dispatch helpers ─────────────────────
+
+// exec dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *OrderRepo) exec(ctx context.Context, sql string, args ...any) (int64, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		tag, err := tx.Exec(ctx, sql, args...)
+		if err != nil {
+			return 0, err
+		}
+		return tag.RowsAffected(), nil
+	}
+	tag, err := r.db.Pool.Exec(ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// query dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *OrderRepo) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.Query(ctx, sql, args...)
+	}
+	return r.db.Pool.Query(ctx, sql, args...)
+}
+
+// queryRow dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *OrderRepo) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.QueryRow(ctx, sql, args...)
+	}
+	return r.db.Pool.QueryRow(ctx, sql, args...)
 }

@@ -44,7 +44,7 @@ func (r *UserRepo) CreateUser(ctx context.Context, u *domain.User) error {
 		INSERT INTO users (id, username, email, password_hash, display_name, role_ids, status, last_login, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		u.ID, u.Username, u.Email, u.PasswordHash,
 		nullString(u.DisplayName), u.RoleIDs, u.Status,
 		u.LastLogin, u.CreatedAt, u.UpdatedAt,
@@ -61,7 +61,7 @@ func (r *UserRepo) GetUser(ctx context.Context, id uuid.UUID) (*domain.User, err
 		SELECT id, username, email, password_hash, display_name, role_ids, status, last_login, created_at, updated_at
 		FROM users WHERE id = $1`
 
-	u, err := r.scanUser(r.db.Pool.QueryRow(ctx, query, id))
+	u, err := r.scanUser(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get user %s: %w", id, err)
@@ -77,7 +77,7 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*dom
 		SELECT id, username, email, password_hash, display_name, role_ids, status, last_login, created_at, updated_at
 		FROM users WHERE username = $1`
 
-	u, err := r.scanUser(r.db.Pool.QueryRow(ctx, query, username))
+	u, err := r.scanUser(r.queryRow(ctx, query, username))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get user by username %s: %w", username, err)
@@ -93,7 +93,7 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*domain.Us
 		SELECT id, username, email, password_hash, display_name, role_ids, status, last_login, created_at, updated_at
 		FROM users WHERE email = $1`
 
-	u, err := r.scanUser(r.db.Pool.QueryRow(ctx, query, email))
+	u, err := r.scanUser(r.queryRow(ctx, query, email))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get user by email %s: %w", email, err)
@@ -134,7 +134,7 @@ func (r *UserRepo) ListUsers(ctx context.Context, filter repository.UserFilter) 
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
@@ -162,13 +162,13 @@ func (r *UserRepo) UpdateUser(ctx context.Context, u *domain.User) error {
 		UPDATE users SET email=$1, display_name=$2, role_ids=$3, status=$4, updated_at=$5
 		WHERE id=$6`
 
-	tag, err := r.db.Pool.Exec(ctx, query,
+	tag, err := r.exec(ctx, query,
 		u.Email, nullString(u.DisplayName), u.RoleIDs, u.Status, u.UpdatedAt, u.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update user: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update user %s: not found", u.ID)
 	}
 	return nil
@@ -178,11 +178,11 @@ func (r *UserRepo) UpdateUser(ctx context.Context, u *domain.User) error {
 func (r *UserRepo) UpdateUserStatus(ctx context.Context, id uuid.UUID, status domain.UserStatus) error {
 	const query = `UPDATE users SET status=$1, updated_at=$2 WHERE id=$3`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, time.Now(), id)
+	tag, err := r.exec(ctx, query, status, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("update user status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update user status %s: not found", id)
 	}
 	return nil
@@ -192,11 +192,11 @@ func (r *UserRepo) UpdateUserStatus(ctx context.Context, id uuid.UUID, status do
 func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID, t time.Time) error {
 	const query = `UPDATE users SET last_login=$1, updated_at=$2 WHERE id=$3`
 
-	tag, err := r.db.Pool.Exec(ctx, query, t, time.Now(), id)
+	tag, err := r.exec(ctx, query, t, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("update last login: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update last login %s: not found", id)
 	}
 	return nil
@@ -220,7 +220,7 @@ func (r *UserRepo) CountUsers(ctx context.Context, filter repository.UserFilter)
 	}
 
 	var count int
-	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	err := r.queryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count users: %w", err)
 	}
@@ -248,7 +248,7 @@ func (r *UserRepo) CreateRole(ctx context.Context, role *domain.Role) error {
 		INSERT INTO roles (id, name, description, permissions, created_at)
 		VALUES ($1, $2, $3, $4, $5)`
 
-	_, err = r.db.Pool.Exec(ctx, query,
+	_, err = r.exec(ctx, query,
 		role.ID, role.Name, nullString(role.Description), permsJSON, role.CreatedAt,
 	)
 	if err != nil {
@@ -263,7 +263,7 @@ func (r *UserRepo) GetRole(ctx context.Context, id uuid.UUID) (*domain.Role, err
 		SELECT id, name, description, permissions, created_at
 		FROM roles WHERE id = $1`
 
-	role, err := r.scanRole(r.db.Pool.QueryRow(ctx, query, id))
+	role, err := r.scanRole(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get role %s: %w", id, err)
@@ -279,7 +279,7 @@ func (r *UserRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) {
 		SELECT id, name, description, permissions, created_at
 		FROM roles ORDER BY name ASC`
 
-	rows, err := r.db.Pool.Query(ctx, query)
+	rows, err := r.query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list roles: %w", err)
 	}
@@ -313,13 +313,13 @@ func (r *UserRepo) UpdateRole(ctx context.Context, role *domain.Role) error {
 		UPDATE roles SET name=$1, description=$2, permissions=$3
 		WHERE id=$4`
 
-	tag, err := r.db.Pool.Exec(ctx, query,
+	tag, err := r.exec(ctx, query,
 		role.Name, nullString(role.Description), permsJSON, role.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update role: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update role %s: not found", role.ID)
 	}
 	return nil
@@ -338,7 +338,7 @@ func (r *UserRepo) CreateAuditLog(ctx context.Context, log *domain.AuditLog) err
 		INSERT INTO audit_logs (id, user_id, username, action, resource, resource_id, details, ip_address, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		log.ID, log.UserID, log.Username,
 		log.Action, log.Resource, log.ResourceID,
 		log.Details, log.IPAddress, log.CreatedAt,
@@ -390,7 +390,7 @@ func (r *UserRepo) ListAuditLogs(ctx context.Context, filter repository.AuditLog
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list audit logs: %w", err)
 	}
@@ -437,7 +437,7 @@ func (r *UserRepo) CountAuditLogs(ctx context.Context, filter repository.AuditLo
 	}
 
 	var count int
-	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	err := r.queryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count audit logs: %w", err)
 	}
@@ -564,4 +564,41 @@ func (r *UserRepo) scanAuditLogFromRows(rows pgx.Rows) (*domain.AuditLog, error)
 	}
 
 	return l, nil
+}
+
+// ── Transaction-aware dispatch helpers ─────────────────────
+
+// exec dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *UserRepo) exec(ctx context.Context, sql string, args ...any) (int64, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		tag, err := tx.Exec(ctx, sql, args...)
+		if err != nil {
+			return 0, err
+		}
+		return tag.RowsAffected(), nil
+	}
+	tag, err := r.db.Pool.Exec(ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// query dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *UserRepo) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.Query(ctx, sql, args...)
+	}
+	return r.db.Pool.Query(ctx, sql, args...)
+}
+
+// queryRow dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *UserRepo) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.QueryRow(ctx, sql, args...)
+	}
+	return r.db.Pool.QueryRow(ctx, sql, args...)
 }

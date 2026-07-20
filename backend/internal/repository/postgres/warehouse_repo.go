@@ -38,7 +38,7 @@ func (r *WarehouseRepo) CreateWarehouse(ctx context.Context, w *domain.Warehouse
 		INSERT INTO warehouses (id, code, name, address, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		w.ID, w.Code, w.Name, w.Address, w.Status, w.CreatedAt, w.UpdatedAt,
 	)
 	if err != nil {
@@ -54,7 +54,7 @@ func (r *WarehouseRepo) GetWarehouse(ctx context.Context, id uuid.UUID) (*domain
 		FROM warehouses WHERE id = $1`
 
 	w := &domain.Warehouse{}
-	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+	err := r.queryRow(ctx, query, id).Scan(
 		&w.ID, &w.Code, &w.Name, &w.Address, &w.Status, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if err != nil {
@@ -84,7 +84,7 @@ func (r *WarehouseRepo) ListWarehouses(ctx context.Context, limit, offset int) (
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list warehouses: %w", err)
 	}
@@ -112,11 +112,11 @@ func (r *WarehouseRepo) UpdateWarehouse(ctx context.Context, w *domain.Warehouse
 		UPDATE warehouses SET name=$1, address=$2, status=$3, updated_at=$4
 		WHERE id=$5`
 
-	tag, err := r.db.Pool.Exec(ctx, query, w.Name, w.Address, w.Status, w.UpdatedAt, w.ID)
+	tag, err := r.exec(ctx, query, w.Name, w.Address, w.Status, w.UpdatedAt, w.ID)
 	if err != nil {
 		return fmt.Errorf("update warehouse: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update warehouse %s: not found", w.ID)
 	}
 	return nil
@@ -126,7 +126,7 @@ func (r *WarehouseRepo) UpdateWarehouse(ctx context.Context, w *domain.Warehouse
 func (r *WarehouseRepo) CountWarehouses(ctx context.Context) (int, error) {
 	const query = `SELECT COUNT(*) FROM warehouses`
 	var count int
-	if err := r.db.Pool.QueryRow(ctx, query).Scan(&count); err != nil {
+	if err := r.queryRow(ctx, query).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count warehouses: %w", err)
 	}
 	return count, nil
@@ -149,7 +149,7 @@ func (r *WarehouseRepo) CreateZone(ctx context.Context, z *domain.Zone) error {
 		INSERT INTO zones (id, warehouse_id, code, name, zone_type, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		z.ID, z.WarehouseID, z.Code, z.Name, z.ZoneType, z.Status, z.CreatedAt, z.UpdatedAt,
 	)
 	if err != nil {
@@ -165,7 +165,7 @@ func (r *WarehouseRepo) GetZone(ctx context.Context, id uuid.UUID) (*domain.Zone
 		FROM zones WHERE id = $1`
 
 	z := &domain.Zone{}
-	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+	err := r.queryRow(ctx, query, id).Scan(
 		&z.ID, &z.WarehouseID, &z.Code, &z.Name, &z.ZoneType, &z.Status, &z.CreatedAt, &z.UpdatedAt,
 	)
 	if err != nil {
@@ -196,7 +196,7 @@ func (r *WarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uu
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list zones: %w", err)
 	}
@@ -217,7 +217,7 @@ func (r *WarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uu
 func (r *WarehouseRepo) CountZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) (int, error) {
 	const query = `SELECT COUNT(*) FROM zones WHERE warehouse_id = $1`
 	var count int
-	if err := r.db.Pool.QueryRow(ctx, query, warehouseID).Scan(&count); err != nil {
+	if err := r.queryRow(ctx, query, warehouseID).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count zones by warehouse: %w", err)
 	}
 	return count, nil
@@ -249,7 +249,7 @@ func (r *WarehouseRepo) CreateLocation(ctx context.Context, loc *domain.Location
 		maxQty = &loc.Capacity.MaxQty
 	}
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		loc.ID, loc.ZoneID, loc.WarehouseID, loc.Code, loc.Barcode,
 		loc.LocationType, loc.Status, maxWeight, maxVolume, maxQty,
 		loc.CreatedAt, loc.UpdatedAt,
@@ -271,7 +271,7 @@ func (r *WarehouseRepo) GetLocation(ctx context.Context, id uuid.UUID) (*domain.
 	var maxWeight, maxVolume *float64
 	var maxQty *int
 
-	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+	err := r.queryRow(ctx, query, id).Scan(
 		&loc.ID, &loc.ZoneID, &loc.WarehouseID, &loc.Code, &loc.Barcode,
 		&loc.LocationType, &loc.Status, &maxWeight, &maxVolume, &maxQty,
 		&loc.CreatedAt, &loc.UpdatedAt,
@@ -310,7 +310,7 @@ func (r *WarehouseRepo) GetLocationByBarcode(ctx context.Context, barcode string
 	var maxWeight, maxVolume *float64
 	var maxQty *int
 
-	err := r.db.Pool.QueryRow(ctx, query, barcode).Scan(
+	err := r.queryRow(ctx, query, barcode).Scan(
 		&loc.ID, &loc.ZoneID, &loc.WarehouseID, &loc.Code, &loc.Barcode,
 		&loc.LocationType, &loc.Status, &maxWeight, &maxVolume, &maxQty,
 		&loc.CreatedAt, &loc.UpdatedAt,
@@ -358,7 +358,7 @@ func (r *WarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUI
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list locations: %w", err)
 	}
@@ -400,7 +400,7 @@ func (r *WarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUI
 func (r *WarehouseRepo) CountLocationsByZone(ctx context.Context, zoneID uuid.UUID) (int, error) {
 	const query = `SELECT COUNT(*) FROM locations WHERE zone_id = $1`
 	var count int
-	if err := r.db.Pool.QueryRow(ctx, query, zoneID).Scan(&count); err != nil {
+	if err := r.queryRow(ctx, query, zoneID).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count locations by zone: %w", err)
 	}
 	return count, nil
@@ -410,12 +410,49 @@ func (r *WarehouseRepo) CountLocationsByZone(ctx context.Context, zoneID uuid.UU
 func (r *WarehouseRepo) UpdateLocationStatus(ctx context.Context, id uuid.UUID, status domain.LocationStatus) error {
 	const query = `UPDATE locations SET status=$1, updated_at=$2 WHERE id=$3`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, time.Now(), id)
+	tag, err := r.exec(ctx, query, status, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("update location status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update location status %s: not found", id)
 	}
 	return nil
+}
+
+// ── Transaction-aware dispatch helpers ─────────────────────
+
+// exec dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *WarehouseRepo) exec(ctx context.Context, sql string, args ...any) (int64, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		tag, err := tx.Exec(ctx, sql, args...)
+		if err != nil {
+			return 0, err
+		}
+		return tag.RowsAffected(), nil
+	}
+	tag, err := r.db.Pool.Exec(ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// query dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *WarehouseRepo) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.Query(ctx, sql, args...)
+	}
+	return r.db.Pool.Query(ctx, sql, args...)
+}
+
+// queryRow dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *WarehouseRepo) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.QueryRow(ctx, sql, args...)
+	}
+	return r.db.Pool.QueryRow(ctx, sql, args...)
 }

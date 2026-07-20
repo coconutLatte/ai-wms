@@ -47,7 +47,7 @@ func (r *TaskRepo) CreateTask(ctx context.Context, t *domain.Task) error {
 		                   sku_id, expected_qty, actual_qty, uom, batch_no, instructions, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		t.ID, t.TaskNo, t.TaskType, t.WarehouseID,
 		t.OrderID, t.OrderLineID,
 		t.Priority, t.Status, nullString(t.AssignedTo),
@@ -71,7 +71,7 @@ func (r *TaskRepo) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, err
 		       created_at, started_at, completed_at, cancelled_at
 		FROM tasks WHERE id = $1`
 
-	t, err := r.scanTask(r.db.Pool.QueryRow(ctx, query, id))
+	t, err := r.scanTask(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get task %s: %w", id, err)
@@ -130,7 +130,7 @@ func (r *TaskRepo) ListTasks(ctx context.Context, filter repository.TaskFilter) 
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
@@ -157,11 +157,11 @@ func (r *TaskRepo) AssignTask(ctx context.Context, id uuid.UUID, assignedTo stri
 		WHERE id=$4 AND status = 'pending'`
 
 	now := time.Now()
-	tag, err := r.db.Pool.Exec(ctx, query, assignedTo, domain.TaskStatusAssigned, now, id)
+	tag, err := r.exec(ctx, query, assignedTo, domain.TaskStatusAssigned, now, id)
 	if err != nil {
 		return fmt.Errorf("assign task: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("assign task %s: not found or not in assignable status", id)
 	}
 	return nil
@@ -186,11 +186,11 @@ func (r *TaskRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status do
 		                 completed_at=$3, cancelled_at=$4
 		WHERE id=$5`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, startedAt, completedAt, cancelledAt, id)
+	tag, err := r.exec(ctx, query, status, startedAt, completedAt, cancelledAt, id)
 	if err != nil {
 		return fmt.Errorf("update task status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update task status %s: not found", id)
 	}
 	return nil
@@ -205,13 +205,13 @@ func (r *TaskRepo) CompleteTask(ctx context.Context, id uuid.UUID, actualQty flo
 		                 completed_at=$4
 		WHERE id=$5`
 
-	tag, err := r.db.Pool.Exec(ctx, query,
+	tag, err := r.exec(ctx, query,
 		domain.TaskStatusCompleted, actualQty, toLocationID, now, id,
 	)
 	if err != nil {
 		return fmt.Errorf("complete task: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("complete task %s: not found", id)
 	}
 	return nil
@@ -250,7 +250,7 @@ func (r *TaskRepo) CountTasks(ctx context.Context, filter repository.TaskFilter)
 	}
 
 	var count int
-	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	err := r.queryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count tasks: %w", err)
 	}
@@ -280,7 +280,7 @@ func (r *TaskRepo) CreateWave(ctx context.Context, w *domain.Wave) error {
 		                   order_ids, task_ids, total_orders, total_lines, total_qty, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		w.ID, w.WaveNo, w.WarehouseID, w.WaveType, w.Status,
 		w.OrderIDs, w.TaskIDs,
 		w.TotalOrders, w.TotalLines, w.TotalQty,
@@ -300,7 +300,7 @@ func (r *TaskRepo) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, err
 		       created_at, released_at, completed_at
 		FROM waves WHERE id = $1`
 
-	w, err := r.scanWave(r.db.Pool.QueryRow(ctx, query, id))
+	w, err := r.scanWave(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get wave %s: %w", id, err)
@@ -318,7 +318,7 @@ func (r *TaskRepo) ListWaves(ctx context.Context, warehouseID uuid.UUID) ([]*dom
 		       created_at, released_at, completed_at
 		FROM waves WHERE warehouse_id = $1 ORDER BY created_at DESC`
 
-	rows, err := r.db.Pool.Query(ctx, query, warehouseID)
+	rows, err := r.query(ctx, query, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("list waves: %w", err)
 	}
@@ -355,11 +355,11 @@ func (r *TaskRepo) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status do
 		                 completed_at=$3
 		WHERE id=$4`
 
-	tag, err := r.db.Pool.Exec(ctx, query, status, releasedAt, completedAt, id)
+	tag, err := r.exec(ctx, query, status, releasedAt, completedAt, id)
 	if err != nil {
 		return fmt.Errorf("update wave status: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if tag == 0 {
 		return fmt.Errorf("update wave status %s: not found", id)
 	}
 	return nil
@@ -501,4 +501,41 @@ func (r *TaskRepo) scanWaveFromRows(rows pgx.Rows) (*domain.Wave, error) {
 	}
 
 	return w, nil
+}
+
+// ── Transaction-aware dispatch helpers ─────────────────────
+
+// exec dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *TaskRepo) exec(ctx context.Context, sql string, args ...any) (int64, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		tag, err := tx.Exec(ctx, sql, args...)
+		if err != nil {
+			return 0, err
+		}
+		return tag.RowsAffected(), nil
+	}
+	tag, err := r.db.Pool.Exec(ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// query dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *TaskRepo) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.Query(ctx, sql, args...)
+	}
+	return r.db.Pool.Query(ctx, sql, args...)
+}
+
+// queryRow dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *TaskRepo) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.QueryRow(ctx, sql, args...)
+	}
+	return r.db.Pool.QueryRow(ctx, sql, args...)
 }
