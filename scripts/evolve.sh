@@ -100,7 +100,8 @@ case "$MODE" in
 # IMPLEMENT: Pick a pending task and build it
 # ═══════════════════════════════════════════════════════════════
 implement)
-    TASK_LINE=$(grep -E '^\| P[0-9]+-' "$ROADMAP" | grep '| pending |' | head -1)
+    # awk with exit avoids SIGPIPE from grep|head when many matches exist
+    TASK_LINE=$(awk -F'|' '/^\| P[0-9]+-/ && /\| pending \|/ {print; exit}' "$ROADMAP")
     TASK_ID=$(echo "$TASK_LINE"   | awk -F'|' '{print $2}' | xargs)
     TASK_PRIO=$(echo "$TASK_LINE" | awk -F'|' '{print $3}' | xargs)
     TASK_DESC=$(echo "$TASK_LINE" | awk -F'|' '{print $4}' | xargs)

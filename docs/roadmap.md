@@ -23,9 +23,9 @@
 | P1-01 | P0 | Repository interfaces (Warehouse, Inventory, Order, Task) | completed | 2026-07-20 | Define interfaces in internal/repository/ |
 | P1-02 | P0 | PostgreSQL repository implementation (Warehouse + Zone + Location) | completed | 2026-07-20 | Implement warehouse repo with pgx, 8 integration tests pass |
 | P1-03 | P0 | PostgreSQL repository implementation (SKU + Inventory) | completed | 2026-07-20 | SKU CRUD + Inventory CRUD + Query filter + Tx audit, 13 integration tests pass |
-| P1-04 | P1 | PostgreSQL repository implementation (Order + OrderLine) | pending | — | Implement order repo with pgx; create, get, list, status update, line management |
+| P1-04 | P1 | PostgreSQL repository implementation (Order + OrderLine) | completed | 2026-07-20 | Order+OrderLine+ASN CRUD + filter; 15 integration tests pass; ASN line management pending (see P1-06) |
 | P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | pending | — | Implement task repo with pgx; create, assign, status flow, wave grouping |
-| P1-06 | P1 | PostgreSQL repository implementation (ASN) | pending | — | ASN CRUD + ASN line management; split from original P1-04 for granularity |
+| P1-06 | P1 | PostgreSQL repository implementation (ASN lines) | pending | — | ASN line CRUD repository methods + pgx impl; ASN CRUD already done in P1-04; this adds line-level operations (CreateASNLine, GetASNLines, UpdateASNLineStatus, UpdateASNLineReceivedQty) |
 | P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | pending | — | User CRUD, role management, audit log insertion; needed for auth later |
 | P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede middleware + service tasks |
 | P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
@@ -424,10 +424,10 @@
 | Metric | Value |
 |--------|-------|
 | Total tasks | 284 |
-| Completed | 9 |
+| Completed | 10 |
 | In progress | 0 |
-| Pending | 275 |
+| Pending | 274 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
+| Last evolution | 2026-07-20 (Round 4: P1-04 Order+OrderLine posts) |
 | Last grooming | 2026-07-20 (Round 19: added 13 new tasks across 9 phases — P3-13 PDA adjustment flow; P5-41 express fast-path, P5-42 RTV, P5-43 dock ops, P5-44 pallet workstation, P5-45 inventory age, P5-46 count variance approval; P6-30 smoke tests; P8-12 ops KPI dashboards; P9-13 bonded warehouse; P15-08 shipping docs; P16-06 warehouse theme; P18-05 carrier portal; P20-06 legacy mapping templates) |
