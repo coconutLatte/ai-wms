@@ -318,6 +318,99 @@ func (s *OrderService) AddOrderLine(ctx context.Context, orderID uuid.UUID, inpu
 	return line, nil
 }
 
+// UpdateOrderLineStatusInput is the input for updating an order line's status.
+type UpdateOrderLineStatusInput struct {
+	Status domain.OrderLineStatus `json:"status"`
+}
+
+// Validate checks the input for business rule violations.
+func (in *UpdateOrderLineStatusInput) Validate() error {
+	if !isValidOrderLineStatus(in.Status) {
+		return pkgerrors.NewInvalidInput(fmt.Sprintf("invalid order line status: %s", in.Status))
+	}
+	return nil
+}
+
+// UpdateOrderLineStatus validates the state transition and updates the order line status.
+func (s *OrderService) UpdateOrderLineStatus(ctx context.Context, lineID uuid.UUID, input UpdateOrderLineStatusInput) (*domain.OrderLine, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	line, err := s.repo.GetOrderLine(ctx, lineID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: update line status %s: %w", lineID, err)
+	}
+
+	// Validate the state transition.
+	if !line.CanTransitionTo(input.Status) {
+		return nil, pkgerrors.NewInvalidStatus(string(line.Status), string(input.Status))
+	}
+
+	if err := s.repo.UpdateOrderLineStatus(ctx, lineID, input.Status); err != nil {
+		return nil, fmt.Errorf("order service: update line status %s: %w", lineID, err)
+	}
+
+	// Re-fetch to get updated state.
+	updated, err := s.repo.GetOrderLine(ctx, lineID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: re-fetch after line status update %s: %w", lineID, err)
+	}
+
+	return updated, nil
+}
+
+// UpdateASNStatusInput is the input for updating an ASN's status.
+type UpdateASNStatusInput struct {
+	Status domain.ASNStatus `json:"status"`
+}
+
+// Validate checks the input for business rule violations.
+func (in *UpdateASNStatusInput) Validate() error {
+	if !isValidASNStatus(in.Status) {
+		return pkgerrors.NewInvalidInput(fmt.Sprintf("invalid ASN status: %s", in.Status))
+	}
+	return nil
+}
+
+// UpdateASNStatus validates the state transition and updates the ASN status.
+func (s *OrderService) UpdateASNStatus(ctx context.Context, asnID uuid.UUID, input UpdateASNStatusInput) (*domain.ASN, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	asn, err := s.repo.GetASN(ctx, asnID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: update ASN status %s: %w", asnID, err)
+	}
+
+	// Validate the state transition.
+	if !asn.CanTransitionTo(input.Status) {
+		return nil, pkgerrors.NewInvalidStatus(string(asn.Status), string(input.Status))
+	}
+
+	if err := s.repo.UpdateASNStatus(ctx, asnID, input.Status); err != nil {
+		return nil, fmt.Errorf("order service: update ASN status %s: %w", asnID, err)
+	}
+
+	// Re-fetch to get updated state.
+	updated, err := s.repo.GetASN(ctx, asnID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: re-fetch after ASN status update %s: %w", asnID, err)
+	}
+
+	// Load ASN lines.
+	lines, _ := s.repo.GetASNLines(ctx, asnID)
+	if lines != nil {
+		updated.Lines = make([]domain.ASNLine, len(lines))
+		for i, l := range lines {
+			updated.Lines[i] = *l
+		}
+	}
+
+	return updated, nil
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────────────────
 
 // generateOrderNo creates a business order number based on type and timestamp.
@@ -367,4 +460,24 @@ func isValidOrderStatus(s domain.OrderStatus) bool {
 func isValidOrderTransition(current, target domain.OrderStatus) bool {
 	o := &domain.Order{Status: current}
 	return o.CanTransitionTo(target)
+}
+
+func isValidOrderLineStatus(s domain.OrderLineStatus) bool {
+	switch s {
+	case domain.OrderLineStatusPending, domain.OrderLineStatusAllocated,
+		domain.OrderLineStatusPartial, domain.OrderLineStatusFulfilled,
+		domain.OrderLineStatusCancelled:
+		return true
+	}
+	return false
+}
+
+func isValidASNStatus(s domain.ASNStatus) bool {
+	switch s {
+	case domain.ASNStatusPending, domain.ASNStatusArrived,
+		domain.ASNStatusReceiving, domain.ASNStatusPartial,
+		domain.ASNStatusReceived:
+		return true
+	}
+	return false
 }

@@ -237,6 +237,23 @@ func (r *OrderRepo) CreateOrderLine(ctx context.Context, line *domain.OrderLine)
 	return nil
 }
 
+// GetOrderLine retrieves a single order line by ID.
+func (r *OrderRepo) GetOrderLine(ctx context.Context, id uuid.UUID) (*domain.OrderLine, error) {
+	const query = `
+		SELECT id, order_id, line_no, sku_id, ordered_qty, fulfilled_qty,
+		       uom, batch_no, status, notes
+		FROM order_lines WHERE id = $1`
+
+	l, err := r.scanOrderLine(r.queryRow(ctx, query, id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("get order line %s: %w", id, err)
+		}
+		return nil, fmt.Errorf("get order line: %w", err)
+	}
+	return l, nil
+}
+
 // GetOrderLines retrieves all lines for an order, ordered by line_no.
 func (r *OrderRepo) GetOrderLines(ctx context.Context, orderID uuid.UUID) ([]*domain.OrderLine, error) {
 	const query = `
@@ -516,6 +533,30 @@ func (r *OrderRepo) scanOrderFromRows(rows pgx.Rows) (*domain.Order, error) {
 	}
 
 	return o, nil
+}
+
+// scanOrderLine scans a single order line row.
+func (r *OrderRepo) scanOrderLine(row pgx.Row) (*domain.OrderLine, error) {
+	l := &domain.OrderLine{}
+	var batchNo, notes *string
+
+	err := row.Scan(
+		&l.ID, &l.OrderID, &l.LineNo, &l.SKUID,
+		&l.OrderedQty, &l.FulfilledQty,
+		&l.UOM, &batchNo, &l.Status, &notes,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if batchNo != nil {
+		l.BatchNo = *batchNo
+	}
+	if notes != nil {
+		l.Notes = *notes
+	}
+
+	return l, nil
 }
 
 // scanOrderLineFromRows scans an order line row from a Rows iterator.

@@ -98,6 +98,7 @@ type OrderRepository interface {
 
 	// OrderLine
 	CreateOrderLine(ctx context.Context, line *domain.OrderLine) error
+	GetOrderLine(ctx context.Context, id uuid.UUID) (*domain.OrderLine, error)
 	GetOrderLines(ctx context.Context, orderID uuid.UUID) ([]*domain.OrderLine, error)
 	UpdateOrderLineStatus(ctx context.Context, id uuid.UUID, status domain.OrderLineStatus) error
 	UpdateOrderLineFulfilledQty(ctx context.Context, id uuid.UUID, qty float64) error
