@@ -54,7 +54,7 @@ func (r *InventoryRepo) CreateSKU(ctx context.Context, s *domain.SKU) error {
 		                  created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
 
-	_, err = r.db.Pool.Exec(ctx, query,
+	_, err = r.exec(ctx, query,
 		s.ID, s.Code, s.Name, s.Description, nullString(s.Barcode),
 		s.UOM.BaseUnit, s.UOM.PackUnit, s.UOM.PackQty,
 		s.UOM.Weight, s.UOM.Volume, s.UOM.Length, s.UOM.Width, s.UOM.Height,
@@ -74,7 +74,7 @@ func (r *InventoryRepo) GetSKU(ctx context.Context, id uuid.UUID) (*domain.SKU, 
 		       created_at, updated_at
 		FROM skus WHERE id = $1`
 
-	s, err := r.scanSKU(r.db.Pool.QueryRow(ctx, query, id))
+	s, err := r.scanSKU(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get sku %s: %w", id, err)
@@ -92,7 +92,7 @@ func (r *InventoryRepo) GetSKUByBarcode(ctx context.Context, barcode string) (*d
 		       created_at, updated_at
 		FROM skus WHERE barcode = $1`
 
-	s, err := r.scanSKU(r.db.Pool.QueryRow(ctx, query, barcode))
+	s, err := r.scanSKU(r.queryRow(ctx, query, barcode))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get sku by barcode %s: %w", barcode, err)
@@ -110,7 +110,7 @@ func (r *InventoryRepo) GetSKUByCode(ctx context.Context, code string) (*domain.
 		       created_at, updated_at
 		FROM skus WHERE code = $1`
 
-	s, err := r.scanSKU(r.db.Pool.QueryRow(ctx, query, code))
+	s, err := r.scanSKU(r.queryRow(ctx, query, code))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get sku by code %s: %w", code, err)
@@ -128,7 +128,7 @@ func (r *InventoryRepo) ListSKUs(ctx context.Context) ([]*domain.SKU, error) {
 		       created_at, updated_at
 		FROM skus ORDER BY created_at DESC`
 
-	rows, err := r.db.Pool.Query(ctx, query)
+	rows, err := r.query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list skus: %w", err)
 	}
@@ -163,7 +163,7 @@ func (r *InventoryRepo) UpdateSKU(ctx context.Context, s *domain.SKU) error {
 		                category=$12, attributes=$13, status=$14, updated_at=$15
 		WHERE id=$16`
 
-	tag, err := r.db.Pool.Exec(ctx, query,
+	rowsAffected, err := r.exec(ctx, query,
 		s.Name, s.Description, s.Barcode,
 		s.UOM.BaseUnit, s.UOM.PackUnit, s.UOM.PackQty,
 		s.UOM.Weight, s.UOM.Volume, s.UOM.Length, s.UOM.Width, s.UOM.Height,
@@ -172,7 +172,7 @@ func (r *InventoryRepo) UpdateSKU(ctx context.Context, s *domain.SKU) error {
 	if err != nil {
 		return fmt.Errorf("update sku: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if rowsAffected == 0 {
 		return fmt.Errorf("update sku %s: not found", s.ID)
 	}
 	return nil
@@ -197,7 +197,7 @@ func (r *InventoryRepo) CreateInventory(ctx context.Context, inv *domain.Invento
 		                       received_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		inv.ID, inv.SKUID, inv.LocationID, inv.WarehouseID,
 		nullString(inv.BatchNo),
 		inv.Qty, inv.ReservedQty, inv.Status,
@@ -218,7 +218,7 @@ func (r *InventoryRepo) GetInventory(ctx context.Context, id uuid.UUID) (*domain
 		       received_at, updated_at
 		FROM inventory WHERE id = $1`
 
-	inv, err := r.scanInventory(r.db.Pool.QueryRow(ctx, query, id))
+	inv, err := r.scanInventory(r.queryRow(ctx, query, id))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("get inventory %s: %w", id, err)
@@ -236,7 +236,7 @@ func (r *InventoryRepo) GetInventoryAtLocation(ctx context.Context, skuID, locat
 		       received_at, updated_at
 		FROM inventory WHERE sku_id = $1 AND location_id = $2 AND batch_no IS NOT DISTINCT FROM $3`
 
-	row := r.db.Pool.QueryRow(ctx, query, skuID, locationID, nullString(batchNo))
+	row := r.queryRow(ctx, query, skuID, locationID, nullString(batchNo))
 	inv, err := r.scanInventory(row)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -300,7 +300,7 @@ func (r *InventoryRepo) QueryInventory(ctx context.Context, filter repository.In
 		argIdx++
 	}
 
-	rows, err := r.db.Pool.Query(ctx, query, args...)
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query inventory: %w", err)
 	}
@@ -327,11 +327,11 @@ func (r *InventoryRepo) UpdateInventoryQty(ctx context.Context, id uuid.UUID, de
 		SET qty = qty + $2, reserved_qty = reserved_qty + $3, updated_at = $4
 		WHERE id = $1`
 
-	tag, err := r.db.Pool.Exec(ctx, query, id, deltaQty, deltaReserved, time.Now())
+	rowsAffected, err := r.exec(ctx, query, id, deltaQty, deltaReserved, time.Now())
 	if err != nil {
 		return fmt.Errorf("update inventory qty: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	if rowsAffected == 0 {
 		return fmt.Errorf("update inventory qty %s: not found", id)
 	}
 	return nil
@@ -353,7 +353,7 @@ func (r *InventoryRepo) CreateTransaction(ctx context.Context, tx *domain.Invent
 		                                    created_at, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
-	_, err := r.db.Pool.Exec(ctx, query,
+	_, err := r.exec(ctx, query,
 		tx.ID, tx.InventoryID, tx.SKUID, tx.LocationID,
 		tx.Type, tx.DeltaQty, tx.ResultingQty,
 		nullString(tx.ReferenceType), nullUUID(tx.ReferenceID),
@@ -376,7 +376,7 @@ func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.U
 		WHERE inventory_id = $1
 		ORDER BY created_at DESC`
 
-	rows, err := r.db.Pool.Query(ctx, query, inventoryID)
+	rows, err := r.query(ctx, query, inventoryID)
 	if err != nil {
 		return nil, fmt.Errorf("list transactions: %w", err)
 	}
@@ -563,6 +563,43 @@ func (r *InventoryRepo) scanInventoryFromRows(rows pgx.Rows) (*domain.Inventory,
 	inv.AvailableQty = inv.Qty - inv.ReservedQty
 
 	return inv, nil
+}
+
+// ── Transaction-aware dispatch helpers ─────────────────────
+
+// exec dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *InventoryRepo) exec(ctx context.Context, sql string, args ...any) (int64, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		tag, err := tx.Exec(ctx, sql, args...)
+		if err != nil {
+			return 0, err
+		}
+		return tag.RowsAffected(), nil
+	}
+	tag, err := r.db.Pool.Exec(ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// query dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *InventoryRepo) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.Query(ctx, sql, args...)
+	}
+	return r.db.Pool.Query(ctx, sql, args...)
+}
+
+// queryRow dispatches to the active pgx.Tx if one exists in the context,
+// otherwise falls back to the connection pool.
+func (r *InventoryRepo) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx.QueryRow(ctx, sql, args...)
+	}
+	return r.db.Pool.QueryRow(ctx, sql, args...)
 }
 
 // nullString returns nil for empty strings, so PostgreSQL stores NULL.

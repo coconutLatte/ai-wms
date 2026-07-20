@@ -14,12 +14,20 @@ import (
 
 // InventoryService orchestrates business logic for inventory records.
 type InventoryService struct {
-	repo repository.InventoryRepository
+	repo      repository.InventoryRepository
+	txManager repository.TxManager
 }
 
 // NewInventoryService creates a new InventoryService.
 func NewInventoryService(repo repository.InventoryRepository) *InventoryService {
 	return &InventoryService{repo: repo}
+}
+
+// NewInventoryServiceWithTx creates a new InventoryService with transaction support.
+// When txManager is provided, the service uses it to wrap multi-step inventory
+// operations in atomic database transactions.
+func NewInventoryServiceWithTx(repo repository.InventoryRepository, txManager repository.TxManager) *InventoryService {
+	return &InventoryService{repo: repo, txManager: txManager}
 }
 
 // ── Input Types ──────────────────────────────────────────────────────────────────────────
@@ -50,15 +58,15 @@ func (in *AdjustInventoryInput) Validate() error {
 // CreateInventoryInput is the input for creating a new inventory record.
 // This is typically called by other services (e.g., receiving).
 type CreateInventoryInput struct {
-	SKUID          uuid.UUID             `json:"sku_id"`
-	LocationID     uuid.UUID             `json:"location_id"`
-	WarehouseID    uuid.UUID             `json:"warehouse_id"`
-	BatchNo        string                `json:"batch_no,omitempty"`
-	Qty            float64               `json:"qty"`
-	ReservedQty    float64               `json:"reserved_qty"`
+	SKUID          uuid.UUID              `json:"sku_id"`
+	LocationID     uuid.UUID              `json:"location_id"`
+	WarehouseID    uuid.UUID              `json:"warehouse_id"`
+	BatchNo        string                 `json:"batch_no,omitempty"`
+	Qty            float64                `json:"qty"`
+	ReservedQty    float64                `json:"reserved_qty"`
 	Status         domain.InventoryStatus `json:"status,omitempty"`
-	ProductionDate *string               `json:"production_date,omitempty"` // RFC 3339
-	ExpiryDate     *string               `json:"expiry_date,omitempty"`     // RFC 3339
+	ProductionDate *string                `json:"production_date,omitempty"` // RFC 3339
+	ExpiryDate     *string                `json:"expiry_date,omitempty"`     // RFC 3339
 }
 
 // Validate checks the input for business rule violations.
@@ -80,13 +88,13 @@ func (in *CreateInventoryInput) Validate() error {
 
 // QueryInventoryInput is the input for querying inventory records.
 type QueryInventoryInput struct {
-	WarehouseID string                `json:"warehouse_id,omitempty"`
-	SKUID       string                `json:"sku_id,omitempty"`
-	LocationID  string                `json:"location_id,omitempty"`
-	BatchNo     string                `json:"batch_no,omitempty"`
+	WarehouseID string                 `json:"warehouse_id,omitempty"`
+	SKUID       string                 `json:"sku_id,omitempty"`
+	LocationID  string                 `json:"location_id,omitempty"`
+	BatchNo     string                 `json:"batch_no,omitempty"`
 	Status      domain.InventoryStatus `json:"status,omitempty"`
-	Limit       int                   `json:"limit,omitempty"`
-	Offset      int                   `json:"offset,omitempty"`
+	Limit       int                    `json:"limit,omitempty"`
+	Offset      int                    `json:"offset,omitempty"`
 }
 
 // ToFilter converts query input to a repository filter.
@@ -150,11 +158,17 @@ func (s *InventoryService) GetInventory(ctx context.Context, id uuid.UUID) (*dom
 
 // AdjustInventory adjusts the quantity of an inventory record and records a transaction.
 // Business rule: qty (on-hand) must never go below zero.
+//
+// When a TxManager is configured, the quantity update and transaction creation
+// are executed within a single database transaction, ensuring atomicity.
 func (s *InventoryService) AdjustInventory(ctx context.Context, id uuid.UUID, input AdjustInventoryInput) (*domain.Inventory, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
 
+	// Read current state (outside transaction — a subsequent stock check on
+	// negative qty still happens inside the transaction boundary when the tx
+	// manager is available).
 	inv, err := s.repo.GetInventory(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("inventory service: adjust %s: %w", id, err)
@@ -169,31 +183,43 @@ func (s *InventoryService) AdjustInventory(ctx context.Context, id uuid.UUID, in
 		)
 	}
 
-	// Update inventory quantity.
-	if err := s.repo.UpdateInventoryQty(ctx, id, input.DeltaQty, 0); err != nil {
-		return nil, fmt.Errorf("inventory service: adjust: update qty: %w", err)
-	}
-
 	// Parse reference ID.
 	var refID uuid.UUID
 	if input.ReferenceID != "" {
 		refID, _ = uuid.Parse(input.ReferenceID)
 	}
 
-	// Record the transaction.
-	tx := &domain.InventoryTransaction{
-		InventoryID:   id,
-		SKUID:         inv.SKUID,
-		LocationID:    inv.LocationID,
-		Type:          domain.InventoryTxAdjustment,
-		DeltaQty:      input.DeltaQty,
-		ResultingQty:  newQty,
-		ReferenceType: input.ReferenceType,
-		ReferenceID:   refID,
-		CreatedBy:     input.CreatedBy,
+	// Execute the write operations within a transaction when a TxManager is available.
+	doWrites := func(ctx context.Context) error {
+		if err := s.repo.UpdateInventoryQty(ctx, id, input.DeltaQty, 0); err != nil {
+			return fmt.Errorf("update qty: %w", err)
+		}
+
+		tx := &domain.InventoryTransaction{
+			InventoryID:   id,
+			SKUID:         inv.SKUID,
+			LocationID:    inv.LocationID,
+			Type:          domain.InventoryTxAdjustment,
+			DeltaQty:      input.DeltaQty,
+			ResultingQty:  newQty,
+			ReferenceType: input.ReferenceType,
+			ReferenceID:   refID,
+			CreatedBy:     input.CreatedBy,
+		}
+		if err := s.repo.CreateTransaction(ctx, tx); err != nil {
+			return fmt.Errorf("create transaction: %w", err)
+		}
+		return nil
 	}
-	if err := s.repo.CreateTransaction(ctx, tx); err != nil {
-		return nil, fmt.Errorf("inventory service: adjust: create transaction: %w", err)
+
+	if s.txManager != nil {
+		if err := s.txManager.WithTx(ctx, doWrites); err != nil {
+			return nil, fmt.Errorf("inventory service: adjust: %w", err)
+		}
+	} else {
+		if err := doWrites(ctx); err != nil {
+			return nil, fmt.Errorf("inventory service: adjust: %w", err)
+		}
 	}
 
 	// Re-fetch updated inventory to return fresh state.

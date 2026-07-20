@@ -38,7 +38,7 @@
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
-| P2-01 | P1 | DB transaction support for atomic inventory operations | pending | — | Wrap inventory change + location update + audit in single DB tx |
+| P2-01 | P1 | DB transaction support for atomic inventory operations | completed | 2026-07-20 | TxManager interface + pgx impl; inventory qty+txn are now atomic via WithTx; 5 integration tests |
 | P2-02 | P1 | Pagination metadata for all list endpoints | pending | — | Total count + page_token; every list API needs this |
 | P2-03 | P1 | Domain unit tests (state machines, business rules) | pending | — | Pure Go tests for Order/Task status transitions, Inventory invariants |
 | P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | pending | — | Blocks admin login page |
@@ -48,5 +48,8 @@
 | P2-08 | P2 | Admin: Warehouse management pages (list, create, edit) | pending | — | Warehouse + zone + location CRUD UI |
 | P2-09 | P2 | FEFO/FIFO inventory retrieval queries | pending | — | GetOldestInventory / GetExpiringInventory methods |
 | P2-10 | P2 | PDA frontend scaffold (React + mobile-first) | pending | — | Mobile layout, barcode scanner component, task list |
+| P2-11 | P2 | Tx-aware helpers for remaining repos (warehouse, order, task, user) | pending | — | Extend exec/query/queryRow dispatch pattern to all repos so multi-repo tx works |
+| P2-12 | P2 | SELECT FOR UPDATE row-level locking for inventory adjustments | pending | — | Prevent race condition in AdjustInventory between read and write within tx |
+| P2-13 | P2 | DI wiring: wire TxManager into server startup (cmd/admin, cmd/pda) | pending | — | Create TxManager at startup, inject into services via NewInventoryServiceWithTx |
 
 <!-- DISCOVER will refill when pending < 3 -->
