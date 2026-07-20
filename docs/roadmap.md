@@ -20,7 +20,7 @@
 |----|----------|------|--------|-----------|-------|
 | P1-01 | P1 | Repository interfaces (Warehouse, Inventory, Order, Task) | completed | 2026-07-20 | Define interfaces in internal/repository/ |
 | P1-02 | P1 | PostgreSQL repository implementation (Warehouse + Zone + Location) | completed | 2026-07-20 | Implement warehouse repo with pgx, 8 integration tests pass |
-| P1-03 | P1 | PostgreSQL repository implementation (SKU + Inventory) | pending | — | Implement inventory repo with pgx |
+| P1-03 | P1 | PostgreSQL repository implementation (SKU + Inventory) | completed | 2026-07-20 | SKU CRUD + Inventory CRUD + Query filter + Tx audit, 13 integration tests pass |
 | P1-04 | P1 | PostgreSQL repository implementation (Order + OrderLine) | pending | — | Implement order repo with pgx |
 | P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | pending | — | Implement task repo with pgx |
 | P1-06 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | pending | — | chi/v5 REST endpoints |
@@ -29,6 +29,9 @@
 | P1-09 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows |
 | P1-10 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management |
 | P1-11 | P1 | Config management + Logger + Error handling packages | pending | — | Shared utilities in pkg/ |
+| P1-12 | P1 | DB transaction support for atomic inventory operations | pending | — | Wrap inventory change + location update + tx audit in single DB tx |
+| P1-13 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository |
+| P1-14 | P2 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results |
 
 ## Phase 2: Admin Frontend
 
@@ -87,10 +90,10 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 50 |
-| Completed | 8 |
+| Total tasks | 53 |
+| Completed | 9 |
 | In progress | 0 |
-| Pending | 42 |
+| Pending | 44 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 1: P1-01, P1-02) |
+| Last evolution | 2026-07-20 (Round 2: P1-03) |
