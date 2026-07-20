@@ -24,7 +24,7 @@
 | P1-02 | P0 | PostgreSQL repository implementation (Warehouse + Zone + Location) | completed | 2026-07-20 | Implement warehouse repo with pgx, 8 integration tests pass |
 | P1-03 | P0 | PostgreSQL repository implementation (SKU + Inventory) | completed | 2026-07-20 | SKU CRUD + Inventory CRUD + Query filter + Tx audit, 13 integration tests pass |
 | P1-04 | P1 | PostgreSQL repository implementation (Order + OrderLine) | completed | 2026-07-20 | Order+OrderLine+ASN CRUD + filter; 15 integration tests pass; ASN line management pending (see P1-06) |
-| P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | pending | — | Implement task repo with pgx; create, assign, status flow, wave grouping |
+| P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | completed | 2026-07-20 | Task CRUD + filter + assign + status flow + CompleteTask; Wave CRUD + status flow + UUID arrays; 24 integration tests pass |
 | P1-06 | P1 | PostgreSQL repository implementation (ASN lines) | pending | — | ASN line CRUD repository methods + pgx impl; ASN CRUD already done in P1-04; this adds line-level operations (CreateASNLine, GetASNLines, UpdateASNLineStatus, UpdateASNLineReceivedQty) |
 | P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | pending | — | User CRUD, role management, audit log insertion; needed for auth later |
 | P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; should precede middleware + service tasks |
@@ -47,6 +47,8 @@
 | P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development; basic role/user seed already in 000001 |
 | P1-24 | P1 | Redis client initialization + connection pool + health check | pending | — | Wire go-redis/v9 into cmd entry points; RedisAddr() in config already; connection pool config; /readyz Redis ping; needed for sessions + caching |
 | P1-25 | P1 | Database migration tooling (golang-migrate or goose CLI integration) | pending | — | Replace docker-entrypoint auto-migration with explicit migration tool; `make migrate-up` / `make migrate-down`; migration version tracking table |
+| P1-28 | P1 | Wave membership management repo methods | pending | — | Add AddTaskToWave/RemoveTaskFromWave/AddOrderToWave/RemoveOrderToWave to TaskRepository; enables dynamic wave composition during planning (P5-01); updates PostgreSQL UUID[] arrays with array_append/array_remove |
+| P1-29 | P2 | Task statistics query methods (count by status, count by type) | pending | — | Add CountTasksByStatus(ctx, warehouseID, status) int64 and CountTasksByType to TaskRepository; needed by dashboard KPIs (P2-09) and PDA task list badges |
 
 ## Phase 2: Admin Frontend
 
@@ -104,7 +106,7 @@
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
-| P5-01 | P5 | Wave planning engine (batch, zone, carrier-based wave creation) | pending | — | Wave generation from orders; configurable grouping strategies; depends on P1-05 Task+Wave repo and P1-12 Order service |
+| P5-01 | P5 | Wave planning engine (batch, zone, carrier-based wave creation) | pending | — | Wave generation from orders; configurable grouping strategies; P1-05 Task+Wave repo done — this is now unblocked |
 | P5-02 | P5 | Inventory allocation engine (FIFO, FEFO, lot-specific, manual override) | pending | — | Auto-allocate inventory to order lines; reservation lifecycle; depends on P1-17 |
 | P5-03 | P5 | Multi-level inventory (warehouse → zone → location → container/LPN) | pending | — | Container/LPN domain entity; nested inventory; container movements |
 | P5-04 | P5 | Inventory reports (turnover, aging, ABC analysis) | pending | — | Compute and display inventory KPIs; depends on P5-18 for export |
@@ -423,11 +425,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 284 |
-| Completed | 10 |
+| Total tasks | 286 |
+| Completed | 11 |
 | In progress | 0 |
-| Pending | 274 |
+| Pending | 275 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 4: P1-04 Order+OrderLine posts) |
+| Last evolution | 2026-07-20 (Round 5: P1-05 Task+Wave repos) |
 | Last grooming | 2026-07-20 (Round 19: added 13 new tasks across 9 phases — P3-13 PDA adjustment flow; P5-41 express fast-path, P5-42 RTV, P5-43 dock ops, P5-44 pallet workstation, P5-45 inventory age, P5-46 count variance approval; P6-30 smoke tests; P8-12 ops KPI dashboards; P9-13 bonded warehouse; P15-08 shipping docs; P16-06 warehouse theme; P18-05 carrier portal; P20-06 legacy mapping templates) |
