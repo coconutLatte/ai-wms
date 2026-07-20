@@ -29,7 +29,7 @@
 | P1-06 | P1 | PostgreSQL repository implementation (ASN lines) | completed | 2026-07-20 | 4 methods + scan helper; 7 integration tests pass; CreateASNLine/GetASNLines/UpdateASNLineStatus/UpdateASNLineReceivedQty |
 | P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | completed | 2026-07-20 | User CRUD + GetUserByUsername + GetUserByEmail + ListUsers with filter + UpdateUserStatus; Role CRUD + JSONB permissions + ListRoles + UpdateRole; AuditLog Create + List with UserID/Action/Resource filter + pagination; 19 integration tests pass |
 | P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | completed | 2026-07-20 | RequestID (context propagation + response header), Logger (structured slog per-request with method/path/status/duration/remote_addr), Recovery (panic→500 JSON+stack trace), CORS (configurable origins/methods/headers/credentials/MaxAge, preflight handler); 17 tests pass; wired into cmd/admin + cmd/pda |
-| P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | pending | — | chi/v5 REST endpoints; thin handlers delegating to WarehouseService |
+| P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | completed | 2026-07-20 | WarehouseService with validation + thin handlers using Go 1.22+ enhanced routing; 12 service-layer unit tests pass; routes mounted on admin server |
 | P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | pending | — | chi/v5 REST endpoints; thin handlers delegating to SKUService |
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | pending | — | With inventory transaction audit; check negative qty constraint |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
@@ -46,7 +46,7 @@
 | P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development; basic role/user seed already in 000001 |
 | P1-24 | P1 | Redis client initialization + connection pool + health check | pending | — | Wire go-redis/v9 into cmd entry points; RedisAddr() in config already; connection pool config; /readyz Redis ping; needed for sessions + caching |
 | P1-25 | P1 | Database migration tooling (golang-migrate or goose CLI integration) | pending | — | Replace docker-entrypoint auto-migration with explicit migration tool; `make migrate-up` / `make migrate-down`; migration version tracking table |
-| P1-26 | P1 | HTTP server bootstrap + graceful shutdown skeleton | pending | — | chi router init in cmd/admin + cmd/pda; listen on configured ports; SIGTERM/SIGINT handler; basic /healthz endpoint; services mount routes onto this skeleton; note: middleware chain + structured logging + graceful shutdown already done by P1-08; remaining: chi router init, route mounting |
+| P1-26 | P1 | HTTP server bootstrap + graceful shutdown skeleton | pending | — | chi router init in cmd/admin + cmd/pda; listen on configured ports; SIGTERM/SIGINT handler; basic /healthz endpoint; services mount routes onto this skeleton; note: middleware chain + structured logging + graceful shutdown already done by P1-08; DB+repo+service wiring bootstrap now done by P1-09; remaining: chi router init (replaced by Go 1.22+ ServeMux), route mounting for remaining services |
 | P1-27 | P2 | In-process domain event bus (publish/subscribe for domain events) | pending | — | Simple typed event publisher; subscriber registration; events: InventoryChanged, OrderStatusChanged, TaskCompleted; used by notification + audit + WebSocket push |
 | P1-28 | P1 | Wave membership management repo methods | pending | — | Add AddTaskToWave/RemoveTaskFromWave/AddOrderToWave/RemoveOrderToWave to TaskRepository; enables dynamic wave composition during planning (P5-01); updates PostgreSQL UUID[] arrays with array_append/array_remove |
 | P1-29 | P2 | Task statistics query methods (count by status, count by type) | pending | — | Add CountTasksByStatus(ctx, warehouseID, status) int64 and CountTasksByType to TaskRepository; needed by dashboard KPIs (P2-09) and PDA task list badges |
@@ -58,6 +58,9 @@
 | P1-35 | P2 | CORS origin pattern matching (wildcard subdomain support) | pending | — | Upgrade CORS middleware from exact origin match to glob/wildcard patterns (e.g., *.example.com, https://*.example.com:*/); needed when admin/PDA run on dynamic subdomains; depends on P1-08 |
 | P1-36 | P2 | Request timeout middleware | pending | — | Add configurable per-request timeout via context.WithTimeout; return 504 Gateway Timeout on expiry; configurable timeout per route; integrate with graceful shutdown (cancel in-flight on shutdown); depends on P1-08 |
 | P1-37 | P2 | Response header security middleware (CSP, X-Content-Type-Options, etc.) | pending | — | Add security headers: Content-Security-Policy, X-Content-Type-Options:nosniff, X-Frame-Options:DENY, Strict-Transport-Security, Referrer-Policy; configurable per environment; complements P1-08 CORS + P7-06 security hardening |
+| P1-38 | P1 | Add UpdateZone to repository + PostgreSQL impl + Zone update API endpoint | pending | — | Full zone CRUD: update code, name, zone_type, status; validate FK to warehouse exists; REST PUT /api/v1/zones/{id} handler; discovered during P1-09 — repo only had Create/Get/List for zones |
+| P1-39 | P1 | Add UpdateLocation to repository + PostgreSQL impl + Location update API endpoint | pending | — | Full location CRUD: update code, barcode, location_type, capacity, status; validate FK to zone exists; REST PUT /api/v1/locations/{id} handler; discovered during P1-09 — repo only had Create/Get/GetByBarcode/List/UpdateStatus for locations |
+| P1-40 | P1 | Warehouse API integration tests (HTTP handler tests with mock WarehouseService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for all 10 warehouse/zone/location endpoints; discovered during P1-09 — service layer tested but not HTTP handlers |
 
 ## Phase 2: Admin Frontend
 
@@ -444,11 +447,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 304 |
-| Completed | 14 |
+| Total tasks | 307 |
+| Completed | 15 |
 | In progress | 0 |
-| Pending | 290 |
+| Pending | 292 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 8: P1-08 HTTP middleware stack) |
+| Last evolution | 2026-07-20 (Round 9: P1-09 Warehouse service + Admin API) |
 | Last grooming | 2026-07-20 (Round 5: reordered P1 by ID; added 12 tasks: P1-33/34, P4-14, P5-47, P6-31/32/33/34/35, P7-36/37, P8-13) |

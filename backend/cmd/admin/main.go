@@ -11,7 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ai-wms/ai-wms/backend/internal/api"
 	"github.com/ai-wms/ai-wms/backend/internal/api/middleware"
+	"github.com/ai-wms/ai-wms/backend/internal/repository/postgres"
+	"github.com/ai-wms/ai-wms/backend/internal/service"
+	"github.com/ai-wms/ai-wms/backend/pkg/config"
 	"github.com/ai-wms/ai-wms/backend/pkg/logger"
 )
 
@@ -35,20 +39,32 @@ func main() {
 		corsConfig.AllowedOrigins = []string{origin}
 	}
 
-	// TODO: Initialize database connection (PostgreSQL)
-	// TODO: Initialize Redis connection
-	// TODO: Initialize repositories
-	// TODO: Initialize services
-	// TODO: Initialize API router (chi/v5) with middleware
-	// TODO: Register API routes
+	// Initialize database connection
+	cfg := config.Load()
+	db, err := postgres.NewDB(context.Background(), cfg.DSN())
+	if err != nil {
+		log.Error("Failed to connect to database", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer db.Close()
 
-	// Build the middleware chain.
+	// Initialize repositories
+	warehouseRepo := postgres.NewWarehouseRepo(db)
+
+	// Initialize services
+	warehouseSvc := service.NewWarehouseService(warehouseRepo)
+
+	// Initialize API handlers
+	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
+
+	// Initialize API router with Go 1.22+ enhanced routing
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok","service":"admin","version":"0.1.0"}`)
 	})
+	api.RegisterWarehouseRoutes(mux, warehouseHandler)
 
 	// Apply middleware stack: RequestID → Recovery → Logger → CORS → handler.
 	handler := middleware.RequestID(
