@@ -132,7 +132,7 @@ Hint: ${TASK_NOTE}
    - Is a related task now obsolete? Mark it.
    - Use new task IDs: P<priority>-<next-available-number>
    - Append new tasks to the appropriate Phase section in docs/roadmap.md
-6. Commit: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
+6. Commit & push: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
 ENDPROMPT
@@ -179,7 +179,7 @@ This is a meta-evolution round. Do NOT implement features. Instead, review and i
 
 Add new phases (P6, P7...) if the existing phases are full or need expansion.
 
-5. Commit: git add -A && git commit -m "chore(roadmap): grooming round $CURRENT_ROUND — expanded roadmap
+5. Commit & push: git add -A && git commit -m "chore(roadmap): grooming round $CURRENT_ROUND — expanded roadmap
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
 ENDPROMPT
@@ -229,7 +229,7 @@ The roadmap is running low on pending tasks ($PENDING_COUNT remaining). You must
 
 Add to existing phases or create new ones (P6, P7...).
 
-6. Commit: git add -A && git commit -m "feat(roadmap): discovery round — added new tasks
+6. Commit & push: git add -A && git commit -m "feat(roadmap): discovery round — added new tasks
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
 ENDPROMPT
@@ -269,6 +269,9 @@ log "Pending: $PENDING_COUNT → $NEW_PENDING"
 log "Completed: $COMPLETED_COUNT → $NEW_COMPLETED"
 log "Latest commit: $LATEST_COMMIT"
 log "Exit code: $CLAUDE_EXIT"
+
+# Push if remote is configured
+git push 2>/dev/null || log "(no remote or push failed)"
 
 # Save persistent state
 echo "$NEXT_ROUND" > "$ROUND_FILE"
