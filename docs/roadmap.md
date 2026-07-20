@@ -129,6 +129,12 @@
 | P5-20 | P3 | Response compression (gzip/brotli) middleware | pending | — | Compress JSON responses > 1KB; respect Accept-Encoding; skip for already-compressed types (images); configurable level |
 | P5-21 | P3 | Grafana dashboard templates for WMS metrics | pending | — | Provisioned dashboards: API overview (latency/errors), inventory health, task throughput, DB pool stats; JSON export |
 | P5-22 | P3 | Request timeout & deadline propagation | pending | — | Per-route timeout config; context deadline propagation through service→repo chain; 504 Gateway Timeout response; respect K8s pod termination |
+| P5-23 | P2 | Redis client bootstrap + connection pool | pending | — | Initialize Redis client at server startup; connection pool config; health check integration; blocks P2-23 (token blacklist), P5-08 (rate limiting), P5-09 (caching), P5-10 (session store) |
+| P5-24 | P3 | Idempotency key support for mutation endpoints | pending | — | Idempotency-Key header parsing; Redis-backed key dedup with TTL; return cached response for duplicate keys; prevent double-creates on retry |
+| P5-25 | P2 | Soft delete pattern across domain entities | pending | — | Add deleted_at TIMESTAMPTZ to all tables; domain IsDeleted() method; repo List methods filter out soft-deleted by default; include_deleted query param for admin views |
+| P5-26 | P3 | Bulk operation endpoints (batch create/update) | pending | — | POST /api/v1/inventory/bulk-adjust; POST /api/v1/tasks/bulk-assign; transactional bulk operations with partial-failure reporting |
+| P5-27 | P3 | Database connection pool configuration + health | pending | — | Configurable max_connections, min_connections, max_idle_time; pool stats exported as metrics; connection acquisition timeout; /ready checks pool health |
+| P5-28 | P3 | Request body size limits + content-type validation | pending | — | Max request body size middleware (default 1MB, configurable per-route); strict Content-Type checking (application/json only for JSON endpoints); 413/415 responses |
 
 ## Phase 6: Advanced WMS Features
 
@@ -150,6 +156,11 @@
 | P6-14 | P4 | Serial number tracking | pending | — | Per-unit serial number capture during receiving; serial traceability from receipt to ship; serial validation during picks; serial-level inventory status |
 | P6-15 | P4 | Dock door scheduling | pending | — | Truck appointment booking; dock door assignment; arrival/departure time tracking; carrier notification; yard check-in/check-out |
 | P6-16 | P4 | Value-added services (kitting, labeling, co-packing) | pending | — | Kit BOM definition; kit assembly work orders; custom labeling rules per customer; co-packing work instructions; service billing |
+| P6-17 | P4 | Putaway strategy engine (rule-based location assignment) | pending | — | Configurable strategies: fixed-location, random, zoned, velocity-based; strategy selection per SKU/zone; auto-suggest putaway location during receiving |
+| P6-18 | P4 | Wave release rules engine | pending | — | Release waves by carrier cutoff time, order priority, zone affinity; configurable release triggers; partial wave release for urgent orders |
+| P6-19 | P4 | Task interleaving optimization | pending | — | Combine pick + putaway tasks for single operator trip; reduce empty travel; configurable interleave rules per zone; efficiency tracking |
+| P6-20 | P4 | Cartonization / packing optimization | pending | — | Suggest optimal carton size for order contents; pack station workflow; carton content manifest; shipping label generation trigger |
+| P6-21 | P3 | Inventory unreserve / reservation release API | pending | — | POST /api/v1/inventory/{id}/unreserve to release reserved qty; auto-release on order cancellation; reservation expiry TTL for stale holds |
 
 ## Phase 7: Operational Excellence
 
@@ -190,4 +201,17 @@
 | P9-05 | P5 | ABC classification automation | pending | — | Auto-classify SKUs as A/B/C based on transaction velocity; periodic reclassification (weekly/monthly); storage zone reassignment suggestions; pick face optimization |
 | P9-06 | P5 | Cost-to-serve analysis | pending | — | Per-order operational cost breakdown (labor, packing, shipping); per-customer profitability dashboard; cost allocation rules engine; margin alerting |
 
-<!-- DISCOVER will scan for new feature ideas when pending drops below 5. Last discovery: P8-P9 added 2026-07-20. -->
+## Phase 10: Developer Experience & Community
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P10-01 | P4 | Auto-generated API reference documentation | pending | — | Annotate all handlers with swaggo/openapi comments; serve /api/docs with Swagger UI; publish static docs; keep in sync with code via CI check |
+| P10-02 | P4 | Postman / Insomnia API collection | pending | — | Export all Admin + PDA endpoints as Postman collection; include auth flow (login → use token); example request bodies; environment variables for local/dev/staging |
+| P10-03 | P4 | Docker Compose production-like environment | pending | — | Multi-service compose with admin, pda, postgres, redis, nginx reverse proxy; health check dependencies; volume mounts for dev iteration |
+| P10-04 | P4 | Development troubleshooting guide | pending | — | Common issues (DB connection refused, port conflicts, migration failures); diagnostic commands; log locations; how to reset to clean state |
+| P10-05 | P5 | Changelog automation from conventional commits | pending | — | Generate CHANGELOG.md from git history using conventional commit format; categorize by feat/fix/refactor; link to roadmap task IDs; auto-update on release |
+| P10-06 | P5 | Architecture Decision Records (ADR) for key choices | pending | — | Document rationale for UUID PKs, DDD layering, chi/v5 selection, pgx over GORM, JSONB for SKU attrs; ADR template in docs/adr/; numbered sequentially |
+| P10-07 | P5 | Frontend test suite (Vitest + React Testing Library) | pending | — | Unit tests for auth store, API client, hooks; component tests for Login, TaskList, warehouse forms; snapshot tests for layout; CI integration |
+| P10-08 | P5 | CLI admin tool (cobra-based) | pending | — | `wms-cli` binary for admin operations: seed DB, reset password, list users, health check, trigger migration, export data; useful for devops and scripting |
+
+<!-- DISCOVER will scan for new feature ideas when pending drops below 5. Last discovery: P8-P9 added 2026-07-20. Last grooming: round 31, added P5-23..28, P6-17..21, P10-01..08 (2026-07-21). -->
