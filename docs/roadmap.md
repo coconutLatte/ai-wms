@@ -137,6 +137,12 @@
 | P5-32 | P5 | Backorder management (short-pick tracking, auto-release on inventory arrival) | pending | — | Track unfulfilled order lines with backorder status; auto-detect when inventory arrives and matches backordered SKU; priority-based release rules (FIFO, priority, customer-tier); backorder aging report; manual release override; backorder notification to customer service |
 | P5-33 | P5 | Space utilization analytics (cube/weight %, empty location %, occupancy trends) | pending | — | Compute utilization by zone: cube % (occupied volume / total volume), weight % (occupied weight / max weight), empty location %; utilization heatmap by zone/aisle; trend charts over time; what-if re-slotting impact analysis; utilization alerts (zone > 90% full) |
 | P5-34 | P5 | Inbound QC inspection routing (per-SKU rules, AQL sampling, disposition routing) | pending | — | Per-SKU inspection rules (skip, spot-check, full-inspect); AQL sampling tables (ANSI/ASQ Z1.4); inspection result: accept → putaway, reject → quarantine, rework → rework area; inspection task generation on ASN arrival; inspection history per SKU/supplier; extends P5-13 quality inspection with inbound-specific routing |
+| P5-35 | P5 | Order hold management (hold types, release workflows, SLA tracking) | pending | — | Hold types: fraud_review, credit_check, manual_review, damaged_goods, carrier_delay; hold/release API; hold SLA timer with auto-escalation; hold audit log; blocked status propagation to wave/task; release with optional inventory re-allocation |
+| P5-36 | P5 | Inventory reservation expiration (timeout-based auto-release, configurable TTL) | pending | — | Configurable reservation TTL per order priority (urgent: 4hr, high: 8hr, normal: 24hr, low: 72hr); background job to expire stale reservations; release reserved_qty back to available; reservation expiry audit log; per-SKU override for high-demand items; depends on P5-02 allocation engine + P6-25 scheduled jobs |
+| P5-37 | P5 | Barcode generation service (GS1-128, QR, DataMatrix, label preview) | pending | — | Generate GS1-128 with Application Identifiers (00 SSCC, 01 GTIN, 10 batch, 17 expiry); QR code for mobile scanning; DataMatrix for small items; SVG/PNG output via HTTP endpoint; label preview with barcode + human-readable text; used by P15-02 label template engine |
+| P5-38 | P5 | Temperature/cold chain zone management (temp ranges, sensor integration, excursion alerts) | pending | — | Temperature range per zone/location (min/max °C); SKU storage temp requirements; putaway validation (reject if zone temp incompatible with SKU); IoT sensor integration point (receive temp readings via API); temperature excursion alert (out-of-range > N minutes); excursion audit log for compliance; cold chain hold/release workflow |
+| P5-39 | P5 | Task pause/resume workflow (operational pause, SLA timer handling) | pending | — | Pause reasons: break, shift_change, equipment_issue, waiting_material; pause/resume API with timestamp tracking; SLA timer pause (stop clock during pause, resume on unpause); max-pause-duration auto-escalation (e.g., pause > 2hr → alert supervisor); pause audit log; TaskStatusPaused already defined in domain — this adds the operational workflow |
+| P5-40 | P5 | In-transit inventory tracking (inter-warehouse shipments, ownership, ETA) | pending | — | In-transit inventory entity (source_warehouse, dest_warehouse, SKU, qty, carrier, tracking_no, ETA, status); deduct from source on ship, add to dest on receipt; in-transit aging report; lost-in-transit auto-flag (past ETA + grace period); ownership transfer point configuration (FOB origin vs destination); depends on P5-09 multi-warehouse support |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -167,6 +173,8 @@
 | P6-23 | P6 | Database migration in CI/CD pipeline (automated migration run, pre-check, rollback) | pending | — | Run migrations as pre-deploy step in CI; migration dry-run validation before apply; rollback plan on migration failure; migration lock to prevent concurrent runs; depends on P1-25 migration tooling |
 | P6-24 | P6 | Service mesh readiness (Istio/Envoy sidecar annotations, mTLS, traffic routing) | pending | — | Pod annotations for Istio sidecar injection; mTLS strict mode between services; VirtualService for canary routing; DestinationRule for circuit breaking at mesh layer; Gateway for ingress; complements P7-16 circuit breaker at app layer |
 | P6-25 | P6 | Scheduled job infrastructure (in-process cron scheduler, job registry, execution history) | pending | — | Job registry with registered job types; cron expression scheduling per job; execution history with status (success/failure/running) and duration; concurrency control (prevent overlapping runs of same job); retry on failure with backoff; needed by P5-22 cycle count scheduling, P5-17 scheduled reports, P14-03 data retention purge |
+| P6-26 | P6 | Dependency update automation (Renovate/Dependabot config for Go modules + npm packages) | pending | — | Renovate config in repo (.renovaterc); auto-PR for Go module updates (minor/patch auto-merge, major manual review); npm package updates grouped by scope; security vulnerability PRs flagged CRITICAL; schedule: weekly for non-critical, immediate for CVEs; PR labels for changelog generation |
+| P6-27 | P6 | SAST security scanning in CI (gosec for Go, ESLint security rules for frontend) | pending | — | gosec in GitHub Actions (fail on HIGH severity); ESLint-plugin-security for frontend; npm audit --audit-level=high in CI; results in GitHub Security tab (SARIF upload); baseline exceptions file for accepted risks reviewed quarterly; false-positive suppression with justification comments |
 
 ## Phase 7: Quality, Security & Hardening
 
@@ -218,6 +226,7 @@
 | P8-07 | P8 | Chaos engineering baseline (controlled failure injection, resilience validation) | pending | — | Kill a DB replica, kill a pod, network partition; verify graceful degradation and recovery |
 | P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager + P19-04 escalation; blocks P8-02 delivery channel; depends on P21-03 email sending service for email channel |
 | P8-09 | P8 | SLO tracking & error budget dashboard (p50/p95/p99 per endpoint, burn rate) | pending | — | Grafana dashboard with per-endpoint latency histogram; SLO compliance gauges; error budget remaining/burn rate; 30-day rolling windows; depends on P6-05 metrics + P6-07 tracing; complements P8-03 SLO definitions |
+| P8-10 | P8 | OpenTelemetry log-trace correlation (inject trace_id/span_id into structured logs) | pending | — | Inject OTel trace_id and span_id into all structured log entries; log correlation across services via trace_id; Grafana Loki→Tempo trace linking; log sampling by trace (keep all logs for error traces, sample healthy traces); depends on P6-06 structured logging + P6-07 distributed tracing |
 
 ## Phase 9: Advanced WMS Features
 
@@ -232,6 +241,8 @@
 | P9-07 | P9 | Voice picking integration (headset-directed picking via Vocollect/Honeywell) | pending | — | Voice template per task type; audio feedback; hands-free confirmation; error correction dialogue |
 | P9-08 | P9 | Pick-to-light / put-to-light hardware integration | pending | — | Light device registry; pick/put commands via MQTT or TCP; confirmation sensor handling |
 | P9-09 | P9 | Automated palletizing/de-palletizing (robotic arm integration via RCS) | pending | — | Pallet build plan; layer-by-layer sequence; mix-SKU pallets; de-palletizing for receiving |
+| P9-10 | P9 | Equipment/forklift management (equipment entity, maintenance schedule, certification tracking) | pending | — | Equipment entity (type: forklift/reach-truck/pallet-jack/scanner/printer, barcode, status); maintenance schedule with calendar integration (P15-05); operator certification tracking (which operators certified for which equipment); equipment-to-task assignment; maintenance due alerts; utilization tracking per equipment |
+| P9-11 | P9 | Customs documentation for international shipping (commercial invoice, packing list, certificates) | pending | — | Commercial invoice generation from order data (HS codes, country of origin per SKU); packing list with weights/dimensions per package; certificate of origin template; customs document templating (Go html/template); carrier-specific customs forms (FedEx/UPS/DHL electronic submission); document version tracking per shipment |
 
 ## Phase 10: Integration Hub & API Ecosystem
 
@@ -276,6 +287,8 @@
 | P13-05 | P13 | Frontend component testing (Vitest + React Testing Library setup) | pending | — | Test setup with jsdom; example tests for shared components; CI integration; snapshot testing for regression |
 | P13-06 | P13 | Environment-specific config templates (.env.dev, .env.staging, .env.prod) | pending | — | Documented env var templates per environment; .env.example checked in; .env in .gitignore; Docker Compose overrides per env |
 | P13-07 | P13 | Postman/Bruno API collection (pre-built requests for all endpoints) | pending | — | Collection file in repo; environment variables for local/dev/staging; pre-request scripts for auth token; self-documenting |
+| P13-08 | P13 | Architecture Decision Record (ADR) template + automated status checks | pending | — | Standardized ADR template (status, context, decision, consequences); ADR directory under docs/adr/; ADR status lifecycle (proposed → accepted → superseded → deprecated); automated check: PRs that add architecture changes must include ADR; existing ADR 001 already in repo — this formalizes the process |
+| P13-09 | P13 | Changelog generation from conventional commits (git-cliff config, automated release notes) | pending | — | git-cliff config in repo; categorize by conventional commit type (feat→Features, fix→Bug Fixes, refactor→Refactoring); group by scope; GitHub release integration (auto-populate release notes); CHANGELOG.md updated on every release; depends on P13-02 pre-commit conventional commit check |
 
 ## Phase 14: Compliance & Data Governance
 
@@ -287,6 +300,7 @@
 | P14-04 | P14 | PII data classification (identify and tag PII fields, masking in logs) | pending | — | Tag PII fields in domain models; log masking middleware; data flow diagram of PII; compliance documentation |
 | P14-05 | P14 | Audit compliance report (pre-built report for SOC2/ISO27001 audit evidence) | pending | — | Pre-built report covering access controls, change management, data encryption, backup verification; exportable as PDF |
 | P14-06 | P14 | Consent management (cookie consent banner, data processing consent records) | pending | — | Consent UI for admin/PDA; record consent timestamp + version; consent withdrawal flow; privacy policy page |
+| P14-07 | P14 | License compliance scanning (Go + npm dependencies, attribution doc generation) | pending | — | Scan go.mod + package.json for license types; flag copyleft/GPL licenses for legal review; generate NOTICE file with all dependency attributions; CI check: fail build on prohibited license addition; quarterly license audit report; SPDX license identifiers throughout |
 
 ## Phase 15: Labeling, Printing & Carrier Management
 
@@ -317,6 +331,7 @@
 | P17-01 | P17 | Warehouse layout designer (SVG-based drag-and-drop zone/location editor) | pending | — | Visual warehouse map editor; drag zones and locations onto grid; configure aisles, racks, conveyors; export layout as JSON config; import from existing warehouse data; measurement tools (distance, area); depends on warehouse/zone/location domain entities |
 | P17-02 | P17 | Operations simulation engine (configurable order patterns, throughput modeling) | pending | — | Order pattern generator (configurable mix of inbound/outbound, SKU distribution, velocity); simulate pick/putaway/replenish cycles; measure throughput, utilization, queue depth, bottlenecks; configurable operator count and shift patterns; replay historical order data |
 | P17-03 | P17 | What-if scenario comparison (layout changes, equipment, staffing scenarios) | pending | — | Define scenarios (baseline vs proposed); run simulations on each; side-by-side metrics comparison (throughput, labor hours, utilization); sensitivity analysis on key parameters; scenario library with saved baselines; report export |
+| P17-04 | P17 | Digital twin dashboard (real-time warehouse state mirror, 3D visualization) | pending | — | Real-time reflection of warehouse state: inventory heatmap overlay on SVG layout, active tasks animated (pick paths, AGV movements), zone occupancy gauges, bottleneck highlighting; WebSocket-driven live updates (P4-02); time-slider for replay (last hour/day/week); depends on P17-01 warehouse layout designer + P11-02 live ops dashboard |
 
 ## Phase 18: Supplier & Partner Enablement
 
@@ -364,11 +379,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 239 |
+| Total tasks | 254 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 230 |
+| Pending | 245 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 16: added 8 new tasks — P3-12 PDA task batching; P5-31 Container/LPN entity; P5-32 backorder management; P5-33 space utilization analytics; P5-34 inbound QC inspection routing; P6-25 scheduled job infrastructure; P7-31 API versioning strategy; P7-32 API key management; fixed P2-11 dependency note for OpenAPI timing) |
+| Last grooming | 2026-07-20 (Round 17: added 14 new tasks — P5-35 order hold management, P5-36 reservation expiration, P5-37 barcode generation, P5-38 cold chain zones, P5-39 task pause/resume, P5-40 in-transit inventory; P6-26 dependency automation, P6-27 SAST in CI; P8-10 log-trace correlation; P9-10 equipment/forklift mgmt, P9-11 customs documentation; P13-08 ADR template, P13-09 changelog generation; P14-07 license compliance; P17-04 digital twin dashboard) |
