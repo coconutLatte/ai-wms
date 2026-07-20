@@ -18,8 +18,8 @@
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
-| P1-01 | P1 | Repository interfaces (Warehouse, Inventory, Order, Task) | pending | — | Define interfaces in internal/repository/ |
-| P1-02 | P1 | PostgreSQL repository implementation (Warehouse + Zone + Location) | pending | — | Implement warehouse repo with pgx |
+| P1-01 | P1 | Repository interfaces (Warehouse, Inventory, Order, Task) | completed | 2026-07-20 | Define interfaces in internal/repository/ |
+| P1-02 | P1 | PostgreSQL repository implementation (Warehouse + Zone + Location) | completed | 2026-07-20 | Implement warehouse repo with pgx, 8 integration tests pass |
 | P1-03 | P1 | PostgreSQL repository implementation (SKU + Inventory) | pending | — | Implement inventory repo with pgx |
 | P1-04 | P1 | PostgreSQL repository implementation (Order + OrderLine) | pending | — | Implement order repo with pgx |
 | P1-05 | P1 | PostgreSQL repository implementation (Task + Wave) | pending | — | Implement task repo with pgx |
@@ -88,9 +88,9 @@
 | Metric | Value |
 |--------|-------|
 | Total tasks | 50 |
-| Completed | 6 |
+| Completed | 8 |
 | In progress | 0 |
-| Pending | 44 |
+| Pending | 42 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 |
+| Last evolution | 2026-07-20 (Round 1: P1-01, P1-02) |
