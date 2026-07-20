@@ -4,11 +4,8 @@ package api
 import (
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
-	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
-
 	"github.com/ai-wms/ai-wms/backend/internal/service"
 )
 
@@ -44,17 +41,17 @@ type inventoryResponse struct {
 
 func toInventoryResponse(inv *domain.Inventory) inventoryResponse {
 	r := inventoryResponse{
-		ID:            inv.ID.String(),
-		SKUID:         inv.SKUID.String(),
-		LocationID:    inv.LocationID.String(),
-		WarehouseID:   inv.WarehouseID.String(),
-		BatchNo:       inv.BatchNo,
-		Qty:           inv.Qty,
-		ReservedQty:   inv.ReservedQty,
-		AvailableQty:  inv.AvailableQty,
-		Status:        string(inv.Status),
-		ReceivedAt:    inv.ReceivedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:     inv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:           inv.ID.String(),
+		SKUID:        inv.SKUID.String(),
+		LocationID:   inv.LocationID.String(),
+		WarehouseID:  inv.WarehouseID.String(),
+		BatchNo:      inv.BatchNo,
+		Qty:          inv.Qty,
+		ReservedQty:  inv.ReservedQty,
+		AvailableQty: inv.AvailableQty,
+		Status:       string(inv.Status),
+		ReceivedAt:   inv.ReceivedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:    inv.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 	if inv.ProductionDate != nil {
 		r.ProductionDate = inv.ProductionDate.Format("2006-01-02T15:04:05Z")
@@ -67,17 +64,17 @@ func toInventoryResponse(inv *domain.Inventory) inventoryResponse {
 
 // inventoryTxnResponse is the JSON shape returned for inventory transaction endpoints.
 type inventoryTxnResponse struct {
-	ID             string  `json:"id"`
-	InventoryID    string  `json:"inventory_id"`
-	SKUID          string  `json:"sku_id"`
-	LocationID     string  `json:"location_id"`
-	Type           string  `json:"type"`
-	DeltaQty       float64 `json:"delta_qty"`
-	ResultingQty   float64 `json:"resulting_qty"`
-	ReferenceType  string  `json:"reference_type"`
-	ReferenceID    string  `json:"reference_id"`
-	CreatedAt      string  `json:"created_at"`
-	CreatedBy      string  `json:"created_by"`
+	ID            string  `json:"id"`
+	InventoryID   string  `json:"inventory_id"`
+	SKUID         string  `json:"sku_id"`
+	LocationID    string  `json:"location_id"`
+	Type          string  `json:"type"`
+	DeltaQty      float64 `json:"delta_qty"`
+	ResultingQty  float64 `json:"resulting_qty"`
+	ReferenceType string  `json:"reference_type"`
+	ReferenceID   string  `json:"reference_id"`
+	CreatedAt     string  `json:"created_at"`
+	CreatedBy     string  `json:"created_by"`
 }
 
 func toInventoryTxnResponse(tx *domain.InventoryTransaction) inventoryTxnResponse {
@@ -99,32 +96,8 @@ func toInventoryTxnResponse(tx *domain.InventoryTransaction) inventoryTxnRespons
 
 // adjustResponse is the JSON shape returned after an inventory adjustment.
 type adjustResponse struct {
-	Inventory inventoryResponse  `json:"inventory"`
+	Inventory   inventoryResponse    `json:"inventory"`
 	Transaction inventoryTxnResponse `json:"transaction"`
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────────────
-
-// queryParam returns a query string parameter value or the default.
-func queryParam(r *http.Request, key, defaultVal string) string {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return defaultVal
-	}
-	return v
-}
-
-// queryParamInt returns a query string parameter as an int or the default.
-func queryParamInt(r *http.Request, key string, defaultVal int) int {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return defaultVal
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 0 {
-		return defaultVal
-	}
-	return n
 }
 
 // ── Inventory Handlers ─────────────────────────────────────────────────────────────────
@@ -132,22 +105,18 @@ func queryParamInt(r *http.Request, key string, defaultVal int) int {
 // QueryInventory handles GET /api/v1/inventory
 func (h *InventoryHandler) QueryInventory(w http.ResponseWriter, r *http.Request) {
 	input := service.QueryInventoryInput{
-		WarehouseID: queryParam(r, "warehouse_id", ""),
-		SKUID:       queryParam(r, "sku_id", ""),
-		LocationID:  queryParam(r, "location_id", ""),
-		BatchNo:     queryParam(r, "batch_no", ""),
-		Status:      domain.InventoryStatus(queryParam(r, "status", "")),
-		Limit:       queryParamInt(r, "limit", 0),
-		Offset:      queryParamInt(r, "offset", 0),
+		WarehouseID: QueryParam(r, "warehouse_id", ""),
+		SKUID:       QueryParam(r, "sku_id", ""),
+		LocationID:  QueryParam(r, "location_id", ""),
+		BatchNo:     QueryParam(r, "batch_no", ""),
+		Status:      domain.InventoryStatus(QueryParam(r, "status", "")),
+		Limit:       QueryParamInt(r, "limit", 0),
+		Offset:      QueryParamInt(r, "offset", 0),
 	}
 
 	results, err := h.svc.QueryInventory(r.Context(), input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
@@ -156,63 +125,56 @@ func (h *InventoryHandler) QueryInventory(w http.ResponseWriter, r *http.Request
 		resp = append(resp, toInventoryResponse(inv))
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // GetInventory handles GET /api/v1/inventory/{id}
 func (h *InventoryHandler) GetInventory(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	inv, err := h.svc.GetInventory(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toInventoryResponse(inv))
+	WriteJSON(w, http.StatusOK, toInventoryResponse(inv))
 }
 
 // AdjustInventory handles POST /api/v1/inventory/{id}/adjust
 func (h *InventoryHandler) AdjustInventory(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	var input service.AdjustInventoryInput
-	if err := readJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
 		return
 	}
 
 	updated, err := h.svc.AdjustInventory(r.Context(), id, input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	// Fetch the most recent transaction to include in the response.
-	// The service creates exactly one transaction per adjustment, so the most
-	// recent one is the adjustment we just made.
 	txs, err := h.svc.GetTransactions(r.Context(), id)
 	if err != nil || len(txs) == 0 {
-		// If we can't get transactions, still return inventory without tx info.
-		writeJSON(w, http.StatusOK, map[string]any{
+		WriteJSON(w, http.StatusOK, map[string]any{
 			"inventory": toInventoryResponse(updated),
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, adjustResponse{
+	WriteJSON(w, http.StatusOK, adjustResponse{
 		Inventory:   toInventoryResponse(updated),
 		Transaction: toInventoryTxnResponse(txs[0]),
 	})
@@ -220,15 +182,15 @@ func (h *InventoryHandler) AdjustInventory(w http.ResponseWriter, r *http.Reques
 
 // GetTransactions handles GET /api/v1/inventory/{id}/transactions
 func (h *InventoryHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	txs, err := h.svc.GetTransactions(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
@@ -237,5 +199,5 @@ func (h *InventoryHandler) GetTransactions(w http.ResponseWriter, r *http.Reques
 		resp = append(resp, toInventoryTxnResponse(tx))
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }

@@ -29,20 +29,20 @@ func NewOrderHandler(svc *service.OrderService, log *slog.Logger) *OrderHandler 
 
 // orderResponse is the JSON shape returned for order endpoints.
 type orderResponse struct {
-	ID           string                `json:"id"`
-	OrderNo      string                `json:"order_no"`
-	OrderType    string                `json:"order_type"`
-	WarehouseID  string                `json:"warehouse_id"`
-	Status       string                `json:"status"`
-	Priority     string                `json:"priority"`
-	ExternalRef  string                `json:"external_ref,omitempty"`
-	ExternalType string                `json:"external_type,omitempty"`
-	Lines        []orderLineResponse   `json:"lines"`
-	Notes        string                `json:"notes,omitempty"`
-	CreatedAt    string                `json:"created_at"`
-	UpdatedAt    string                `json:"updated_at"`
-	CompletedAt  string                `json:"completed_at,omitempty"`
-	CreatedBy    string                `json:"created_by"`
+	ID           string              `json:"id"`
+	OrderNo      string              `json:"order_no"`
+	OrderType    string              `json:"order_type"`
+	WarehouseID  string              `json:"warehouse_id"`
+	Status       string              `json:"status"`
+	Priority     string              `json:"priority"`
+	ExternalRef  string              `json:"external_ref,omitempty"`
+	ExternalType string              `json:"external_type,omitempty"`
+	Lines        []orderLineResponse `json:"lines"`
+	Notes        string              `json:"notes,omitempty"`
+	CreatedAt    string              `json:"created_at"`
+	UpdatedAt    string              `json:"updated_at"`
+	CompletedAt  string              `json:"completed_at,omitempty"`
+	CreatedBy    string              `json:"created_by"`
 }
 
 // orderLineResponse is the JSON shape for order line items.
@@ -142,66 +142,62 @@ func toOrderSummaryResponse(o *domain.Order) orderSummaryResponse {
 // CreateOrder handles POST /api/v1/orders
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var input service.CreateOrderInput
-	if err := readJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
 		return
 	}
 
 	order, err := h.svc.CreateOrder(r.Context(), input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toOrderResponse(order))
+	WriteCreated(w, toOrderResponse(order))
 }
 
 // GetOrder handles GET /api/v1/orders/{id}
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	order, err := h.svc.GetOrder(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toOrderResponse(order))
+	WriteJSON(w, http.StatusOK, toOrderResponse(order))
 }
 
 // ListOrders handles GET /api/v1/orders
 func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	filter := repository.OrderFilter{
-		Limit:  queryParamInt(r, "limit", 50),
-		Offset: queryParamInt(r, "offset", 0),
+		Limit:  QueryParamInt(r, "limit", 50),
+		Offset: QueryParamInt(r, "offset", 0),
 	}
 
-	if raw := r.URL.Query().Get("warehouse_id"); raw != "" {
+	if raw := QueryParam(r, "warehouse_id", ""); raw != "" {
 		id, err := uuid.Parse(raw)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid warehouse_id UUID")
+			WriteError(w, r, pkgerrors.NewInvalidInput("invalid warehouse_id UUID"))
 			return
 		}
 		filter.WarehouseID = id
 	}
-	if raw := r.URL.Query().Get("order_type"); raw != "" {
+	if raw := QueryParam(r, "order_type", ""); raw != "" {
 		filter.OrderType = domain.OrderType(raw)
 	}
-	if raw := r.URL.Query().Get("status"); raw != "" {
+	if raw := QueryParam(r, "status", ""); raw != "" {
 		filter.Status = domain.OrderStatus(raw)
 	}
 
 	orders, err := h.svc.ListOrders(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
@@ -210,59 +206,51 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toOrderSummaryResponse(o))
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // UpdateOrderStatus handles PUT /api/v1/orders/{id}/status
 func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	var input service.UpdateOrderStatusInput
-	if err := readJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
 		return
 	}
 
 	order, err := h.svc.UpdateOrderStatus(r.Context(), id, input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toOrderResponse(order))
+	WriteJSON(w, http.StatusOK, toOrderResponse(order))
 }
 
 // AddOrderLine handles POST /api/v1/orders/{id}/lines
 func (h *OrderHandler) AddOrderLine(w http.ResponseWriter, r *http.Request) {
-	orderID, err := pathUUID(r, "id")
+	orderID, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	var input service.AddOrderLineInput
-	if err := readJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
 		return
 	}
 
 	line, err := h.svc.AddOrderLine(r.Context(), orderID, input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toOrderLineResponse(line))
+	WriteCreated(w, toOrderLineResponse(line))
 }

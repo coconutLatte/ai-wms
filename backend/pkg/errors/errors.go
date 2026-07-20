@@ -84,3 +84,63 @@ func IsNotFound(err error) bool {
 func IsInsufficientQty(err error) bool {
 	return errors.Is(err, ErrInsufficientQty)
 }
+
+// IsInvalidInput checks if an error is an invalid input error.
+func IsInvalidInput(err error) bool {
+	return errors.Is(err, ErrInvalidInput)
+}
+
+// IsInvalidStatus checks if an error is an invalid status transition error.
+func IsInvalidStatus(err error) bool {
+	return errors.Is(err, ErrInvalidStatus)
+}
+
+// Is checks if err matches target using errors.Is.
+func Is(err, target error) bool {
+	return errors.Is(err, target)
+}
+
+// NewAlreadyExists creates an already exists error.
+func NewAlreadyExists(resource string, id string) error {
+	return &DomainError{
+		Err:     ErrAlreadyExists,
+		Message: fmt.Sprintf("%s with id=%s already exists", resource, id),
+		Code:    "ALREADY_EXISTS",
+	}
+}
+
+// NewConflict creates a conflict error with context.
+func NewConflict(msg string) error {
+	return &DomainError{
+		Err:     ErrConflict,
+		Message: msg,
+		Code:    "CONFLICT",
+	}
+}
+
+// NewLocationOccupied creates a location occupied error.
+func NewLocationOccupied(locationID string) error {
+	return &DomainError{
+		Err:     ErrLocationOccupied,
+		Message: fmt.Sprintf("location %s is already occupied", locationID),
+		Code:    "LOCATION_OCCUPIED",
+	}
+}
+
+// NewLocationFull creates a location full error.
+func NewLocationFull(locationID string, capacity float64) error {
+	return &DomainError{
+		Err:     ErrLocationFull,
+		Message: fmt.Sprintf("location %s is full (capacity: %.2f)", locationID, capacity),
+		Code:    "LOCATION_FULL",
+	}
+}
+
+// NewInternal creates an internal error.
+func NewInternal(msg string) error {
+	return &DomainError{
+		Err:     ErrInternal,
+		Message: msg,
+		Code:    "INTERNAL_ERROR",
+	}
+}

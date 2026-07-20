@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
-
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
 	"github.com/ai-wms/ai-wms/backend/internal/service"
 )
@@ -81,46 +79,42 @@ func toSKUResponse(s *domain.SKU) skuResponse {
 // CreateSKU handles POST /api/v1/skus
 func (h *SKUHandler) CreateSKU(w http.ResponseWriter, r *http.Request) {
 	var input service.CreateSKUInput
-	if err := readJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
 		return
 	}
 
 	sku, err := h.svc.CreateSKU(r.Context(), input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toSKUResponse(sku))
+	WriteCreated(w, toSKUResponse(sku))
 }
 
 // GetSKU handles GET /api/v1/skus/{id}
 func (h *SKUHandler) GetSKU(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	sku, err := h.svc.GetSKU(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toSKUResponse(sku))
+	WriteJSON(w, http.StatusOK, toSKUResponse(sku))
 }
 
 // ListSKUs handles GET /api/v1/skus
 func (h *SKUHandler) ListSKUs(w http.ResponseWriter, r *http.Request) {
 	skus, err := h.svc.ListSKUs(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
@@ -129,32 +123,28 @@ func (h *SKUHandler) ListSKUs(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toSKUResponse(s))
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, resp)
 }
 
 // UpdateSKU handles PUT /api/v1/skus/{id}
 func (h *SKUHandler) UpdateSKU(w http.ResponseWriter, r *http.Request) {
-	id, err := pathUUID(r, "id")
+	id, err := PathUUID(r, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
 	var input service.UpdateSKUInput
-	if err := readJSON(r, &input); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
 		return
 	}
 
 	sku, err := h.svc.UpdateSKU(r.Context(), id, input)
 	if err != nil {
-		if pkgerrors.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeError(w, http.StatusBadRequest, err.Error())
+		WriteError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toSKUResponse(sku))
+	WriteJSON(w, http.StatusOK, toSKUResponse(sku))
 }

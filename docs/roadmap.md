@@ -35,8 +35,7 @@
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | completed | 2026-07-20 | OrderService with status machine validation (draft→confirmed→processing→partial/completed/cancelled); CreateOrder with lines, GetOrder (with lines), ListOrders (filter by warehouse/type/status), UpdateOrderStatus with valid transitions, AddOrderLine (draft only), GetOrderByNo; 14 service-layer unit tests pass; routes: POST/GET /api/v1/orders, GET /api/v1/orders/{id}, PUT /api/v1/orders/{id}/status, POST /api/v1/orders/{id}/lines; wired into admin server |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | completed | 2026-07-20 | TaskService with status machine (pending→assigned→in_progress→{completed,paused}; paused→in_progress; any→cancelled); CreateTask with validation for all 7 task types; AssignTask (pending only); UpdateTaskStatus with transition guard; CompleteTask (in_progress only, actual_qty); auto-generated TaskNo (TASK-YYYYMMDD-NNNNNN); 6 PDA endpoints: POST assign, PUT status (start/pause/resume/cancel), POST complete; 17 service-layer unit tests pass; wired into both admin and PDA servers; PDA server got first DB+service wiring |
 | P1-14 | P1 | Config management + Logger integration into services | completed | 2026-07-20 | Config.Load() now single source in cmd/admin + cmd/pda; Validate() fails fast on misconfiguration; DBMaxConns/DBMinConns configurable via env; NewDB(ctx, cfg) accepts *config.Config; logger.New(level) with context-aware methods (DebugContext, InfoContext, etc.); WithRequestID for trace propagation; 21 test cases (config 17 + logger 10); DB constructor uses structured slog for connection events |
-| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
-| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
+| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | completed | 2026-07-20 | RFC 7807 ProblemDetail; centralized WriteError mapping domain errors→HTTP status; ValidationError with field-level details; 7 new error constructors (AlreadyExists/Conflict/LocationOccupied/LocationFull/Internal + checkers Is/IsInvalidInput/IsInvalidStatus); centralized response helpers (WriteJSON/WriteCreated/WriteError/ReadJSON/PathUUID/QueryParam/QueryParamInt); all 5 handler files updated; 125 tests pass (24 api + 101 errors) |
 | P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx; needed before services |
 | P1-17 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository; blocks P5-02 |
 | P1-18 | P1 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results; add to all list endpoints; promoted from P2 to P1 — every list endpoint needs this |
@@ -77,6 +76,8 @@
 | P1-53 | P2 | Task paused_at timestamp tracking (paused duration for SLA analysis) | pending | — | Add paused_at TIMESTAMPTZ column to tasks table; update repo-level status transitions to set paused_at on pause and calculate cumulative pause duration on resume; needed for accurate cycle-time metrics that exclude intentional pauses (breaks, shift changes); discovered during P1-13 — domain Task struct currently has StartedAt/CompletedAt/CancelledAt but no PausedAt; migration 000002+ 
 | P1-54 | P1 | Wire structured logger into services for operational logging | pending | — | Inject *logger.Logger into WarehouseService/InventoryService/OrderService/TaskService constructors; log key business events (order creation, inventory adjustment, task completion) with structured fields (entity ID, operation, outcome); use context-aware methods (InfoContext/ErrorContext) for request correlation; discovered during P1-14 — services currently pure business logic without logging instrumentation |
 | P1-55 | P2 | Config SSL mode validation in Validate() | pending | — | Validate DB_SSLMODE is one of [disable, require, verify-ca, verify-full]; fail fast with clear message on invalid value; discovered during P1-14 — Validate() checks ports and pool sizes but not SSL mode |
+| P1-56 | P2 | Recovery middleware problem details format | pending | — | Update panic recovery middleware to return RFC 7807 ProblemDetail instead of raw {"error":"internal server error"}; include request ID and timestamp; discovered during P1-15 — recovery middleware still uses legacy error format |
+| P1-57 | P2 | Add ProblemDetail response assertion helpers for integration tests | pending | — | Create testutil/assert package with helpers like AssertProblemDetail(t, resp, wantCode, wantErrCode) and AssertValidationError(t, resp, field, msg); use in all API integration tests (P1-40 through P1-51); discovered during P1-15 — existing integration tests will need to verify the new problem details format |
 
 ## Phase 2: Admin Frontend
 
@@ -468,11 +469,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 328 |
-| Completed | 20 |
+| Total tasks | 330 |
+| Completed | 21 |
 | In progress | 0 |
-| Pending | 308 |
+| Pending | 309 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 14: P1-14 Config management + Logger integration into services) |
+| Last evolution | 2026-07-20 (Round 15: P1-15 Standardized error handling) |
 | Last grooming | 2026-07-20 (Round 10: expanded roadmap + P5-48/49, P6-36/37, P7-38; re-prioritized P1-21→P2, P1-27→P1; updated notes for P1-08/09/21/26/27, P6-06/10) |
