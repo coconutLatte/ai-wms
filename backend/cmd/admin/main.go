@@ -50,12 +50,15 @@ func main() {
 
 	// Initialize repositories
 	warehouseRepo := postgres.NewWarehouseRepo(db)
+	inventoryRepo := postgres.NewInventoryRepo(db)
 
 	// Initialize services
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
+	skuSvc := service.NewSKUService(inventoryRepo)
 
 	// Initialize API handlers
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
+	skuHandler := api.NewSKUHandler(skuSvc, log.Logger)
 
 	// Initialize API router with Go 1.22+ enhanced routing
 	mux := http.NewServeMux()
@@ -65,6 +68,7 @@ func main() {
 		fmt.Fprintf(w, `{"status":"ok","service":"admin","version":"0.1.0"}`)
 	})
 	api.RegisterWarehouseRoutes(mux, warehouseHandler)
+	api.RegisterSKURoutes(mux, skuHandler)
 
 	// Apply middleware stack: RequestID → Recovery → Logger → CORS → handler.
 	handler := middleware.RequestID(

@@ -30,7 +30,7 @@
 | P1-07 | P1 | PostgreSQL repository implementation (User + Role + AuditLog) | completed | 2026-07-20 | User CRUD + GetUserByUsername + GetUserByEmail + ListUsers with filter + UpdateUserStatus; Role CRUD + JSONB permissions + ListRoles + UpdateRole; AuditLog Create + List with UserID/Action/Resource filter + pagination; 19 integration tests pass |
 | P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | completed | 2026-07-20 | RequestID (context propagation + response header), Logger (structured slog per-request with method/path/status/duration/remote_addr), Recovery (panic→500 JSON+stack trace), CORS (configurable origins/methods/headers/credentials/MaxAge, preflight handler); 17 tests pass; wired into cmd/admin + cmd/pda |
 | P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | completed | 2026-07-20 | WarehouseService with validation + thin handlers using Go 1.22+ enhanced routing; 12 service-layer unit tests pass; routes mounted on admin server |
-| P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | pending | — | chi/v5 REST endpoints; thin handlers delegating to SKUService |
+| P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | completed | 2026-07-20 | SKUService with validation + thin handlers; POST/GET/PUT on /api/v1/skus; 14 service-layer unit tests pass; wired into admin server |
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | pending | — | With inventory transaction audit; check negative qty constraint |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
@@ -61,6 +61,9 @@
 | P1-38 | P1 | Add UpdateZone to repository + PostgreSQL impl + Zone update API endpoint | pending | — | Full zone CRUD: update code, name, zone_type, status; validate FK to warehouse exists; REST PUT /api/v1/zones/{id} handler; discovered during P1-09 — repo only had Create/Get/List for zones |
 | P1-39 | P1 | Add UpdateLocation to repository + PostgreSQL impl + Location update API endpoint | pending | — | Full location CRUD: update code, barcode, location_type, capacity, status; validate FK to zone exists; REST PUT /api/v1/locations/{id} handler; discovered during P1-09 — repo only had Create/Get/GetByBarcode/List/UpdateStatus for locations |
 | P1-40 | P1 | Warehouse API integration tests (HTTP handler tests with mock WarehouseService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for all 10 warehouse/zone/location endpoints; discovered during P1-09 — service layer tested but not HTTP handlers |
+| P1-41 | P1 | SKU API integration tests (HTTP handler tests with mock SKUService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for Create/Get/List/Update SKU endpoints; discovered during P1-10 — service layer tested but not HTTP handlers |
+| P1-42 | P2 | SKU barcode lookup API endpoint (GET /api/v1/skus/by-barcode) | pending | — | Add GetSKUByBarcode handler for PDA barcode scanning; repo method already exists (GetSKUByBarcode); thin handler delegating to SKUService; discovered during P1-10 |
+| P1-43 | P2 | SKU list filtering (by status, category, search text) | pending | — | Add filter params to ListSKUs; search by code/name prefix; filter by status (active/inactive/discontinued) and category; needed for admin SKU management page (P2-05); repo method ListSKUs currently returns all with no filter |
 
 ## Phase 2: Admin Frontend
 
@@ -447,11 +450,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 307 |
-| Completed | 15 |
+| Total tasks | 310 |
+| Completed | 16 |
 | In progress | 0 |
-| Pending | 292 |
+| Pending | 294 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 9: P1-09 Warehouse service + Admin API) |
-| Last grooming | 2026-07-20 (Round 5: reordered P1 by ID; added 12 tasks: P1-33/34, P4-14, P5-47, P6-31/32/33/34/35, P7-36/37, P8-13) |
+| Last evolution | 2026-07-20 (Round 10: P1-10 SKU service + Admin API) |
+| Last grooming | 2026-07-20 (Round 6: added P1-41/42/43 SKU follow-ups) |

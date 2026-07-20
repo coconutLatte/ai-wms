@@ -25,3 +25,11 @@ func RegisterWarehouseRoutes(mux *http.ServeMux, h *WarehouseHandler) {
 	mux.HandleFunc("GET /api/v1/locations/{id}", h.GetLocation)
 	mux.HandleFunc("PATCH /api/v1/locations/{id}/status", h.UpdateLocationStatus)
 }
+
+// RegisterSKURoutes registers SKU API routes on the given mux.
+func RegisterSKURoutes(mux *http.ServeMux, h *SKUHandler) {
+	mux.HandleFunc("POST /api/v1/skus", h.CreateSKU)
+	mux.HandleFunc("GET /api/v1/skus", h.ListSKUs)
+	mux.HandleFunc("GET /api/v1/skus/{id}", h.GetSKU)
+	mux.HandleFunc("PUT /api/v1/skus/{id}", h.UpdateSKU)
+}
