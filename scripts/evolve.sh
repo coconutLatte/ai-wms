@@ -130,13 +130,17 @@ Hint: ${TASK_NOTE}
 2. Implement the task — write production code AND tests
 3. Run: go build ./... && go test ./...   (fix any errors)
 4. Update docs/roadmap.md: change this task status to "completed | $(date +%Y-%m-%d) | <note>"
-5. **IMPORTANT — Roadmap Self-Evolution**: After implementing, review:
+5. **Update README.md**: in the <!-- EVOLUTION-STATS-START --> block, update:
+   - Total tasks, Completed, Pending counts (grep -c from roadmap.md)
+   - Evolution rounds (.evolution-round file)
+   - Last evolution date
+   - Keep the format identical, just update the numbers
+6. **IMPORTANT — Roadmap Self-Evolution**: After implementing, review:
    - Are there follow-up tasks this implementation enables? Add them.
    - Are there edge cases or improvements you noticed? Add them as new roadmap entries.
    - Is a related task now obsolete? Mark it.
-   - Use new task IDs: P<priority>-<next-available-number>
-   - Append new tasks to the appropriate Phase section in docs/roadmap.md
-6. Commit & push: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
+   - Keep total pending ≤ 10. If adding new tasks would exceed 10, remove the lowest-priority ones.
+7. Commit & push: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
 ENDPROMPT
