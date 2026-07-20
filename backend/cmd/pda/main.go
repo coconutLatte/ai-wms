@@ -20,41 +20,44 @@ import (
 )
 
 func main() {
-	port := os.Getenv("PDA_PORT")
-	if port == "" {
-		port = "8081"
+	// Load configuration from environment variables (single source of truth).
+	cfg := config.Load()
+
+	// Validate configuration early — fail fast with a clear message.
+	if err := cfg.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid configuration: %v\n", err)
+		os.Exit(1)
 	}
 
-	logLevel := os.Getenv("LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "info"
-	}
+	// Initialize structured logger from config.
+	log := logger.New(cfg.LogLevel)
+	log.Info("Configuration loaded",
+		slog.String("env", cfg.Env),
+		slog.String("log_level", cfg.LogLevel),
+		slog.String("pda_port", cfg.PDAPort),
+	)
 
-	// Initialize structured logger.
-	log := logger.New(logLevel)
-
-	// Initialize CORS configuration from environment or defaults.
+	// Initialize CORS configuration.
 	corsConfig := middleware.DefaultCORSConfig()
 	if origin := os.Getenv("CORS_ALLOWED_ORIGINS"); origin != "" {
 		corsConfig.AllowedOrigins = []string{origin}
 	}
 
-	// Initialize database connection
-	cfg := config.Load()
-	db, err := postgres.NewDB(context.Background(), cfg.DSN())
+	// Initialize database connection.
+	db, err := postgres.NewDB(context.Background(), cfg)
 	if err != nil {
 		log.Error("Failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer db.Close()
 
-	// Initialize repositories
+	// Initialize repositories.
 	taskRepo := postgres.NewTaskRepo(db)
 
-	// Initialize services
+	// Initialize services.
 	taskSvc := service.NewTaskService(taskRepo)
 
-	// Initialize API handlers
+	// Initialize API handlers.
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
 
 	// Build the middleware chain.
@@ -78,14 +81,14 @@ func main() {
 	)
 
 	srv := &http.Server{
-		Addr:         ":" + port,
+		Addr:         ":" + cfg.PDAPort,
 		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
+	// Graceful shutdown.
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -93,9 +96,9 @@ func main() {
 
 		log.Info("Shutting down PDA service...",
 			slog.String("service", "pda"),
-			slog.String("port", port))
+			slog.String("port", cfg.PDAPort))
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout())
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {
@@ -106,8 +109,8 @@ func main() {
 
 	log.Info("PDA service starting",
 		slog.String("service", "pda"),
-		slog.String("port", port),
-		slog.String("health_url", fmt.Sprintf("http://localhost:%s/health", port)),
+		slog.String("port", cfg.PDAPort),
+		slog.String("health_url", fmt.Sprintf("http://localhost:%s/health", cfg.PDAPort)),
 	)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

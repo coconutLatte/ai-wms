@@ -4,9 +4,11 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/ai-wms/ai-wms/backend/pkg/config"
 )
 
 // DB holds the PostgreSQL connection pool and provides repository access.
@@ -15,34 +17,38 @@ type DB struct {
 }
 
 // NewDB creates a new DB with a connection pool to PostgreSQL.
-func NewDB(ctx context.Context, dsn string) (*DB, error) {
-	config, err := pgxpool.ParseConfig(dsn)
+// Pool sizing is driven by the provided config.
+func NewDB(ctx context.Context, cfg *config.Config) (*DB, error) {
+	poolCfg, err := pgxpool.ParseConfig(cfg.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("parse dsn: %w", err)
 	}
 
-	config.MaxConns = 20
-	config.MinConns = 2
+	poolCfg.MaxConns = cfg.DBMaxConns
+	poolCfg.MinConns = cfg.DBMinConns
 
-	pool, err := pgxpool.NewWithConfig(ctx, config)
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("create pool: %w", err)
 	}
 
-	// Verify connectivity
+	// Verify connectivity.
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	log.Printf("[postgres] Connected (max_conns=%d, min_conns=%d)", config.MaxConns, config.MinConns)
+	slog.Info("Database connection established",
+		slog.Int("max_conns", int(cfg.DBMaxConns)),
+		slog.Int("min_conns", int(cfg.DBMinConns)),
+	)
 	return &DB{Pool: pool}, nil
 }
 
 // Close gracefully shuts down the connection pool.
 func (db *DB) Close() {
 	db.Pool.Close()
-	log.Println("[postgres] Connection pool closed")
+	slog.Info("Database connection pool closed")
 }
 
 // Ping verifies database connectivity.

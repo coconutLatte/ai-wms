@@ -21,6 +21,8 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	DBSSLMode  string
+	DBMaxConns int32
+	DBMinConns int32
 
 	// Redis
 	RedisHost string
@@ -43,12 +45,71 @@ func Load() *Config {
 		DBPassword: getEnv("DB_PASSWORD", "wms_dev_2026"),
 		DBName:     getEnv("DB_NAME", "wms"),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		DBMaxConns: int32(getEnvInt("DB_MAX_CONNS", 20)),
+		DBMinConns: int32(getEnvInt("DB_MIN_CONNS", 2)),
 		RedisHost:  getEnv("REDIS_HOST", "localhost"),
 		RedisPort:  getEnv("REDIS_PORT", "6379"),
 		RedisDB:    getEnvInt("REDIS_DB", 0),
 		LogLevel:   getEnv("LOG_LEVEL", "info"),
 		Env:        getEnv("ENV", "development"),
 	}
+}
+
+// Validate checks that all required configuration fields are set correctly.
+// Returns nil if the configuration is valid, or an error describing the first
+// problem found. This should be called early during application startup so
+// misconfiguration fails fast with a clear message.
+func (c *Config) Validate() error {
+	if c.AdminPort == "" {
+		return fmt.Errorf("ADMIN_PORT is required")
+	}
+	if c.PDAPort == "" {
+		return fmt.Errorf("PDA_PORT is required")
+	}
+	if c.DBHost == "" {
+		return fmt.Errorf("DB_HOST is required")
+	}
+	if c.DBPort == "" {
+		return fmt.Errorf("DB_PORT is required")
+	}
+	if c.DBUser == "" {
+		return fmt.Errorf("DB_USER is required")
+	}
+	if c.DBName == "" {
+		return fmt.Errorf("DB_NAME is required")
+	}
+	if c.DBMaxConns < 1 {
+		return fmt.Errorf("DB_MAX_CONNS must be >= 1, got %d", c.DBMaxConns)
+	}
+	if c.DBMinConns < 0 {
+		return fmt.Errorf("DB_MIN_CONNS must be >= 0, got %d", c.DBMinConns)
+	}
+	if c.DBMinConns > c.DBMaxConns {
+		return fmt.Errorf("DB_MIN_CONNS (%d) must not exceed DB_MAX_CONNS (%d)", c.DBMinConns, c.DBMaxConns)
+	}
+
+	// Validate port numbers are reasonable.
+	adminPort, err := strconv.Atoi(c.AdminPort)
+	if err != nil || adminPort < 1 || adminPort > 65535 {
+		return fmt.Errorf("ADMIN_PORT must be a valid port number (1-65535), got %q", c.AdminPort)
+	}
+	pdaPort, err := strconv.Atoi(c.PDAPort)
+	if err != nil || pdaPort < 1 || pdaPort > 65535 {
+		return fmt.Errorf("PDA_PORT must be a valid port number (1-65535), got %q", c.PDAPort)
+	}
+	dbPort, err := strconv.Atoi(c.DBPort)
+	if err != nil || dbPort < 1 || dbPort > 65535 {
+		return fmt.Errorf("DB_PORT must be a valid port number (1-65535), got %q", c.DBPort)
+	}
+
+	// Validate log level.
+	switch c.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		return fmt.Errorf("LOG_LEVEL must be one of [debug, info, warn, error], got %q", c.LogLevel)
+	}
+
+	return nil
 }
 
 // DSN returns the PostgreSQL connection string.

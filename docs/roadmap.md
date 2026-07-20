@@ -34,7 +34,8 @@
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | completed | 2026-07-20 | InventoryService with query/get/adjust/create/transactions; negative qty constraint enforced; 15 unit tests pass; AdjustInventory records InventoryTransaction audit trail; routes: GET /api/v1/inventory, GET /api/v1/inventory/{id}, POST /api/v1/inventory/{id}/adjust, GET /api/v1/inventory/{id}/transactions |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | completed | 2026-07-20 | OrderService with status machine validation (draft→confirmed→processing→partial/completed/cancelled); CreateOrder with lines, GetOrder (with lines), ListOrders (filter by warehouse/type/status), UpdateOrderStatus with valid transitions, AddOrderLine (draft only), GetOrderByNo; 14 service-layer unit tests pass; routes: POST/GET /api/v1/orders, GET /api/v1/orders/{id}, PUT /api/v1/orders/{id}/status, POST /api/v1/orders/{id}/lines; wired into admin server |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | completed | 2026-07-20 | TaskService with status machine (pending→assigned→in_progress→{completed,paused}; paused→in_progress; any→cancelled); CreateTask with validation for all 7 task types; AssignTask (pending only); UpdateTaskStatus with transition guard; CompleteTask (in_progress only, actual_qty); auto-generated TaskNo (TASK-YYYYMMDD-NNNNNN); 6 PDA endpoints: POST assign, PUT status (start/pause/resume/cancel), POST complete; 17 service-layer unit tests pass; wired into both admin and PDA servers; PDA server got first DB+service wiring |
-| P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; logger partially wired by P1-08 (slog.Logger injected into middleware); remaining: Config.Load() call in cmd, wire config into repos/services |
+| P1-14 | P1 | Config management + Logger integration into services | completed | 2026-07-20 | Config.Load() now single source in cmd/admin + cmd/pda; Validate() fails fast on misconfiguration; DBMaxConns/DBMinConns configurable via env; NewDB(ctx, cfg) accepts *config.Config; logger.New(level) with context-aware methods (DebugContext, InfoContext, etc.); WithRequestID for trace propagation; 21 test cases (config 17 + logger 10); DB constructor uses structured slog for connection events |
+| P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
 | P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
 | P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx; needed before services |
 | P1-17 | P2 | FEFO/FIFO inventory retrieval query method | pending | — | Add GetOldestInventory / GetExpiringInventory to InventoryRepository; blocks P5-02 |
@@ -54,7 +55,7 @@
 | P1-31 | P1 | User password update + last login repo methods | pending | — | Add UpdatePassword(ctx, id, passwordHash) and UpdateLastLogin(ctx, id, timestamp) to UserRepository; needed before P1-19 auth service; also add GetRoleByName for role lookup during auth |
 | P1-32 | P2 | AuditLog date-range filter repo method | pending | — | Add date-range filtering (from/to timestamps) to ListAuditLogs; needed by P5-07 audit log viewer for compliance reporting |
 | P1-33 | P2 | Database performance indexes migration (composite indexes for hot query paths) | pending | — | Add composite indexes: tasks(warehouse_id, status, assigned_to), orders(warehouse_id, order_type, status), inventory(warehouse_id, sku_id), audit_logs(created_at, action); EXPLAIN ANALYZE review before/after; migration file 000002 |
-| P1-34 | P1 | Environment config validation on startup | pending | — | Validate required env vars (DB_HOST, DB_USER, etc.) on boot; check port range validity; verify DB URL format; fail fast with clear error messages before starting server |
+| P1-34 | P1 | Environment config validation on startup | pending | — | P1-14 added Config.Validate() with port range, conn pool sanity, log level checks; remaining: DSN format validation, Redis addr format check, disk space check, network connectivity pre-flight; fail fast with clear error messages before starting server |
 | P1-35 | P2 | CORS origin pattern matching (wildcard subdomain support) | pending | — | Upgrade CORS middleware from exact origin match to glob/wildcard patterns (e.g., *.example.com, https://*.example.com:*/); needed when admin/PDA run on dynamic subdomains; depends on P1-08 |
 | P1-36 | P2 | Request timeout middleware | pending | — | Add configurable per-request timeout via context.WithTimeout; return 504 Gateway Timeout on expiry; configurable timeout per route; integrate with graceful shutdown (cancel in-flight on shutdown); depends on P1-08 |
 | P1-37 | P2 | Response header security middleware (CSP, X-Content-Type-Options, etc.) | pending | — | Add security headers: Content-Security-Policy, X-Content-Type-Options:nosniff, X-Frame-Options:DENY, Strict-Transport-Security, Referrer-Policy; configurable per environment; complements P1-08 CORS + P7-06 security hardening |
@@ -74,6 +75,8 @@
 | P1-51 | P1 | Task API integration tests (HTTP handler tests with mock TaskService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for all 6 task endpoints (Create/Get/List/Assign/UpdateStatus/Complete); discovered during P1-13 — service layer tested but not HTTP handlers |
 | P1-52 | P2 | Bulk task assignment endpoint (assign multiple tasks to single operator) | pending | — | Add POST /api/v1/tasks/assign-batch endpoint; assign N pending tasks to one worker in single call; return partial success on individual failures; use-case: supervisor assigns a batch of picks to one operator at shift start; batch size limit (configurable, default 20); discovered during P1-13 — PDA efficiency would benefit from batch assignment |
 | P1-53 | P2 | Task paused_at timestamp tracking (paused duration for SLA analysis) | pending | — | Add paused_at TIMESTAMPTZ column to tasks table; update repo-level status transitions to set paused_at on pause and calculate cumulative pause duration on resume; needed for accurate cycle-time metrics that exclude intentional pauses (breaks, shift changes); discovered during P1-13 — domain Task struct currently has StartedAt/CompletedAt/CancelledAt but no PausedAt; migration 000002+ 
+| P1-54 | P1 | Wire structured logger into services for operational logging | pending | — | Inject *logger.Logger into WarehouseService/InventoryService/OrderService/TaskService constructors; log key business events (order creation, inventory adjustment, task completion) with structured fields (entity ID, operation, outcome); use context-aware methods (InfoContext/ErrorContext) for request correlation; discovered during P1-14 — services currently pure business logic without logging instrumentation |
+| P1-55 | P2 | Config SSL mode validation in Validate() | pending | — | Validate DB_SSLMODE is one of [disable, require, verify-ca, verify-full]; fail fast with clear message on invalid value; discovered during P1-14 — Validate() checks ports and pool sizes but not SSL mode |
 
 ## Phase 2: Admin Frontend
 
@@ -465,11 +468,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 326 |
-| Completed | 19 |
+| Total tasks | 328 |
+| Completed | 20 |
 | In progress | 0 |
-| Pending | 307 |
+| Pending | 308 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 13: P1-13 Task service + PDA API) |
+| Last evolution | 2026-07-20 (Round 14: P1-14 Config management + Logger integration into services) |
 | Last grooming | 2026-07-20 (Round 10: expanded roadmap + P5-48/49, P6-36/37, P7-38; re-prioritized P1-21→P2, P1-27→P1; updated notes for P1-08/09/21/26/27, P6-06/10) |

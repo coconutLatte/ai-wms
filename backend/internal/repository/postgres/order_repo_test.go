@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -15,13 +14,10 @@ import (
 func setupOrderTestDB(t *testing.T) (*DB, func()) {
 	t.Helper()
 
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://wms:wms_dev_2026@localhost:5432/wms?sslmode=disable"
-	}
+	cfg := testConfig()
 
 	ctx := context.Background()
-	db, err := NewDB(ctx, dsn)
+	db, err := NewDB(ctx, cfg)
 	if err != nil {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 		return nil, nil
