@@ -42,8 +42,8 @@
 | P1-18 | P1 | Pagination metadata for QueryInventory | pending | — | Return total count alongside filtered results; add to all list endpoints; promoted from P2 to P1 — every list endpoint needs this |
 | P1-19 | P2 | Authentication service (JWT login, token refresh, session management) | pending | — | JWT generation + validation middleware; refresh token rotation; blocks P2-02 |
 | P1-27 | P2 | In-process domain event bus (publish/subscribe for domain events) | pending | — | Simple typed event publisher; subscriber registration; events: InventoryChanged, OrderStatusChanged, TaskCompleted; used by notification + audit + WebSocket push |
-| P1-21 | P1 | Proto code generation workflow (buf generate + CI check) | pending | — | Run buf generate to produce Go stubs; add CI step to verify generated code matches proto sources |
-| P1-22 | P1 | Makefile dev targets (run-admin, run-pda, migrate, remaining gaps) | pending | — | build/test/lint/proto targets already exist; needs `make run-admin`, `make run-pda`, real `make migrate` via goose; partially complete |
+| P1-21 | P1 | Proto code generation workflow (buf generate + CI check) | pending | — | Makefile `proto` target already runs buf generate; remaining work: CI step to verify generated code matches proto sources; go_package paths need verification |
+| P1-22 | P1 | Makefile dev targets (run-admin, run-pda, migrate, remaining gaps) | pending | — | build/test/lint/fmt/proto/quality targets already exist; needs `make run-admin`, `make run-pda`, real `make migrate` via goose; partially complete |
 | P1-23 | P2 | Development seed data script (sample warehouse, zones, locations, SKUs) | pending | — | CLI or SQL script to populate dev DB with realistic demo data; enables UI development; basic role/user seed already in 000001 |
 | P1-24 | P1 | Redis client initialization + connection pool + health check | pending | — | Wire go-redis/v9 into cmd entry points; RedisAddr() in config already; connection pool config; /readyz Redis ping; needed for sessions + caching |
 | P1-25 | P1 | Database migration tooling (golang-migrate or goose CLI integration) | pending | — | Replace docker-entrypoint auto-migration with explicit migration tool; `make migrate-up` / `make migrate-down`; migration version tracking table |
@@ -175,6 +175,8 @@
 | P6-25 | P6 | Scheduled job infrastructure (in-process cron scheduler, job registry, execution history) | pending | — | Job registry with registered job types; cron expression scheduling per job; execution history with status (success/failure/running) and duration; concurrency control (prevent overlapping runs of same job); retry on failure with backoff; needed by P5-22 cycle count scheduling, P5-17 scheduled reports, P14-03 data retention purge |
 | P6-26 | P6 | Dependency update automation (Renovate/Dependabot config for Go modules + npm packages) | pending | — | Renovate config in repo (.renovaterc); auto-PR for Go module updates (minor/patch auto-merge, major manual review); npm package updates grouped by scope; security vulnerability PRs flagged CRITICAL; schedule: weekly for non-critical, immediate for CVEs; PR labels for changelog generation |
 | P6-27 | P6 | SAST security scanning in CI (gosec for Go, ESLint security rules for frontend) | pending | — | gosec in GitHub Actions (fail on HIGH severity); ESLint-plugin-security for frontend; npm audit --audit-level=high in CI; results in GitHub Security tab (SARIF upload); baseline exceptions file for accepted risks reviewed quarterly; false-positive suppression with justification comments |
+| P6-28 | P6 | Database restore drill automation (periodic restore to staging, integrity verification) | pending | — | Automated weekly restore of latest backup to staging environment; integrity checks (row counts, FK referential integrity, index health); RTO measurement (time from backup to ready); alert if restore fails or exceeds RTO threshold; drill report for compliance audit; depends on P6-09 backup tooling |
+| P6-29 | P6 | Go pprof profiling endpoints (CPU, heap, goroutine, mutex profiles) | pending | — | Register net/http/pprof on a separate internal port (e.g., :6060) not exposed publicly; auth-protected via shared secret or mTLS; CPU profile sampling, heap allocation profile, goroutine dump, mutex contention; flame graph generation via go tool pprof; used for P7-07 performance tuning |
 
 ## Phase 7: Quality, Security & Hardening
 
@@ -212,6 +214,9 @@
 | P7-30 | P7 | Application-level deadlock detection + retry (concurrent resource ordering) | pending | — | Detect deadlock cycles in concurrent inventory/location acquisition; deterministic resource ordering to prevent deadlocks; transaction retry with exponential backoff + jitter on deadlock; deadlock event logging for diagnostics; builds on P1-16 tx patterns + P7-22 optimistic locking |
 | P7-31 | P7 | API versioning strategy (URL-based versioning, deprecation headers, sunset policy) | pending | — | URL-based versioning: /api/v1/ → /api/v2/; Sunset and Deprecation HTTP headers on deprecated endpoints; version deprecation policy (N-1 support: current + one previous); API changelog page; backwards-compatible changes within a version; breaking changes require new version |
 | P7-32 | P7 | API key management for integrations (CRUD, scoped permissions, rotation, tracking) | pending | — | API key entity (hashed storage, reveal-once on creation); scoped permissions per key (read-only, specific resources); key rotation with overlap window; expiry with auto-disable; usage tracking (last used, request count); rate limit per key; needed for Phase 4 integrations + Phase 10 API ecosystem |
+| P7-33 | P7 | Two-factor authentication (TOTP-based 2FA, enforced for admin roles, backup codes) | pending | — | TOTP setup wizard (QR code scan, verification); enforced per role (require 2FA for admin/manager roles); backup recovery codes (one-time use, bcrypt-hashed); remember-device option (30-day trust); 2FA challenge on login from new IP; account recovery flow for lost 2FA device; depends on P1-19 auth service |
+| P7-34 | P7 | Session management hardening (concurrent limits, force-logout, device tracking) | pending | — | List active sessions per user with IP/device/user-agent; force-logout individual or all sessions; configurable concurrent session limit per role; device/browser fingerprint for anomaly detection; suspicious activity alerts (new country/IP); session idle timeout with sliding expiration; depends on P1-19 auth + P7-13 Redis cache for session store |
+| P7-35 | P7 | Security.txt + vulnerability disclosure policy | pending | — | security.txt at /.well-known/security.txt per RFC 9116; vulnerability reporting contact and PGP key; disclosure policy (coordinated disclosure, safe harbor, response SLA); security contact page in admin UI; linked from API docs and README |
 
 ## Phase 8: Observability & Operations
 
@@ -227,6 +232,7 @@
 | P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager + P19-04 escalation; blocks P8-02 delivery channel; depends on P21-03 email sending service for email channel |
 | P8-09 | P8 | SLO tracking & error budget dashboard (p50/p95/p99 per endpoint, burn rate) | pending | — | Grafana dashboard with per-endpoint latency histogram; SLO compliance gauges; error budget remaining/burn rate; 30-day rolling windows; depends on P6-05 metrics + P6-07 tracing; complements P8-03 SLO definitions |
 | P8-10 | P8 | OpenTelemetry log-trace correlation (inject trace_id/span_id into structured logs) | pending | — | Inject OTel trace_id and span_id into all structured log entries; log correlation across services via trace_id; Grafana Loki→Tempo trace linking; log sampling by trace (keep all logs for error traces, sample healthy traces); depends on P6-06 structured logging + P6-07 distributed tracing |
+| P8-11 | P8 | Integration adapter health monitoring (per-adapter dashboard, connection status, throughput) | pending | — | Per-adapter health metrics: connection status (up/down/degraded), message throughput (msgs/sec), error rate, last heartbeat timestamp, DLQ depth; Grafana dashboard row per adapter; alert on adapter down > 2min or DLQ depth > threshold; depends on P4-13 DLQ + P6-05 metrics + P8-01 Grafana |
 
 ## Phase 9: Advanced WMS Features
 
@@ -243,6 +249,7 @@
 | P9-09 | P9 | Automated palletizing/de-palletizing (robotic arm integration via RCS) | pending | — | Pallet build plan; layer-by-layer sequence; mix-SKU pallets; de-palletizing for receiving |
 | P9-10 | P9 | Equipment/forklift management (equipment entity, maintenance schedule, certification tracking) | pending | — | Equipment entity (type: forklift/reach-truck/pallet-jack/scanner/printer, barcode, status); maintenance schedule with calendar integration (P15-05); operator certification tracking (which operators certified for which equipment); equipment-to-task assignment; maintenance due alerts; utilization tracking per equipment |
 | P9-11 | P9 | Customs documentation for international shipping (commercial invoice, packing list, certificates) | pending | — | Commercial invoice generation from order data (HS codes, country of origin per SKU); packing list with weights/dimensions per package; certificate of origin template; customs document templating (Go html/template); carrier-specific customs forms (FedEx/UPS/DHL electronic submission); document version tracking per shipment |
+| P9-12 | P9 | Dock appointment scheduling (carrier/supplier self-service booking, time-slot, dwell tracking) | pending | — | Dock door calendar with configurable time slots (e.g., 30min blocks); carrier/supplier self-service booking portal (linked to P18-01 supplier portal); check-in/check-out workflow with timestamp tracking; dwell time tracking and alerts (dock occupancy > scheduled window); overbooking prevention per dock; recurring appointment templates; distinct from P9-01 yard management (trailer tracking) — this is the scheduling layer |
 
 ## Phase 10: Integration Hub & API Ecosystem
 
@@ -264,6 +271,7 @@
 | P11-03 | P11 | ML-based demand forecasting (predict inbound/outbound volume by SKU) | pending | — | Time-series forecasting; seasonal adjustment; staff planning integration; depends on P11-01 |
 | P11-04 | P11 | Slotting optimization (ML-based ABC + dynamic assignment) | pending | — | Combines velocity data + cube movement; continuous re-slot suggestions; what-if simulation |
 | P11-05 | P11 | Anomaly detection (unusual adjustments, suspicious pick patterns, shrink analysis) | pending | — | Statistical outlier detection on inventory adjustments; pick variance clustering; shrink root-cause |
+| P11-06 | P11 | Analytics data mart (star schema for operational reporting, ETL from OLTP) | pending | — | Star schema in separate analytics schema (fact_orders, fact_inventory_txns, dim_sku, dim_warehouse, dim_date, dim_customer); nightly ETL from OLTP to analytics tables via postgres_fdw or dbt; materialized views for common KPI dashboards (daily_order_volume, sku_velocity, zone_utilization); isolates reporting query load from operational DB; depends on P5-04/P5-05 reports; enables P11-03 ML forecasting with clean data |
 
 ## Phase 12: Internationalization & Localization
 
@@ -275,6 +283,7 @@
 | P12-04 | P12 | PDA UI translations (zh-CN, ja-JP) | pending | — | Mobile-optimized translations for PDA flows; short labels for small screens |
 | P12-05 | P12 | Date/time/number formatting by locale (dayjs locale integration) | pending | — | Locale-aware date formats, number separators, timezone display; consistent across all UI components |
 | P12-06 | P12 | RTL (right-to-left) layout foundation | pending | — | CSS logical properties; direction-aware components; Arabic/Hebrew readiness (UI only, no translation yet) |
+| P12-07 | P12 | API error message i18n (locale-aware error responses via Accept-Language header) | pending | — | Translation files for API error messages in zh-CN, ja-JP; Accept-Language header parsing; fallback to en; error code remains stable across locales (only message text changes); error translation namespace separate from UI translations; used by PDA (operator-facing errors) + integration adapters (machine-readable codes unchanged) |
 
 ## Phase 13: Developer Experience & Tooling
 
@@ -375,15 +384,36 @@
 | P21-02 | P21 | Transactional email templates (order confirm, ship notify, alert, report, welcome) | pending | — | Pre-built templates: order confirmation (inbound/outbound), shipment notification with tracking, inventory alert (low stock, expiry), scheduled report delivery (P5-17), user welcome + password reset; responsive HTML tested across email clients; unsubscribe header compliance; depends on P21-01 |
 | P21-03 | P21 | Email sending service (SMTP + provider abstraction, delivery tracking) | pending | — | Provider interface: SMTP + SendGrid/Resend/Mailgun implementations; connection pooling for SMTP; delivery status webhook handling (delivered, bounced, complained, opened); retry with backoff on transient failures; send rate limiting per provider; email send audit log; blocks P8-08 notification delivery + P5-17 report email delivery |
 
+## Phase 22: User Experience & Accessibility
+
+> Accessibility and UX polish ensure the WMS is usable by all operators and administrators, including those with disabilities.
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P22-01 | P22 | Admin UI accessibility audit + remediation (WCAG 2.1 AA compliance) | pending | — | Keyboard navigation for all interactive elements (tables, forms, modals, dropdowns); screen reader labels (aria-label, aria-describedby, role attributes); focus management (focus trapping in modals, focus restoration on navigation); color contrast ≥ 4.5:1 for text, ≥ 3:1 for large text; skip-to-content link; axe-core or Lighthouse CI check in PR pipeline; accessible form validation errors |
+| P22-02 | P22 | PDA UI accessibility (large touch targets, screen reader, high contrast) | pending | — | Minimum touch target size 44×44px (WCAG 2.5.5); high-contrast mode toggle for warehouse environments (bright/dim lighting); screen reader announcements for barcode scan results ("SKU 12345 scanned, qty 10"); vibration alternatives → visual flash + sound for alerts; reduced motion support (prefers-reduced-motion); font size controls (warehouse operators may have varying vision needs) |
+| P22-03 | P22 | Admin UI dark mode + theme system | pending | — | Ant Design 5 ConfigProvider theme with dark/light/system toggle; persisted preference in localStorage; CSS variable-based design tokens for custom theming (brand colors, spacing, border-radius); automatic dark mode based on system preference on first visit; theme context provider for consistent access across admin + PDA |
+| P22-04 | P22 | Admin UI responsive layout (tablet-functional admin dashboard) | pending | — | Collapsible sidebar with icon-only mode for small screens; responsive data tables → card/list view below breakpoint; dashboard KPI cards reflow to grid; form layouts single-column on mobile; navigation drawer for mobile; priority: functional on tablet (warehouse managers on floor), not optimized for phone |
+
+## Phase 23: Training, Onboarding & Documentation
+
+> Operator and administrator onboarding is critical for WMS adoption. This phase provides guided training, setup wizards, and embedded help.
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P23-01 | P23 | Operator training mode (guided PDA walkthroughs, progress tracking, certification) | pending | — | Training mode toggle per user; guided walkthrough for each PDA flow (receiving, putaway, picking, cycle count, shipping) with step-by-step overlay instructions; practice mode with test data (no real inventory impact); progress tracking per operator (which flows completed); supervisor sign-off on training completion; training certification records with expiry (re-certification reminders) |
+| P23-02 | P23 | Admin onboarding wizard (guided initial setup: warehouse → zones → locations → SKUs → users) | pending | — | Multi-step wizard with progress indicator; Step 1: create first warehouse; Step 2: define zones (pre-built templates: standard 4-zone vs advanced); Step 3: generate location grid (aisle/rack/bin pattern); Step 4: import or create first SKUs (CSV upload or manual); Step 5: create admin users + assign roles; can skip steps and complete later; onboarding completion checklist on dashboard |
+| P23-03 | P23 | Context-sensitive help + embedded documentation hub | pending | — | "?" help icon on every admin page linking to relevant docs section; embedded short tutorial GIFs/videos for common operations (create order, adjust inventory, assign task); searchable help drawer; link to full documentation site; help content versioned alongside app version; PDA help accessible from bottom tab (quick reference for task flows); depends on P6-08 OpenAPI docs for API reference section |
+
 ## Evolution Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 254 |
+| Total tasks | 272 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 245 |
+| Pending | 263 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 17: added 14 new tasks — P5-35 order hold management, P5-36 reservation expiration, P5-37 barcode generation, P5-38 cold chain zones, P5-39 task pause/resume, P5-40 in-transit inventory; P6-26 dependency automation, P6-27 SAST in CI; P8-10 log-trace correlation; P9-10 equipment/forklift mgmt, P9-11 customs documentation; P13-08 ADR template, P13-09 changelog generation; P14-07 license compliance; P17-04 digital twin dashboard) |
+| Last grooming | 2026-07-20 (Round 18: updated 4 task notes for accuracy; added 16 new tasks — P6-28 restore drills, P6-29 pprof, P7-33 2FA, P7-34 session hardening, P7-35 security.txt, P8-11 adapter health, P9-12 dock scheduling, P11-06 analytics mart, P12-07 API i18n errors; new Phase 22 UX/Accessibility (4 tasks), new Phase 23 Training/Onboarding (3 tasks)) |
