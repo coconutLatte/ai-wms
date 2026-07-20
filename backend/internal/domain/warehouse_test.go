@@ -208,6 +208,142 @@ func TestLocation_NilCapacity(t *testing.T) {
 	}
 }
 
+// ── Location State Machine Tests ──────────────────────────────────────────────
+
+func TestLocation_IsTerminal(t *testing.T) {
+	tests := []struct {
+		status   LocationStatus
+		terminal bool
+	}{
+		{LocationStatusEmpty, false},
+		{LocationStatusOccupied, false},
+		{LocationStatusReserved, false},
+		{LocationStatusBlocked, true},
+	}
+
+	for _, tt := range tests {
+		loc := &Location{Status: tt.status}
+		if got := loc.IsTerminal(); got != tt.terminal {
+			t.Errorf("IsTerminal(%s) = %v, want %v", tt.status, got, tt.terminal)
+		}
+	}
+}
+
+func TestLocation_CanTransitionTo_SameStatus(t *testing.T) {
+	all := []LocationStatus{
+		LocationStatusEmpty, LocationStatusOccupied,
+		LocationStatusReserved, LocationStatusBlocked,
+	}
+	for _, s := range all {
+		loc := &Location{Status: s}
+		if loc.CanTransitionTo(s) {
+			t.Errorf("CanTransitionTo(%s → %s) should be false (same status)", s, s)
+		}
+	}
+}
+
+func TestLocation_CanTransitionTo_FromEmpty(t *testing.T) {
+	loc := &Location{Status: LocationStatusEmpty}
+
+	valid := []LocationStatus{
+		LocationStatusOccupied, LocationStatusReserved, LocationStatusBlocked,
+	}
+	for _, target := range valid {
+		if !loc.CanTransitionTo(target) {
+			t.Errorf("CanTransitionTo(empty → %s) should be true", target)
+		}
+	}
+}
+
+func TestLocation_CanTransitionTo_FromOccupied(t *testing.T) {
+	loc := &Location{Status: LocationStatusOccupied}
+
+	valid := []LocationStatus{LocationStatusEmpty, LocationStatusBlocked}
+	for _, target := range valid {
+		if !loc.CanTransitionTo(target) {
+			t.Errorf("CanTransitionTo(occupied → %s) should be true", target)
+		}
+	}
+
+	invalid := []LocationStatus{LocationStatusReserved}
+	for _, target := range invalid {
+		if loc.CanTransitionTo(target) {
+			t.Errorf("CanTransitionTo(occupied → %s) should be false", target)
+		}
+	}
+}
+
+func TestLocation_CanTransitionTo_FromReserved(t *testing.T) {
+	loc := &Location{Status: LocationStatusReserved}
+
+	valid := []LocationStatus{
+		LocationStatusOccupied, LocationStatusEmpty, LocationStatusBlocked,
+	}
+	for _, target := range valid {
+		if !loc.CanTransitionTo(target) {
+			t.Errorf("CanTransitionTo(reserved → %s) should be true", target)
+		}
+	}
+}
+
+func TestLocation_CanTransitionTo_FromBlocked(t *testing.T) {
+	loc := &Location{Status: LocationStatusBlocked}
+
+	// Blocked can only transition to empty (unblock).
+	if !loc.CanTransitionTo(LocationStatusEmpty) {
+		t.Errorf("CanTransitionTo(blocked → empty) should be true")
+	}
+
+	invalid := []LocationStatus{
+		LocationStatusOccupied, LocationStatusReserved,
+	}
+	for _, target := range invalid {
+		if loc.CanTransitionTo(target) {
+			t.Errorf("CanTransitionTo(blocked → %s) should be false", target)
+		}
+	}
+}
+
+func TestLocation_CanTransitionTo_FullTable(t *testing.T) {
+	// Exhaustive test of all 4×4 = 16 possible transitions.
+	type testCase struct {
+		from   LocationStatus
+		to     LocationStatus
+		expect bool
+	}
+
+	cases := []testCase{
+		// empty → *
+		{LocationStatusEmpty, LocationStatusEmpty, false},
+		{LocationStatusEmpty, LocationStatusOccupied, true},
+		{LocationStatusEmpty, LocationStatusReserved, true},
+		{LocationStatusEmpty, LocationStatusBlocked, true},
+		// occupied → *
+		{LocationStatusOccupied, LocationStatusEmpty, true},
+		{LocationStatusOccupied, LocationStatusOccupied, false},
+		{LocationStatusOccupied, LocationStatusReserved, false},
+		{LocationStatusOccupied, LocationStatusBlocked, true},
+		// reserved → *
+		{LocationStatusReserved, LocationStatusEmpty, true},
+		{LocationStatusReserved, LocationStatusOccupied, true},
+		{LocationStatusReserved, LocationStatusReserved, false},
+		{LocationStatusReserved, LocationStatusBlocked, true},
+		// blocked → *
+		{LocationStatusBlocked, LocationStatusEmpty, true},
+		{LocationStatusBlocked, LocationStatusOccupied, false},
+		{LocationStatusBlocked, LocationStatusReserved, false},
+		{LocationStatusBlocked, LocationStatusBlocked, false},
+	}
+
+	for _, c := range cases {
+		loc := &Location{Status: c.from}
+		got := loc.CanTransitionTo(c.to)
+		if got != c.expect {
+			t.Errorf("CanTransitionTo(%s → %s) = %v, want %v", c.from, c.to, got, c.expect)
+		}
+	}
+}
+
 // ── UOM Tests ─────────────────────────────────────────────────────────────────
 
 func TestUOM_Struct(t *testing.T) {

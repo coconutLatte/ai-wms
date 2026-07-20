@@ -11,13 +11,13 @@ import (
 
 // Warehouse represents a physical warehouse.
 type Warehouse struct {
-	ID        uuid.UUID `json:"id"`
-	Code      string    `json:"code"`      // Unique warehouse code, e.g. "WH-SH-01"
-	Name      string    `json:"name"`      // Display name, e.g. "Shanghai Main Warehouse"
-	Address   string    `json:"address"`   // Physical address
+	ID        uuid.UUID       `json:"id"`
+	Code      string          `json:"code"`    // Unique warehouse code, e.g. "WH-SH-01"
+	Name      string          `json:"name"`    // Display name, e.g. "Shanghai Main Warehouse"
+	Address   string          `json:"address"` // Physical address
 	Status    WarehouseStatus `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
 }
 
 // WarehouseStatus represents the operational status of a warehouse.
@@ -31,14 +31,14 @@ const (
 
 // Zone represents a logical area within a warehouse (e.g., "Receiving", "Storage", "Picking", "Shipping").
 type Zone struct {
-	ID          uuid.UUID `json:"id"`
-	WarehouseID uuid.UUID `json:"warehouse_id"`
-	Code        string    `json:"code"`        // e.g. "ZONE-RCV-01"
-	Name        string    `json:"name"`        // e.g. "Receiving Zone A"
-	ZoneType    ZoneType  `json:"zone_type"`
+	ID          uuid.UUID  `json:"id"`
+	WarehouseID uuid.UUID  `json:"warehouse_id"`
+	Code        string     `json:"code"`     // e.g. "ZONE-RCV-01"
+	Name        string     `json:"name"`     // e.g. "Receiving Zone A"
+	ZoneType    ZoneType   `json:"zone_type"`
 	Status      ZoneStatus `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // ZoneType classifies the purpose of a zone.
@@ -64,27 +64,27 @@ const (
 
 // Location represents a specific storage location (bin/slot) within a zone.
 type Location struct {
-	ID          uuid.UUID      `json:"id"`
-	ZoneID      uuid.UUID      `json:"zone_id"`
-	WarehouseID uuid.UUID      `json:"warehouse_id"`
-	Code        string         `json:"code"`         // e.g. "A-01-02-03" (aisle-rack-level-bin)
-	Barcode     string         `json:"barcode"`      // Barcode label on the physical location
-	LocationType LocationType  `json:"location_type"`
-	Capacity    *Capacity      `json:"capacity,omitempty"` // Max capacity (nil = unlimited)
-	Status      LocationStatus `json:"status"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID           uuid.UUID      `json:"id"`
+	ZoneID       uuid.UUID      `json:"zone_id"`
+	WarehouseID  uuid.UUID      `json:"warehouse_id"`
+	Code         string         `json:"code"`    // e.g. "A-01-02-03" (aisle-rack-level-bin)
+	Barcode      string         `json:"barcode"` // Barcode label on the physical location
+	LocationType LocationType   `json:"location_type"`
+	Capacity     *Capacity      `json:"capacity,omitempty"` // Max capacity (nil = unlimited)
+	Status       LocationStatus `json:"status"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 // LocationType classifies the type of storage location.
 type LocationType string
 
 const (
-	LocationTypePallet    LocationType = "pallet"    // Full pallet position
-	LocationTypeShelf     LocationType = "shelf"     // Shelf/bin location
-	LocationTypeFloor     LocationType = "floor"     // Floor storage
-	LocationTypeConveyor  LocationType = "conveyor"  // Conveyor position (WCS-controlled)
-	LocationTypeAGV       LocationType = "agv"       // AGV docking point (RCS-controlled)
+	LocationTypePallet   LocationType = "pallet"   // Full pallet position
+	LocationTypeShelf    LocationType = "shelf"    // Shelf/bin location
+	LocationTypeFloor    LocationType = "floor"    // Floor storage
+	LocationTypeConveyor LocationType = "conveyor" // Conveyor position (WCS-controlled)
+	LocationTypeAGV      LocationType = "agv"      // AGV docking point (RCS-controlled)
 )
 
 // LocationStatus represents the state of a location.
@@ -102,4 +102,44 @@ type Capacity struct {
 	MaxWeight float64 `json:"max_weight"` // Max weight in kg
 	MaxVolume float64 `json:"max_volume"` // Max volume in m³
 	MaxQty    int     `json:"max_qty"`    // Max quantity of units
+}
+
+// ── Location State Machine Methods ──────────────────────────────────────────
+
+// IsTerminal returns true if the location is in a terminal (immutable) state.
+func (l *Location) IsTerminal() bool {
+	return l.Status == LocationStatusBlocked
+}
+
+// CanTransitionTo checks whether the location can transition from its current
+// status to the target status. This is the authoritative location state machine.
+//
+// Valid transitions:
+//
+//	empty    → occupied, reserved, blocked
+//	occupied → empty, blocked
+//	reserved → occupied, empty, blocked
+//	blocked  → empty
+func (l *Location) CanTransitionTo(target LocationStatus) bool {
+	if l.Status == target {
+		return false
+	}
+
+	switch l.Status {
+	case LocationStatusEmpty:
+		return target == LocationStatusOccupied ||
+			target == LocationStatusReserved ||
+			target == LocationStatusBlocked
+	case LocationStatusOccupied:
+		return target == LocationStatusEmpty ||
+			target == LocationStatusBlocked
+	case LocationStatusReserved:
+		return target == LocationStatusOccupied ||
+			target == LocationStatusEmpty ||
+			target == LocationStatusBlocked
+	case LocationStatusBlocked:
+		return target == LocationStatusEmpty
+	default:
+		return false
+	}
 }

@@ -430,3 +430,91 @@ func TestWarehouseService_UpdateLocationStatus_InvalidStatus(t *testing.T) {
 		t.Fatal("expected error for invalid location status")
 	}
 }
+
+// ── Location Status State Machine Tests ──────────────────────────────────────
+
+func TestWarehouseService_UpdateLocationStatus_InvalidTransition(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockWarehouseRepo()
+	svc := NewWarehouseService(repo)
+
+	wh, _ := svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "Test WH"})
+	zone, _ := svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
+	loc, _ := svc.CreateLocation(ctx, zone.ID, CreateLocationInput{Code: "L-001", LocationType: domain.LocationTypeShelf})
+
+	// occupied → reserved is not allowed.
+	svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusOccupied)
+
+	err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusReserved)
+	if err == nil {
+		t.Fatal("expected error for invalid transition occupied → reserved")
+	}
+	if !pkgerrors.IsInvalidStatus(err) {
+		t.Errorf("expected IsInvalidStatus error, got: %v", err)
+	}
+}
+
+func TestWarehouseService_UpdateLocationStatus_BlockedToOccupiedFails(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockWarehouseRepo()
+	svc := NewWarehouseService(repo)
+
+	wh, _ := svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "Test WH"})
+	zone, _ := svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
+	loc, _ := svc.CreateLocation(ctx, zone.ID, CreateLocationInput{Code: "L-001", LocationType: domain.LocationTypeShelf})
+
+	// empty → blocked (valid)
+	if err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusBlocked); err != nil {
+		t.Fatalf("unexpected error blocking location: %v", err)
+	}
+
+	// blocked → occupied (invalid)
+	err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusOccupied)
+	if err == nil {
+		t.Fatal("expected error for invalid transition blocked → occupied")
+	}
+}
+
+func TestWarehouseService_UpdateLocationStatus_FullLifecycle(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockWarehouseRepo()
+	svc := NewWarehouseService(repo)
+
+	wh, _ := svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "Test WH"})
+	zone, _ := svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
+	loc, _ := svc.CreateLocation(ctx, zone.ID, CreateLocationInput{Code: "L-001", LocationType: domain.LocationTypeShelf})
+
+	// empty → reserved
+	if err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusReserved); err != nil {
+		t.Fatalf("unexpected error empty→reserved: %v", err)
+	}
+	got, _ := svc.GetLocation(ctx, loc.ID)
+	if got.Status != domain.LocationStatusReserved {
+		t.Errorf("status = %q, want reserved", got.Status)
+	}
+
+	// reserved → occupied
+	if err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusOccupied); err != nil {
+		t.Fatalf("unexpected error reserved→occupied: %v", err)
+	}
+
+	// occupied → empty
+	if err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusEmpty); err != nil {
+		t.Fatalf("unexpected error occupied→empty: %v", err)
+	}
+
+	// empty → blocked
+	if err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusBlocked); err != nil {
+		t.Fatalf("unexpected error empty→blocked: %v", err)
+	}
+
+	// blocked → empty (unblock)
+	if err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusEmpty); err != nil {
+		t.Fatalf("unexpected error blocked→empty: %v", err)
+	}
+
+	got, _ = svc.GetLocation(ctx, loc.ID)
+	if got.Status != domain.LocationStatusEmpty {
+		t.Errorf("status = %q, want empty", got.Status)
+	}
+}

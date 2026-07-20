@@ -46,6 +46,20 @@ A logical area within a warehouse with a specific function.
 A specific storage position (shelf, bin, pallet position, conveyor slot, AGV dock).
 - **Types**: pallet, shelf, floor, conveyor, agv
 - **Status**: empty, occupied, reserved, blocked
+- **Status machine** (enforced via `CanTransitionTo`):
+  ```
+  empty ──→ occupied
+  empty ──→ reserved
+  empty ──→ blocked
+  occupied ──→ empty
+  occupied ──→ blocked
+  reserved ──→ occupied
+  reserved ──→ empty
+  reserved ──→ blocked
+  blocked ──→ empty
+  ```
+  - `IsTerminal()` returns true only for `blocked` (location is out of service)
+  - Same-status transitions are rejected (no-op guard)
 - Has optional Capacity (max weight, volume, quantity)
 - Identified by a barcode label
 

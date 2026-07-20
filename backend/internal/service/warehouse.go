@@ -89,8 +89,8 @@ func (s *WarehouseService) ListWarehouses(ctx context.Context, limit, offset int
 
 // UpdateWarehouseInput is the input for updating a warehouse.
 type UpdateWarehouseInput struct {
-	Name    *string              `json:"name,omitempty"`
-	Address *string              `json:"address,omitempty"`
+	Name    *string                 `json:"name,omitempty"`
+	Address *string                 `json:"address,omitempty"`
 	Status  *domain.WarehouseStatus `json:"status,omitempty"`
 }
 
@@ -134,8 +134,8 @@ func isValidWarehouseStatus(s domain.WarehouseStatus) bool {
 
 // CreateZoneInput is the input for creating a new zone.
 type CreateZoneInput struct {
-	Code     string            `json:"code"`
-	Name     string            `json:"name"`
+	Code     string          `json:"code"`
+	Name     string          `json:"name"`
 	ZoneType domain.ZoneType `json:"zone_type"`
 }
 
@@ -221,10 +221,10 @@ func (s *WarehouseService) ListZones(ctx context.Context, warehouseID uuid.UUID,
 
 // CreateLocationInput is the input for creating a new location.
 type CreateLocationInput struct {
-	Code         string               `json:"code"`
-	Barcode      string               `json:"barcode,omitempty"`
+	Code         string             `json:"code"`
+	Barcode      string             `json:"barcode,omitempty"`
 	LocationType domain.LocationType `json:"location_type"`
-	Capacity     *domain.Capacity     `json:"capacity,omitempty"`
+	Capacity     *domain.Capacity   `json:"capacity,omitempty"`
 }
 
 // Validate checks the input for business rule violations.
@@ -305,10 +305,20 @@ func (s *WarehouseService) ListLocations(ctx context.Context, zoneID uuid.UUID, 
 	return locs, total, nil
 }
 
-// UpdateLocationStatus updates the status of a location.
+// UpdateLocationStatus updates the status of a location, enforcing the
+// Location state machine via CanTransitionTo.
 func (s *WarehouseService) UpdateLocationStatus(ctx context.Context, id uuid.UUID, status domain.LocationStatus) error {
 	if !isValidLocationStatus(status) {
 		return pkgerrors.NewInvalidInput(fmt.Sprintf("invalid location status: %s", status))
+	}
+
+	loc, err := s.repo.GetLocation(ctx, id)
+	if err != nil {
+		return fmt.Errorf("warehouse service: update location status %s: %w", id, err)
+	}
+
+	if !loc.CanTransitionTo(status) {
+		return pkgerrors.NewInvalidStatus(string(loc.Status), string(status))
 	}
 
 	if err := s.repo.UpdateLocationStatus(ctx, id, status); err != nil {
