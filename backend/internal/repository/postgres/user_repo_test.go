@@ -789,3 +789,146 @@ func TestUserRepo_ListAuditLogs_LimitOffset(t *testing.T) {
 		}
 	}
 }
+
+
+func TestUserRepo_CountUsers(t *testing.T) {
+	db, cleanup := setupUserTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewUserRepo(db)
+
+	// Count before creating any test users
+	initial, err := repo.CountUsers(ctx, repository.UserFilter{})
+	if err != nil {
+		t.Fatalf("CountUsers failed: %v", err)
+	}
+
+	// Create 2 test users
+	for i := 0; i < 2; i++ {
+		user := &domain.User{
+			Username:     "TEST-user-count-" + uuid.New().String()[:8],
+			Email:        "test-count-" + uuid.New().String()[:8] + "@test.com",
+			PasswordHash: "$2a$10$test_hash",
+		}
+		if err := repo.CreateUser(ctx, user); err != nil {
+			t.Fatalf("CreateUser failed: %v", err)
+		}
+	}
+
+	total, err := repo.CountUsers(ctx, repository.UserFilter{})
+	if err != nil {
+		t.Fatalf("CountUsers failed: %v", err)
+	}
+	if total != initial+2 {
+		t.Errorf("Expected %d users total, got %d", initial+2, total)
+	}
+}
+
+func TestUserRepo_CountUsers_ByStatus(t *testing.T) {
+	db, cleanup := setupUserTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewUserRepo(db)
+
+	// Create 1 active and 1 inactive user
+	activeUser := &domain.User{
+		Username:     "TEST-user-active-" + uuid.New().String()[:8],
+		Email:        "test-active-" + uuid.New().String()[:8] + "@test.com",
+		PasswordHash: "$2a$10$test_hash",
+	}
+	if err := repo.CreateUser(ctx, activeUser); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	inactiveUser := &domain.User{
+		Username:     "TEST-user-inactive-" + uuid.New().String()[:8],
+		Email:        "test-inactive-" + uuid.New().String()[:8] + "@test.com",
+		PasswordHash: "$2a$10$test_hash",
+		Status:       domain.UserStatusInactive,
+	}
+	if err := repo.CreateUser(ctx, inactiveUser); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	activeCount, err := repo.CountUsers(ctx, repository.UserFilter{Status: domain.UserStatusActive})
+	if err != nil {
+		t.Fatalf("CountUsers(active) failed: %v", err)
+	}
+	if activeCount < 1 {
+		t.Errorf("Expected at least 1 active user, got %d", activeCount)
+	}
+
+	inactiveCount, err := repo.CountUsers(ctx, repository.UserFilter{Status: domain.UserStatusInactive})
+	if err != nil {
+		t.Fatalf("CountUsers(inactive) failed: %v", err)
+	}
+	if inactiveCount < 1 {
+		t.Errorf("Expected at least 1 inactive user, got %d", inactiveCount)
+	}
+}
+
+func TestUserRepo_CountAuditLogs(t *testing.T) {
+	db, cleanup := setupUserTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewUserRepo(db)
+
+	// Create a test user
+	user := &domain.User{
+		Username:     "TEST-auditcount-" + uuid.New().String()[:8],
+		Email:        "test-auditcount-" + uuid.New().String()[:8] + "@test.com",
+		PasswordHash: "$2a$10$test_hash",
+	}
+	if err := repo.CreateUser(ctx, user); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Create 3 audit logs
+	for i := 0; i < 3; i++ {
+		log := &domain.AuditLog{
+			UserID: user.ID, Username: user.Username,
+			Action: "test.action", Resource: "test", ResourceID: uuid.New().String(),
+		}
+		if err := repo.CreateAuditLog(ctx, log); err != nil {
+			t.Fatalf("CreateAuditLog failed: %v", err)
+		}
+	}
+
+	total, err := repo.CountAuditLogs(ctx, repository.AuditLogFilter{UserID: user.ID})
+	if err != nil {
+		t.Fatalf("CountAuditLogs failed: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("Expected 3 audit logs, got %d", total)
+	}
+
+	// Filter by action
+	actionCount, err := repo.CountAuditLogs(ctx, repository.AuditLogFilter{UserID: user.ID, Action: "test.action"})
+	if err != nil {
+		t.Fatalf("CountAuditLogs(action) failed: %v", err)
+	}
+	if actionCount != 3 {
+		t.Errorf("Expected 3 test.action logs, got %d", actionCount)
+	}
+
+	// Filter by different action
+	noMatch, err := repo.CountAuditLogs(ctx, repository.AuditLogFilter{UserID: user.ID, Action: "nonexistent"})
+	if err != nil {
+		t.Fatalf("CountAuditLogs(nonexistent) failed: %v", err)
+	}
+	if noMatch != 0 {
+		t.Errorf("Expected 0 nonexistent logs, got %d", noMatch)
+	}
+}

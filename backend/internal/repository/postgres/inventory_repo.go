@@ -436,8 +436,8 @@ func (r *InventoryRepo) CreateTransaction(ctx context.Context, tx *domain.Invent
 }
 
 // ListTransactions returns all transactions for an inventory record.
-func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.UUID) ([]*domain.InventoryTransaction, error) {
-	const query = `
+func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error) {
+	query := `
 		SELECT id, inventory_id, sku_id, location_id,
 		       type, delta_qty, resulting_qty,
 		       reference_type, reference_id,
@@ -445,8 +445,22 @@ func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.U
 		FROM inventory_transactions
 		WHERE inventory_id = $1
 		ORDER BY created_at DESC`
+	var args []any
+	args = append(args, inventoryID)
+	argIdx := 2
 
-	rows, err := r.query(ctx, query, inventoryID)
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+		argIdx++
+	}
+	if offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list transactions: %w", err)
 	}

@@ -174,7 +174,7 @@ func TestInventoryService_AdjustInventory_Increase(t *testing.T) {
 	}
 
 	// Verify transaction was created.
-	txs, err := svc.GetTransactions(ctx, inv.ID)
+	txs, _, err := svc.GetTransactions(ctx, inv.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("GetTransactions failed: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestInventoryService_AdjustInventory_Decrease(t *testing.T) {
 	}
 
 	// Verify resulting_qty in transaction.
-	txs, _ := svc.GetTransactions(ctx, inv.ID)
+	txs, _, _ := svc.GetTransactions(ctx, inv.ID, 0, 0)
 	if txs[0].ResultingQty != 70.0 {
 		t.Errorf("resulting_qty = %f, want 70.0", txs[0].ResultingQty)
 	}
@@ -329,7 +329,7 @@ func TestInventoryService_AdjustInventory_RecordsTransaction(t *testing.T) {
 		t.Fatalf("second adjustment failed: %v", err)
 	}
 
-	txs, err := svc.GetTransactions(ctx, inv.ID)
+	txs, _, err := svc.GetTransactions(ctx, inv.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("GetTransactions failed: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestInventoryService_GetTransactions(t *testing.T) {
 		CreatedBy:     "counter",
 	})
 
-	txs, err := svc.GetTransactions(ctx, inv.ID)
+	txs, _, err := svc.GetTransactions(ctx, inv.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("GetTransactions failed: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestInventoryService_GetTransactions_Empty(t *testing.T) {
 		Qty:         50.0,
 	})
 
-	txs, err := svc.GetTransactions(ctx, inv.ID)
+	txs, _, err := svc.GetTransactions(ctx, inv.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("GetTransactions failed: %v", err)
 	}

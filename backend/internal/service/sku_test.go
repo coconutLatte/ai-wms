@@ -140,17 +140,28 @@ func (m *mockInventoryRepo) CreateTransaction(ctx context.Context, tx *domain.In
 	return nil
 }
 
-func (m *mockInventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.UUID) ([]*domain.InventoryTransaction, error) {
+func (m *mockInventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error) {
 	var result []*domain.InventoryTransaction
 	for _, tx := range m.transactions {
 		if tx.InventoryID == inventoryID {
 			result = append(result, tx)
 		}
 	}
+
+	// Apply offset
+	if offset > 0 && offset < len(result) {
+		result = result[offset:]
+	} else if offset >= len(result) {
+		return []*domain.InventoryTransaction{}, nil
+	}
+
+	// Apply limit
+	if limit > 0 && limit < len(result) {
+		result = result[:limit]
+	}
+
 	return result, nil
 }
-
-// ── Count methods ────────────────────────────
 
 func (m *mockInventoryRepo) CountSKUs(ctx context.Context) (int, error) {
 	return len(m.skus), nil

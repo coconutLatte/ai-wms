@@ -51,5 +51,8 @@
 | P2-11 | P2 | Tx-aware helpers for remaining repos (warehouse, order, task, user) | pending | — | Extend exec/query/queryRow dispatch pattern to all repos so multi-repo tx works |
 | P2-12 | P2 | SELECT FOR UPDATE row-level locking for inventory adjustments | pending | — | Prevent race condition in AdjustInventory between read and write within tx |
 | P2-13 | P2 | DI wiring: wire TxManager into server startup (cmd/admin, cmd/pda) | pending | — | Create TxManager at startup, inject into services via NewInventoryServiceWithTx |
+| P2-14 | P2 | CountWaves + CountRoles for TaskRepository and UserRepository | pending | — | ListWaves and ListRoles lack count methods; needed for future paginated wave/role list APIs |
+| P2-15 | P2 | AuditLog list endpoint with pagination (service + Admin API) | pending | — | CountAuditLogs now exists; needs service + handler wrapping ListResponse[T] |
+| P2-16 | P2 | User list endpoint with pagination (service + Admin API) | pending | — | CountUsers now exists; needs service + handler wrapping ListResponse[T] |
 
 <!-- DISCOVER will refill when pending < 3 -->

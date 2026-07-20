@@ -188,6 +188,31 @@ func (r *UserRepo) UpdateUserStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
+// CountUsers returns the total number of users matching the filter.
+func (r *UserRepo) CountUsers(ctx context.Context, filter repository.UserFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+
+	query := "SELECT COUNT(*) FROM users"
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return count, nil
+}
+
 // ── Role ────────────────────────────────────────────────────
 
 // CreateRole inserts a new role.
@@ -369,6 +394,40 @@ func (r *UserRepo) ListAuditLogs(ctx context.Context, filter repository.AuditLog
 		return nil, fmt.Errorf("iterate audit logs: %w", err)
 	}
 	return logs, nil
+}
+// CountAuditLogs returns the total count of audit logs matching the filter.
+func (r *UserRepo) CountAuditLogs(ctx context.Context, filter repository.AuditLogFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.UserID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("user_id = $%d", argIdx))
+		args = append(args, filter.UserID)
+		argIdx++
+	}
+	if filter.Action != "" {
+		conditions = append(conditions, fmt.Sprintf("action = $%d", argIdx))
+		args = append(args, filter.Action)
+		argIdx++
+	}
+	if filter.Resource != "" {
+		conditions = append(conditions, fmt.Sprintf("resource = $%d", argIdx))
+		args = append(args, filter.Resource)
+		argIdx++
+	}
+
+	query := "SELECT COUNT(*) FROM audit_logs"
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.db.Pool.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count audit logs: %w", err)
+	}
+	return count, nil
 }
 
 // ── Scan Helpers ────────────────────────────────────────────

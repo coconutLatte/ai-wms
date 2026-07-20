@@ -54,7 +54,7 @@ type InventoryRepository interface {
 
 	// Inventory Transaction
 	CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error
-	ListTransactions(ctx context.Context, inventoryID uuid.UUID) ([]*domain.InventoryTransaction, error)
+	ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error)
 	CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error)
 }
 
@@ -145,6 +145,7 @@ type UserRepository interface {
 	ListUsers(ctx context.Context, filter UserFilter) ([]*domain.User, error)
 	UpdateUser(ctx context.Context, u *domain.User) error
 	UpdateUserStatus(ctx context.Context, id uuid.UUID, status domain.UserStatus) error
+		CountUsers(ctx context.Context, filter UserFilter) (int, error)
 
 	// Role
 	CreateRole(ctx context.Context, r *domain.Role) error
@@ -155,6 +156,7 @@ type UserRepository interface {
 	// AuditLog
 	CreateAuditLog(ctx context.Context, log *domain.AuditLog) error
 	ListAuditLogs(ctx context.Context, filter AuditLogFilter) ([]*domain.AuditLog, error)
+		CountAuditLogs(ctx context.Context, filter AuditLogFilter) (int, error)
 }
 
 // UserFilter defines query parameters for user search.

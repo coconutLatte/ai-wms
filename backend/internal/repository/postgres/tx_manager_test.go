@@ -184,7 +184,7 @@ func TestTxManager_WithTx_AtomicInventoryAdjustment(t *testing.T) {
 		t.Errorf("qty = %f, want 75", updated.Qty)
 	}
 
-	txs, err := invRepo.ListTransactions(ctx, inv.ID)
+	txs, err := invRepo.ListTransactions(ctx, inv.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("ListTransactions failed: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestTxManager_WithTx_AtomicInventoryRollback(t *testing.T) {
 	}
 
 	// Verify no transaction was created.
-	txs, _ := invRepo.ListTransactions(ctx, inv.ID)
+	txs, _ := invRepo.ListTransactions(ctx, inv.ID, 0, 0)
 	if len(txs) != 0 {
 		t.Errorf("expected 0 transactions after rollback, got %d", len(txs))
 	}

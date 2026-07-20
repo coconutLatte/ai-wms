@@ -172,7 +172,7 @@ func (h *InventoryHandler) AdjustInventory(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Fetch the most recent transaction to include in the response.
-	txs, err := h.svc.GetTransactions(r.Context(), id)
+	txs, _, err := h.svc.GetTransactions(r.Context(), id, 0, 0)
 	if err != nil || len(txs) == 0 {
 		WriteJSON(w, http.StatusOK, map[string]any{
 			"inventory": toInventoryResponse(updated),
@@ -194,7 +194,10 @@ func (h *InventoryHandler) GetTransactions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	txs, err := h.svc.GetTransactions(r.Context(), id)
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	txs, total, err := h.svc.GetTransactions(r.Context(), id, pageSize, offset)
 	if err != nil {
 		WriteError(w, r, err)
 		return
@@ -205,5 +208,8 @@ func (h *InventoryHandler) GetTransactions(w http.ResponseWriter, r *http.Reques
 		resp = append(resp, toInventoryTxnResponse(tx))
 	}
 
-	WriteJSON(w, http.StatusOK, resp)
+	WriteJSON(w, http.StatusOK, ListResponse[inventoryTxnResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
 }

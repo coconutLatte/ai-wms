@@ -722,7 +722,7 @@ func TestInventoryRepo_CreateAndListTransactions(t *testing.T) {
 	}
 
 	// List transactions
-	txs, err := invRepo.ListTransactions(ctx, inv.ID)
+	txs, err := invRepo.ListTransactions(ctx, inv.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("ListTransactions failed: %v", err)
 	}

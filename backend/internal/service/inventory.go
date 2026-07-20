@@ -262,10 +262,17 @@ func (s *InventoryService) CreateInventory(ctx context.Context, input CreateInve
 }
 
 // GetTransactions returns the transaction history for an inventory record.
-func (s *InventoryService) GetTransactions(ctx context.Context, inventoryID uuid.UUID) ([]*domain.InventoryTransaction, error) {
-	txs, err := s.repo.ListTransactions(ctx, inventoryID)
+// When limit is 0, returns all transactions (no pagination limit).
+func (s *InventoryService) GetTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, int, error) {
+	txs, err := s.repo.ListTransactions(ctx, inventoryID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("inventory service: transactions %s: %w", inventoryID, err)
+		return nil, 0, fmt.Errorf("inventory service: transactions %s: %w", inventoryID, err)
 	}
-	return txs, nil
+
+	total, err := s.repo.CountTransactions(ctx, inventoryID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("inventory service: count transactions %s: %w", inventoryID, err)
+	}
+
+	return txs, total, nil
 }
