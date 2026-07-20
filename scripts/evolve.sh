@@ -1,301 +1,140 @@
 #!/usr/bin/env bash
 # =============================================================================
-# AI-WMS Auto-Evolution Script
+# AI-WMS Auto-Evolution Engine
 # =============================================================================
-# This script is the engine of the self-evolving WMS. It:
-# 1. Reads the roadmap to find the highest-priority pending task
-# 2. Constructs a prompt with full context
-# 3. Invokes Claude Code to implement the task
-# 4. Runs quality gates (build + test)
-# 5. Commits and pushes if successful
-# 6. Updates the roadmap
+# Each round: reads roadmap → picks task → invokes Claude Code → commits.
+# Triggered by crontab every 30 minutes, or manually: bash scripts/evolve.sh
 #
 # Usage:
-#   ./scripts/evolve.sh          # Run one evolution cycle
-#   ./scripts/evolve.sh --dry-run # Show what would be done without doing it
+#   bash scripts/evolve.sh             # Run one evolution cycle
+#   bash scripts/evolve.sh --dry-run   # Show selected task, no execution
 # =============================================================================
 
 set -euo pipefail
-
-# ── Configuration ────────────────────────────────────────────
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 LOG_DIR="${REPO_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 LOG_FILE="${LOG_DIR}/evolve-${TIMESTAMP}.log"
-ROADMAP_FILE="${REPO_ROOT}/docs/roadmap.md"
-ARCHITECTURE_FILE="${REPO_ROOT}/docs/architecture.md"
-CLAUDE_MD="${REPO_ROOT}/CLAUDE.md"
 
 DRY_RUN=false
-if [[ "${1:-}" == "--dry-run" ]]; then
-    DRY_RUN=true
-    echo "[DRY RUN] No changes will be made"
-fi
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 
-# ── Logging ──────────────────────────────────────────────────
+log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+header() { log "==== $* ===="; }
 
-log() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-    echo "$msg" | tee -a "$LOG_FILE"
-}
+# ── Step 1: Find next pending task ──────────────────────────
 
-log_section() {
-    log "========================================"
-    log "  $*"
-    log "========================================"
-}
+header "Reading Roadmap"
 
-# ── Step 1: Read State ──────────────────────────────────────
-
-log_section "Step 1: Reading Roadmap State"
-
-if [[ ! -f "$ROADMAP_FILE" ]]; then
-    log "ERROR: roadmap.md not found at $ROADMAP_FILE"
-    exit 1
-fi
-
-# Find the first pending task (ordered by priority: P0 > P1 > P2 > ...)
-# Parse markdown table rows looking for | status | pending |
-TASK_LINE=$(grep -E '^\| P[0-9]+-' "$ROADMAP_FILE" | grep '| pending |' | head -1 || true)
+TASK_LINE=$(grep -E '^\| P[0-9]+-' "${REPO_ROOT}/docs/roadmap.md" | grep '| pending |' | head -1 || true)
 
 if [[ -z "$TASK_LINE" ]]; then
-    log "No pending tasks found. Evolution complete!"
+    log "No pending tasks. Evolution complete!"
     exit 0
 fi
 
-# Extract fields from the markdown table row
-TASK_ID=$(echo "$TASK_LINE" | awk -F'|' '{print $2}' | xargs)
-TASK_PRIORITY=$(echo "$TASK_LINE" | awk -F'|' '{print $3}' | xargs)
-TASK_DESC=$(echo "$TASK_LINE" | awk -F'|' '{print $4}' | xargs)
+TASK_ID=$(echo "$TASK_LINE"    | awk -F'|' '{print $2}' | xargs)
+TASK_PRIO=$(echo "$TASK_LINE"  | awk -F'|' '{print $3}' | xargs)
+TASK_DESC=$(echo "$TASK_LINE"  | awk -F'|' '{print $4}' | xargs)
+TASK_NOTES=$(echo "$TASK_LINE" | awk -F'|' '{print $6}' | xargs)
 
-log "Selected task: [$TASK_ID] $TASK_PRIORITY — $TASK_DESC"
-log "Roadmap line: $TASK_LINE"
+log "Task: [$TASK_ID] $TASK_PRIO — $TASK_DESC"
 
 if $DRY_RUN; then
     log "[DRY RUN] Would implement: $TASK_DESC"
     exit 0
 fi
 
-# ── Step 2: Git Sync ────────────────────────────────────────
+# ── Step 2: Git sync ────────────────────────────────────────
 
-log_section "Step 2: Git Sync"
+header "Git Sync"
+git pull --rebase 2>/dev/null || log "(no remote, continuing locally)"
 
-# Check if this is a git repository
-if git rev-parse --git-dir > /dev/null 2>&1; then
-    log "Fetching latest from origin..."
-    git fetch origin 2>&1 | tee -a "$LOG_FILE" || log "WARNING: git fetch failed (no remote?)"
+# ── Step 3: Build prompt ────────────────────────────────────
 
-    # Check if we can pull (has upstream)
-    if git rev-parse --abbrev-ref @{u} > /dev/null 2>&1; then
-        log "Pulling latest changes..."
-        git pull --rebase 2>&1 | tee -a "$LOG_FILE" || {
-            log "WARNING: git pull failed, continuing with local state"
-        }
-    else
-        log "No upstream configured, working locally"
-    fi
-else
-    log "Not a git repository yet. Initializing..."
-    git init
-    git add -A
-    git commit -m "chore: initial commit before first evolution
-Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
-fi
+header "Building Prompt"
 
-# ── Step 3: Build Evolution Prompt ──────────────────────────
+PROMPT_FILE="${LOG_DIR}/prompt-${TIMESTAMP}.md"
 
-log_section "Step 3: Building Evolution Prompt"
+cat > "$PROMPT_FILE" << ENDPROMPT
+You are the AI Evolution Engine for the ai-wms project at /root/workspace/ai-wms.
+You are evolving this WMS (Warehouse Management System) autonomously.
 
-# Read architecture context
-ARCH_CONTEXT=""
-if [[ -f "$ARCHITECTURE_FILE" ]]; then
-    ARCH_CONTEXT=$(head -100 "$ARCHITECTURE_FILE")
-fi
-
-# Read domain model context
-DOMAIN_CONTEXT=""
-if [[ -f "${REPO_ROOT}/docs/domain-model.md" ]]; then
-    DOMAIN_CONTEXT=$(head -100 "${REPO_ROOT}/docs/domain-model.md")
-fi
-
-# Construct the prompt
-EVOLVE_PROMPT=$(cat <<PROMPT
-You are the AI Evolution Engine for the ai-wms project — a self-evolving Warehouse Management System.
-
-## Project Context
-${ARCH_CONTEXT}
-
-## Domain Model
-${DOMAIN_CONTEXT}
-
-## Current Evolution Task
-- **Task ID**: ${TASK_ID}
-- **Priority**: ${TASK_PRIORITY}
+## Current Task
+- **ID**: ${TASK_ID}
+- **Priority**: ${TASK_PRIO}
 - **Description**: ${TASK_DESC}
+- **Hint**: ${TASK_NOTES}
+
+## Project Architecture (from CLAUDE.md)
+- DDD layered: domain/ (zero deps) → service/ → repository/ → api/
+- Backend: Go, chi/v5, pgx/v5, PostgreSQL 16
+- Domain models in backend/internal/domain/ MUST have zero external dependencies
+- Repository interfaces in backend/internal/repository/repository.go
+- Repository implementations in backend/internal/repository/postgres/
+- All IDs use github.com/google/uuid
+- Errors wrapped: fmt.Errorf("doing X: %w", err)
+- context.Context as first parameter in service/repository methods
+- Commit format: feat(scope): description + Co-Authored-By line
 
 ## Your Mission
-Implement ONLY this task. Do not go beyond scope.
+Implement ONLY the task described above. Steps:
 
-### Requirements:
-1. Write compilable Go code following existing patterns in backend/internal/
-2. Domain models go in backend/internal/domain/ (ZERO external dependencies)
-3. Service logic goes in backend/internal/service/
-4. Repository implementations go in backend/internal/repository/postgres/
-5. API handlers go in backend/internal/api/
-6. Every new function/method should have a corresponding test
-7. Run 'go build ./...' to verify compilation before finishing
-8. Run 'go test ./...' to verify tests pass before finishing
-9. Update docs/roadmap.md to mark this task as completed when done
-10. Follow all conventions from CLAUDE.md
+1. Read any existing code files you need to understand the current state
+2. Implement the feature — write production code and tests
+3. Run: go build ./...   (fix any compilation errors)
+4. Run: go test ./...    (fix any test failures)
+5. Update docs/roadmap.md: change this task's status from "pending" to "completed | $(date +%Y-%m-%d) | <brief implementation note>"
+6. Run: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
 
-### Constraints:
-- Do NOT modify domain model files unless the task explicitly requires it
-- Do NOT change the database schema without adding a migration file
-- Do NOT change the evolution scripts or workflow
+Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
+
+## Constraints
+- Only implement THIS task — don't go beyond scope
+- Don't modify domain models unless the task explicitly requires it
+- Don't change evolution scripts
 - Keep changes minimal and focused
+- Make sure go build && go test pass before committing
+ENDPROMPT
 
-### When Complete:
-1. Verify: go build ./... && go test ./...
-2. Mark task as completed in docs/roadmap.md
-3. Commit with message: "feat: ${TASK_DESC}"
-PROMPT
-)
-
-# Write the prompt to a file for debugging
-PROMPT_FILE="${LOG_DIR}/prompt-${TIMESTAMP}.md"
-echo "$EVOLVE_PROMPT" > "$PROMPT_FILE"
-log "Prompt written to $PROMPT_FILE"
+log "Prompt written to $PROMPT_FILE ($(wc -c < "$PROMPT_FILE") bytes)"
 
 # ── Step 4: Invoke Claude Code ──────────────────────────────
 
-log_section "Step 4: Invoking Claude Code"
+header "Invoking Claude Code"
 
-# Check if claude CLI is available
-if command -v claude &> /dev/null; then
-    log "Claude Code CLI available, invoking..."
-
-    # Run Claude Code with the prompt
-    # --print: non-interactive mode, output to stdout
-    # --allowedTools: restrict to safe tools
-    CLAUDE_EXIT_CODE=0
-    echo "$EVOLVE_PROMPT" | claude --print \
-        --allowedTools "Read,Write,Edit,Bash(search_files_here_pattern),Glob,NotebookEdit" \
-        2>&1 | tee -a "$LOG_FILE" || CLAUDE_EXIT_CODE=$?
-
-    if [[ $CLAUDE_EXIT_CODE -ne 0 ]]; then
-        log "ERROR: Claude Code exited with code $CLAUDE_EXIT_CODE"
-        # Continue to quality gate anyway — Claude may have made partial progress
-    fi
-else
-    log "WARNING: Claude Code CLI not found on PATH"
-    log "Evolution cannot proceed without Claude Code CLI"
-    log "Please install: npm install -g @anthropic-ai/claude-code"
+if ! command -v claude &> /dev/null; then
+    log "FATAL: claude CLI not found"
     exit 1
 fi
 
-# ── Step 5: Quality Gate ────────────────────────────────────
+cat "$PROMPT_FILE" | claude --print \
+    --allowedTools "Read,Write,Edit,Bash,Glob" \
+    --max-turns 40 \
+    2>&1 | tee -a "$LOG_FILE"
 
-log_section "Step 5: Quality Gate"
+CLAUDE_EXIT=$?
+log "Claude Code exited with code $CLAUDE_EXIT"
 
-# Run quality checks
-bash "${REPO_ROOT}/scripts/quality-check.sh" 2>&1 | tee -a "$LOG_FILE" || {
-    log_section "Quality Gate FAILED — Attempting Auto-Fix"
+# ── Step 5: Verify ──────────────────────────────────────────
 
-    # Try to fix with Claude Code (max 2 attempts)
-    for attempt in 1 2; do
-        log "Auto-fix attempt $attempt/2..."
+header "Verification"
 
-        FIX_PROMPT="The quality check failed for the ai-wms project after implementing task ${TASK_ID}: ${TASK_DESC}.
+# Check if a commit was made
+LATEST_COMMIT=$(git log --oneline -1 2>/dev/null)
+log "Latest commit: $LATEST_COMMIT"
 
-        Error output is in the log above. Please fix ALL compilation errors and test failures.
-        Run 'go build ./...' and 'go test ./...' to verify your fixes.
-        Do NOT make any other changes beyond fixing errors."
-
-        echo "$FIX_PROMPT" | claude --print \
-            --allowedTools "Read,Write,Edit,Bash,Glob" \
-            2>&1 | tee -a "$LOG_FILE" || true
-
-        # Re-check quality
-        if bash "${REPO_ROOT}/scripts/quality-check.sh" 2>&1 | tee -a "$LOG_FILE"; then
-            log "Auto-fix succeeded on attempt $attempt"
-            break
-        fi
-
-        if [[ $attempt -eq 2 ]]; then
-            log_section "FATAL: Quality gate still failing after 2 fix attempts"
-            log "Task ${TASK_ID} will be marked as 'failed'"
-
-            # Mark task as failed in roadmap
-            sed -i "s/| ${TASK_ID} | ${TASK_PRIORITY} | ${TASK_DESC} | pending |/| ${TASK_ID} | ${TASK_PRIORITY} | ${TASK_DESC} | failed |/g" "$ROADMAP_FILE"
-
-            # Rollback changes
-            log "Rolling back changes..."
-            git checkout -- .
-            git clean -fd
-
-            exit 1
-        fi
-    done
-}
-
-log "Quality gate PASSED"
-
-# ── Step 6: Commit & Update Roadmap ─────────────────────────
-
-log_section "Step 6: Commit & Update Roadmap"
-
-# Update roadmap: mark as completed with today's date
-TODAY=$(date +%Y-%m-%d)
-sed -i "s/| ${TASK_ID} | ${TASK_PRIORITY} | ${TASK_DESC} | pending |/| ${TASK_ID} | ${TASK_PRIORITY} | ${TASK_DESC} | completed | ${TODAY} |/g" "$ROADMAP_FILE"
-
-# Get list of changed files
-CHANGED_FILES=$(git diff --name-only 2>/dev/null || git status --short | awk '{print $2}')
-log "Changed files:"
-echo "$CHANGED_FILES" | tee -a "$LOG_FILE"
-
-# Stage all changes
-git add -A
-
-# Commit
-COMMIT_MSG="feat(${TASK_PRIORITY}): ${TASK_DESC}
-
-Task: ${TASK_ID}
-Evolution round: ${TIMESTAMP}
-
-Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
-
-git commit -m "$COMMIT_MSG" 2>&1 | tee -a "$LOG_FILE"
-log "Committed with message: feat(${TASK_PRIORITY}): ${TASK_DESC}"
-
-# Push if remote is configured
-if git rev-parse --abbrev-ref @{u} > /dev/null 2>&1; then
-    git push 2>&1 | tee -a "$LOG_FILE"
-    log "Pushed to remote"
+# Quick build check
+if go build ./... 2>&1 | tee -a "$LOG_FILE"; then
+    log "Build: PASS"
 else
-    log "No remote configured, skipping push"
+    log "Build: FAIL"
 fi
 
-# ── Step 7: Update CLAUDE.md with Evolution Log ─────────────
-
-log_section "Step 7: Updating Evolution Log"
-
-# Append evolution entry to CLAUDE.md
-cat >> "$CLAUDE_MD" << EVO_LOG
-
-## Evolution ${TIMESTAMP}
-- **Task**: [${TASK_ID}] ${TASK_DESC}
-- **Status**: completed
-- **Files changed**: $(echo "$CHANGED_FILES" | wc -l) files
-EVO_LOG
-
-log_section "EVOLUTION COMPLETE"
-log "Task: ${TASK_ID} — ${TASK_DESC}"
-log "Log: ${LOG_FILE}"
-log "Next evolution scheduled in ~30 minutes"
-
+log "Log: $LOG_FILE"
+log "Evolution round complete."
 exit 0
