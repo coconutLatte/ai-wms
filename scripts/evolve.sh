@@ -46,14 +46,29 @@ ROADMAP="${REPO_ROOT}/docs/roadmap.md"
 PENDING_COUNT=$(grep -cE '^\| P[0-9]+-.*\| pending \|' "$ROADMAP" 2>/dev/null || echo 0)
 TOTAL_COUNT=$(grep -cE '^\| P[0-9]+-' "$ROADMAP" 2>/dev/null || echo 0)
 COMPLETED_COUNT=$(grep -cE '^\| P[0-9]+-.*\| completed \|' "$ROADMAP" 2>/dev/null || echo 0)
-CURRENT_ROUND=$((COMPLETED_COUNT + 1))
+
+# Use a persistent counter file to track rounds (NOT completed count — groom rounds don't complete tasks)
+ROUND_FILE="${REPO_ROOT}/.evolution-round"
+if [[ -f "$ROUND_FILE" ]]; then
+    CURRENT_ROUND=$(cat "$ROUND_FILE")
+else
+    CURRENT_ROUND=1
+fi
+
+# Check what the LAST mode was to avoid groom loops
+LAST_MODE_FILE="${REPO_ROOT}/.evolution-last-mode"
+LAST_MODE=$(cat "$LAST_MODE_FILE" 2>/dev/null || echo "implement")
+
+# Increment round counter (will be saved after successful run)
+NEXT_ROUND=$((CURRENT_ROUND + 1))
 
 # Auto-detect mode
 if [[ "$MODE" == "auto" || "$MODE" == "--now" ]]; then
     if [[ "$PENDING_COUNT" -lt 5 ]]; then
         MODE="discover"
         log "Auto-mode: only $PENDING_COUNT pending tasks → DISCOVER"
-    elif [[ $((CURRENT_ROUND % 5)) -eq 0 ]]; then
+    elif [[ $((CURRENT_ROUND % 5)) -eq 0 ]] && [[ "$LAST_MODE" != "groom" ]]; then
+        # Groom at most once per 5-round block (not multiple times in a row)
         MODE="groom"
         log "Auto-mode: round $CURRENT_ROUND is a grooming checkpoint → GROOM"
     else
@@ -238,7 +253,6 @@ log "Prompt: $PROMPT_FILE ($(wc -c < "$PROMPT_FILE") bytes)"
 
 cat "$PROMPT_FILE" | claude --print \
     --allowedTools "Read,Write,Edit,Bash,Glob" \
-    --max-turns 50 \
     2>&1 | tee -a "$LOG_FILE"
 
 CLAUDE_EXIT=$?
@@ -254,6 +268,12 @@ log "Pending: $PENDING_COUNT → $NEW_PENDING"
 log "Completed: $COMPLETED_COUNT → $NEW_COMPLETED"
 log "Latest commit: $LATEST_COMMIT"
 log "Exit code: $CLAUDE_EXIT"
+
+# Save persistent state
+echo "$NEXT_ROUND" > "$ROUND_FILE"
+echo "$MODE" > "$LAST_MODE_FILE"
+
+log "Round: $CURRENT_ROUND → $NEXT_ROUND"
 log "Log: $LOG_FILE"
-log "Done. Next round in ~30 min."
+log "Done. Next round in ~10 min."
 exit 0
