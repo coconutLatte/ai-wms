@@ -11,7 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ai-wms/ai-wms/backend/internal/api"
 	"github.com/ai-wms/ai-wms/backend/internal/api/middleware"
+	"github.com/ai-wms/ai-wms/backend/internal/repository/postgres"
+	"github.com/ai-wms/ai-wms/backend/internal/service"
+	"github.com/ai-wms/ai-wms/backend/pkg/config"
 	"github.com/ai-wms/ai-wms/backend/pkg/logger"
 )
 
@@ -35,12 +39,23 @@ func main() {
 		corsConfig.AllowedOrigins = []string{origin}
 	}
 
-	// TODO: Initialize database connection (PostgreSQL)
-	// TODO: Initialize Redis connection
-	// TODO: Initialize repositories
-	// TODO: Initialize services
-	// TODO: Initialize API router (chi/v5) with middleware
-	// TODO: Register PDA API routes
+	// Initialize database connection
+	cfg := config.Load()
+	db, err := postgres.NewDB(context.Background(), cfg.DSN())
+	if err != nil {
+		log.Error("Failed to connect to database", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Initialize repositories
+	taskRepo := postgres.NewTaskRepo(db)
+
+	// Initialize services
+	taskSvc := service.NewTaskService(taskRepo)
+
+	// Initialize API handlers
+	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
 
 	// Build the middleware chain.
 	mux := http.NewServeMux()
@@ -49,6 +64,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok","service":"pda","version":"0.1.0"}`)
 	})
+
+	// Register PDA API routes (task execution endpoints for warehouse operators).
+	api.RegisterTaskRoutes(mux, taskHandler)
 
 	// Apply middleware stack: RequestID → Recovery → Logger → CORS → handler.
 	handler := middleware.RequestID(

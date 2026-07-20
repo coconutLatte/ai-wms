@@ -33,7 +33,7 @@
 | P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | completed | 2026-07-20 | SKUService with validation + thin handlers; POST/GET/PUT on /api/v1/skus; 14 service-layer unit tests pass; wired into admin server |
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | completed | 2026-07-20 | InventoryService with query/get/adjust/create/transactions; negative qty constraint enforced; 15 unit tests pass; AdjustInventory records InventoryTransaction audit trail; routes: GET /api/v1/inventory, GET /api/v1/inventory/{id}, POST /api/v1/inventory/{id}/adjust, GET /api/v1/inventory/{id}/transactions |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | completed | 2026-07-20 | OrderService with status machine validation (draft→confirmed→processing→partial/completed/cancelled); CreateOrder with lines, GetOrder (with lines), ListOrders (filter by warehouse/type/status), UpdateOrderStatus with valid transitions, AddOrderLine (draft only), GetOrderByNo; 14 service-layer unit tests pass; routes: POST/GET /api/v1/orders, GET /api/v1/orders/{id}, PUT /api/v1/orders/{id}/status, POST /api/v1/orders/{id}/lines; wired into admin server |
-| P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
+| P1-13 | P1 | Task service + PDA API (task assignment, status flow) | completed | 2026-07-20 | TaskService with status machine (pending→assigned→in_progress→{completed,paused}; paused→in_progress; any→cancelled); CreateTask with validation for all 7 task types; AssignTask (pending only); UpdateTaskStatus with transition guard; CompleteTask (in_progress only, actual_qty); auto-generated TaskNo (TASK-YYYYMMDD-NNNNNN); 6 PDA endpoints: POST assign, PUT status (start/pause/resume/cancel), POST complete; 17 service-layer unit tests pass; wired into both admin and PDA servers; PDA server got first DB+service wiring |
 | P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; logger partially wired by P1-08 (slog.Logger injected into middleware); remaining: Config.Load() call in cmd, wire config into repos/services |
 | P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
 | P1-16 | P1 | DB transaction support for atomic inventory operations | pending | — | txManager: wrap inventory change + location update + tx audit in single DB tx; needed before services |
@@ -71,6 +71,9 @@
 | P1-48 | P2 | Order external_ref filter (ListOrders by external_ref query param) | pending | — | Add external_ref filter to ListOrders repo+service+handler; needed for ERP integration lookup (e.g., "find order by PO number"); discovered during P1-12 |
 | P1-49 | P2 | Order line update endpoint (PUT /api/v1/orders/{id}/lines/{lineId}) | pending | — | Update ordered_qty on a specific order line (draft orders only); add UpdateOrderLine to OrderRepository; discovered during P1-12 — full line management needs update ability |
 | P1-50 | P2 | Order line delete endpoint (DELETE /api/v1/orders/{id}/lines/{lineId}) | pending | — | Remove a line from a draft order; add DeleteOrderLine to OrderRepository; discovered during P1-12 — full line management needs delete ability |
+| P1-51 | P1 | Task API integration tests (HTTP handler tests with mock TaskService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for all 6 task endpoints (Create/Get/List/Assign/UpdateStatus/Complete); discovered during P1-13 — service layer tested but not HTTP handlers |
+| P1-52 | P2 | Bulk task assignment endpoint (assign multiple tasks to single operator) | pending | — | Add POST /api/v1/tasks/assign-batch endpoint; assign N pending tasks to one worker in single call; return partial success on individual failures; use-case: supervisor assigns a batch of picks to one operator at shift start; batch size limit (configurable, default 20); discovered during P1-13 — PDA efficiency would benefit from batch assignment |
+| P1-53 | P2 | Task paused_at timestamp tracking (paused duration for SLA analysis) | pending | — | Add paused_at TIMESTAMPTZ column to tasks table; update repo-level status transitions to set paused_at on pause and calculate cumulative pause duration on resume; needed for accurate cycle-time metrics that exclude intentional pauses (breaks, shift changes); discovered during P1-13 — domain Task struct currently has StartedAt/CompletedAt/CancelledAt but no PausedAt; migration 000002+ 
 
 ## Phase 2: Admin Frontend
 
@@ -462,11 +465,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 323 |
-| Completed | 18 |
+| Total tasks | 326 |
+| Completed | 19 |
 | In progress | 0 |
-| Pending | 305 |
+| Pending | 307 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 12: P1-12 Order service + Admin API) |
+| Last evolution | 2026-07-20 (Round 13: P1-13 Task service + PDA API) |
 | Last grooming | 2026-07-20 (Round 10: expanded roadmap + P5-48/49, P6-36/37, P7-38; re-prioritized P1-21→P2, P1-27→P1; updated notes for P1-08/09/21/26/27, P6-06/10) |

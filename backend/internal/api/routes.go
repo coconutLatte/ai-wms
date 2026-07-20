@@ -50,3 +50,14 @@ func RegisterOrderRoutes(mux *http.ServeMux, h *OrderHandler) {
 	mux.HandleFunc("PUT /api/v1/orders/{id}/status", h.UpdateOrderStatus)
 	mux.HandleFunc("POST /api/v1/orders/{id}/lines", h.AddOrderLine)
 }
+
+// RegisterTaskRoutes registers task API routes on the given mux.
+// Tasks are accessible from both Admin (management) and PDA (execution).
+func RegisterTaskRoutes(mux *http.ServeMux, h *TaskHandler) {
+	mux.HandleFunc("POST /api/v1/tasks", h.CreateTask)
+	mux.HandleFunc("GET /api/v1/tasks", h.ListTasks)
+	mux.HandleFunc("GET /api/v1/tasks/{id}", h.GetTask)
+	mux.HandleFunc("POST /api/v1/tasks/{id}/assign", h.AssignTask)
+	mux.HandleFunc("PUT /api/v1/tasks/{id}/status", h.UpdateTaskStatus)
+	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", h.CompleteTask)
+}
