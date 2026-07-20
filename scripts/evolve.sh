@@ -42,12 +42,19 @@ MODE="${1:-auto}"
 DRY_RUN=false
 [[ "$MODE" == "--dry-run" ]] && { DRY_RUN=true; MODE="auto"; }
 
+# ── Lean Roadmap Mode ───────────────────────────────────────
+# Max 10 pending tasks. When < 3 remain, DISCOVER to refill to ~10.
+# GROOM only if pending >= 8 (don't groom a slim roadmap).
+# No infinite grooming — every round is IMPLEMENT unless critically low.
+
+MAX_PENDING=10
+MIN_PENDING=3
+
 ROADMAP="${REPO_ROOT}/docs/roadmap.md"
 PENDING_COUNT=$(grep -cE '^\| P[0-9]+-.*\| pending \|' "$ROADMAP" 2>/dev/null || echo 0)
 TOTAL_COUNT=$(grep -cE '^\| P[0-9]+-' "$ROADMAP" 2>/dev/null || echo 0)
 COMPLETED_COUNT=$(grep -cE '^\| P[0-9]+-.*\| completed \|' "$ROADMAP" 2>/dev/null || echo 0)
 
-# Use a persistent counter file to track rounds (NOT completed count — groom rounds don't complete tasks)
 ROUND_FILE="${REPO_ROOT}/.evolution-round"
 if [[ -f "$ROUND_FILE" ]]; then
     CURRENT_ROUND=$(cat "$ROUND_FILE")
@@ -55,25 +62,22 @@ else
     CURRENT_ROUND=1
 fi
 
-# Check what the LAST mode was to avoid groom loops
 LAST_MODE_FILE="${REPO_ROOT}/.evolution-last-mode"
 LAST_MODE=$(cat "$LAST_MODE_FILE" 2>/dev/null || echo "implement")
 
-# Increment round counter (will be saved after successful run)
 NEXT_ROUND=$((CURRENT_ROUND + 1))
 
 # Auto-detect mode
 if [[ "$MODE" == "auto" || "$MODE" == "--now" ]]; then
-    if [[ "$PENDING_COUNT" -lt 5 ]]; then
+    if [[ "$PENDING_COUNT" -lt "$MIN_PENDING" ]]; then
         MODE="discover"
-        log "Auto-mode: only $PENDING_COUNT pending tasks → DISCOVER"
-    elif [[ $((CURRENT_ROUND % 5)) -eq 0 ]] && [[ "$LAST_MODE" != "groom" ]]; then
-        # Groom at most once per 5-round block (not multiple times in a row)
+        log "Auto-mode: only $PENDING_COUNT pending (min $MIN_PENDING) → DISCOVER (target $MAX_PENDING)"
+    elif [[ "$PENDING_COUNT" -ge 8 ]] && [[ $((CURRENT_ROUND % 5)) -eq 0 ]] && [[ "$LAST_MODE" != "groom" ]]; then
         MODE="groom"
-        log "Auto-mode: round $CURRENT_ROUND is a grooming checkpoint → GROOM"
+        log "Auto-mode: round $CURRENT_ROUND checkpoint, $PENDING_COUNT pending → GROOM"
     else
         MODE="implement"
-        log "Auto-mode: $PENDING_COUNT pending tasks → IMPLEMENT"
+        log "Auto-mode: $PENDING_COUNT pending → IMPLEMENT"
     fi
 fi
 
@@ -194,49 +198,46 @@ ENDPROMPT
 # DISCOVER: Deep exploration to find new tasks
 # ═══════════════════════════════════════════════════════════════
 discover)
-    log "Discovering new tasks (only $PENDING_COUNT pending)"
+    TARGET=$MAX_PENDING
+    log "Discovering new tasks (only $PENDING_COUNT pending, target $TARGET)"
 
     cat > "$PROMPT_FILE" << ENDPROMPT
 You are discovering new tasks for the ai-wms project at /root/workspace/ai-wms.
 
-## Mission: Task Discovery
+## Mission: Task Discovery (Lean Roadmap)
 
-The roadmap is running low on pending tasks ($PENDING_COUNT remaining). You must find NEW work.
+The roadmap has only $PENDING_COUNT pending tasks (minimum is $MIN_PENDING). You must refill to approximately $TARGET pending tasks. Current total: $TOTAL_COUNT tasks.
 
-### Exploration Steps
-1. Read docs/roadmap.md to see what's already planned
-2. Read docs/architecture.md for the system vision
-3. Explore the codebase:
-   - backend/internal/domain/ — any missing domain concepts?
-   - backend/internal/service/ — any missing business logic?
-   - backend/internal/api/ — any missing endpoints?
-   - backend/internal/integration/ — the integration adapters are empty! Fill them.
-   - frontend/ — the admin and PDA UIs are scaffolds! Plan real pages.
-   - migrations/ — are there schema improvements needed?
-4. Run: go test ./... -cover to find test coverage gaps
-5. Run: go vet ./... to find code quality issues
+### Steps
+1. Read docs/roadmap.md to see completed tasks and current pending
+2. Read CLAUDE.md and docs/architecture.md for project vision
+3. Scan the codebase to find the most impactful gaps:
+   - backend/ — missing repos, services, APIs, tests
+   - frontend/ — scaffold only, needs real pages
+   - docs/ — README, architecture diagrams, API docs
+4. Run: go test ./... -cover to find coverage gaps
 
-### Then update docs/roadmap.md with NEW tasks:
+### Then update docs/roadmap.md:
 
-**Find at least 10 new tasks.** Sources:
-- Missing test coverage → "Add tests for X" tasks
-- Missing features a real WMS needs (pick strategies, wave optimization, label printing, etc.)
-- Integration work (WCS/RCS/MES/ERP adapters are empty shells)
-- Frontend pages (the admin/PDA scaffolds need real pages)
-- DevOps (Dockerfiles, CI/CD, deployment configs)
-- Documentation (API docs, user guides, deployment guides)
-- Performance (caching strategies, query optimization, benchmarks)
-- Security (auth implementation, input validation, rate limiting)
-- Observability (metrics, tracing, health checks, alerting)
+**Add new tasks to reach ~$TARGET pending total (NOT more).** Focus on the NEXT most valuable work, not a 5-year master plan.
 
-**Format:**
-| P<phase>-<NN> | P<phase> | <task description> | pending | — | <implementation hint> |
+Priority of new tasks:
+- **P0**: Anything blocking the next concrete milestone
+- **P1**: Directly builds on completed work (next repo → next service → next API)
+- **P2**: Frontend pages, developer experience, testing
 
-Add to existing phases or create new ones (P6, P7...).
+**Crucial rules:**
+- DO NOT add speculative Phase 5+ tasks (report engine, ML slotting, etc.) unless they are the logical next step
+- DO NOT create new phases beyond the next 2 phases
+- Keep task descriptions specific and implementable in one round
+- If completed tasks create new gaps (e.g., "we have repos but no services"), add THOSE
 
-6. Commit & push: git add -A && git commit -m "feat(roadmap): discovery round — added new tasks
+Format: | P<phase>-<NN> | P<phase> | <task> | pending | — | <hint> |
+
+6. Commit & push: git add -A && git commit -m "feat(roadmap): discovery round — refilled to $TARGET pending tasks
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
+ENDPROMPT
 ENDPROMPT
     ;;
 
