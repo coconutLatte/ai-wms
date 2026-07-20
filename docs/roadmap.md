@@ -31,7 +31,7 @@
 | P1-08 | P1 | HTTP middleware stack (request ID, logging, recovery, CORS) | completed | 2026-07-20 | RequestID (context propagation + response header), Logger (structured slog per-request with method/path/status/duration/remote_addr), Recovery (panic→500 JSON+stack trace), CORS (configurable origins/methods/headers/credentials/MaxAge, preflight handler); 17 tests pass; wired into cmd/admin + cmd/pda |
 | P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | completed | 2026-07-20 | WarehouseService with validation + thin handlers using Go 1.22+ enhanced routing; 12 service-layer unit tests pass; routes mounted on admin server |
 | P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | completed | 2026-07-20 | SKUService with validation + thin handlers; POST/GET/PUT on /api/v1/skus; 14 service-layer unit tests pass; wired into admin server |
-| P1-11 | P1 | Inventory service + Admin API (query, adjust) | pending | — | With inventory transaction audit; check negative qty constraint |
+| P1-11 | P1 | Inventory service + Admin API (query, adjust) | completed | 2026-07-20 | InventoryService with query/get/adjust/create/transactions; negative qty constraint enforced; 15 unit tests pass; AdjustInventory records InventoryTransaction audit trail; routes: GET /api/v1/inventory, GET /api/v1/inventory/{id}, POST /api/v1/inventory/{id}/adjust, GET /api/v1/inventory/{id}/transactions |
 | P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
 | P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; logger partially wired by P1-08 (slog.Logger injected into middleware); remaining: Config.Load() call in cmd, wire config into repos/services |
@@ -64,6 +64,9 @@
 | P1-41 | P1 | SKU API integration tests (HTTP handler tests with mock SKUService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for Create/Get/List/Update SKU endpoints; discovered during P1-10 — service layer tested but not HTTP handlers |
 | P1-42 | P2 | SKU barcode lookup API endpoint (GET /api/v1/skus/by-barcode) | pending | — | Add GetSKUByBarcode handler for PDA barcode scanning; repo method already exists (GetSKUByBarcode); thin handler delegating to SKUService; discovered during P1-10 |
 | P1-43 | P2 | SKU list filtering (by status, category, search text) | pending | — | Add filter params to ListSKUs; search by code/name prefix; filter by status (active/inactive/discontinued) and category; needed for admin SKU management page (P2-05); repo method ListSKUs currently returns all with no filter |
+| P1-44 | P1 | Inventory API integration tests (HTTP handler tests with mock InventoryService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for QueryInventory/GetInventory/AdjustInventory/GetTransactions endpoints; discovered during P1-11 — service layer tested but not HTTP handlers |
+| P1-45 | P2 | Inventory transaction query enhancements (date-range + type filter) | pending | — | Add date-range (from/to) and transaction-type filtering to ListTransactions; currently only filters by inventory_id; needed by P5-07 audit log viewer for inventory-specific transaction trails; also add list-all-transactions method (without inventory_id) for global audit view |
+| P1-46 | P2 | Inventory location auto-status update on qty change | pending | — | When inventory qty reaches 0 (e.g., from adjustment or pick), auto-update location status to "empty"; when qty goes from 0 to >0, set location to "occupied"; prevents stale location status; depends on P1-16 transaction support for atomicity |
 
 ## Phase 2: Admin Frontend
 
@@ -450,11 +453,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 310 |
-| Completed | 16 |
+| Total tasks | 314 |
+| Completed | 17 |
 | In progress | 0 |
-| Pending | 294 |
+| Pending | 297 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 10: P1-10 SKU service + Admin API) |
-| Last grooming | 2026-07-20 (Round 6: added P1-41/42/43 SKU follow-ups) |
+| Last evolution | 2026-07-20 (Round 11: P1-11 Inventory service + Admin API) |
+| Last grooming | 2026-07-20 (Round 7: added P1-44/45/46 inventory follow-ups) |

@@ -86,6 +86,7 @@ func (m *mockInventoryRepo) CreateInventory(ctx context.Context, inv *domain.Inv
 	if inv.ID == uuid.Nil {
 		inv.ID = uuid.New()
 	}
+	inv.AvailableQty = inv.Qty - inv.ReservedQty
 	m.inventories[inv.ID] = inv
 	return nil
 }
