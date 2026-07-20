@@ -41,3 +41,12 @@ func RegisterInventoryRoutes(mux *http.ServeMux, h *InventoryHandler) {
 	mux.HandleFunc("POST /api/v1/inventory/{id}/adjust", h.AdjustInventory)
 	mux.HandleFunc("GET /api/v1/inventory/{id}/transactions", h.GetTransactions)
 }
+
+// RegisterOrderRoutes registers order API routes on the given mux.
+func RegisterOrderRoutes(mux *http.ServeMux, h *OrderHandler) {
+	mux.HandleFunc("POST /api/v1/orders", h.CreateOrder)
+	mux.HandleFunc("GET /api/v1/orders", h.ListOrders)
+	mux.HandleFunc("GET /api/v1/orders/{id}", h.GetOrder)
+	mux.HandleFunc("PUT /api/v1/orders/{id}/status", h.UpdateOrderStatus)
+	mux.HandleFunc("POST /api/v1/orders/{id}/lines", h.AddOrderLine)
+}

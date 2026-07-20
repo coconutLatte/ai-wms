@@ -32,7 +32,7 @@
 | P1-09 | P1 | Warehouse service + Admin API (CRUD for warehouses, zones, locations) | completed | 2026-07-20 | WarehouseService with validation + thin handlers using Go 1.22+ enhanced routing; 12 service-layer unit tests pass; routes mounted on admin server; zone/location repo missing Update (see P1-38/P1-39) |
 | P1-10 | P1 | SKU service + Admin API (CRUD for SKUs) | completed | 2026-07-20 | SKUService with validation + thin handlers; POST/GET/PUT on /api/v1/skus; 14 service-layer unit tests pass; wired into admin server |
 | P1-11 | P1 | Inventory service + Admin API (query, adjust) | completed | 2026-07-20 | InventoryService with query/get/adjust/create/transactions; negative qty constraint enforced; 15 unit tests pass; AdjustInventory records InventoryTransaction audit trail; routes: GET /api/v1/inventory, GET /api/v1/inventory/{id}, POST /api/v1/inventory/{id}/adjust, GET /api/v1/inventory/{id}/transactions |
-| P1-12 | P1 | Order service + Admin API (create/manage orders) | pending | — | Inbound + Outbound order flows; status transitions; line-item management |
+| P1-12 | P1 | Order service + Admin API (create/manage orders) | completed | 2026-07-20 | OrderService with status machine validation (draft→confirmed→processing→partial/completed/cancelled); CreateOrder with lines, GetOrder (with lines), ListOrders (filter by warehouse/type/status), UpdateOrderStatus with valid transitions, AddOrderLine (draft only), GetOrderByNo; 14 service-layer unit tests pass; routes: POST/GET /api/v1/orders, GET /api/v1/orders/{id}, PUT /api/v1/orders/{id}/status, POST /api/v1/orders/{id}/lines; wired into admin server |
 | P1-13 | P1 | Task service + PDA API (task assignment, status flow) | pending | — | Task lifecycle management; PDA endpoints; assignment logic |
 | P1-14 | P1 | Config management + Logger integration into services | pending | — | Wire pkg/config and pkg/logger into cmd entry points; env/file config loading; logger partially wired by P1-08 (slog.Logger injected into middleware); remaining: Config.Load() call in cmd, wire config into repos/services |
 | P1-15 | P1 | Standardized error handling (API error codes, validation errors, problem details) | pending | — | RFC 7807 problem details; consistent JSON error shape; input validation helpers; pkg/errors domain sentinels already done; this adds API-layer formatting |
@@ -67,6 +67,10 @@
 | P1-44 | P1 | Inventory API integration tests (HTTP handler tests with mock InventoryService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for QueryInventory/GetInventory/AdjustInventory/GetTransactions endpoints; discovered during P1-11 — service layer tested but not HTTP handlers |
 | P1-45 | P2 | Inventory transaction query enhancements (date-range + type filter) | pending | — | Add date-range (from/to) and transaction-type filtering to ListTransactions; currently only filters by inventory_id; needed by P5-07 audit log viewer for inventory-specific transaction trails; also add list-all-transactions method (without inventory_id) for global audit view |
 | P1-46 | P2 | Inventory location auto-status update on qty change | pending | — | When inventory qty reaches 0 (e.g., from adjustment or pick), auto-update location status to "empty"; when qty goes from 0 to >0, set location to "occupied"; prevents stale location status; depends on P1-16 transaction support for atomicity |
+| P1-47 | P1 | Order API integration tests (HTTP handler tests with mock OrderService) | pending | — | httptest + Go 1.22+ ServeMux; test status codes, response shapes, error scenarios for all 5 order endpoints (Create/Get/List/UpdateStatus/AddLine); discovered during P1-12 — service layer tested but not HTTP handlers |
+| P1-48 | P2 | Order external_ref filter (ListOrders by external_ref query param) | pending | — | Add external_ref filter to ListOrders repo+service+handler; needed for ERP integration lookup (e.g., "find order by PO number"); discovered during P1-12 |
+| P1-49 | P2 | Order line update endpoint (PUT /api/v1/orders/{id}/lines/{lineId}) | pending | — | Update ordered_qty on a specific order line (draft orders only); add UpdateOrderLine to OrderRepository; discovered during P1-12 — full line management needs update ability |
+| P1-50 | P2 | Order line delete endpoint (DELETE /api/v1/orders/{id}/lines/{lineId}) | pending | — | Remove a line from a draft order; add DeleteOrderLine to OrderRepository; discovered during P1-12 — full line management needs delete ability |
 
 ## Phase 2: Admin Frontend
 
@@ -458,11 +462,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 319 |
-| Completed | 17 |
+| Total tasks | 323 |
+| Completed | 18 |
 | In progress | 0 |
-| Pending | 302 |
+| Pending | 305 |
 | Success rate | — |
 | Started | 2026-07-20 |
-| Last evolution | 2026-07-20 (Round 11: P1-11 Inventory service + Admin API) |
+| Last evolution | 2026-07-20 (Round 12: P1-12 Order service + Admin API) |
 | Last grooming | 2026-07-20 (Round 10: expanded roadmap + P5-48/49, P6-36/37, P7-38; re-prioritized P1-21→P2, P1-27→P1; updated notes for P1-08/09/21/26/27, P6-06/10) |
