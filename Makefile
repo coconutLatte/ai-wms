@@ -1,4 +1,4 @@
-.PHONY: help dev build test lint clean db-up db-down db-reset evolve
+.PHONY: help dev build test lint clean db-up db-down db-reset evolve run-admin run-pda migrate
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -18,6 +18,16 @@ dev-down: ## Stop development infrastructure
 dev-reset: ## Reset development infrastructure (WARNING: deletes all data)
 	docker-compose down -v
 	docker-compose up -d
+
+# ── Run Services ─────────────────────────────────────────────
+
+run-admin: ## Run the admin server (requires: make dev)
+	@echo "Starting admin server on http://localhost:$${ADMIN_PORT:-8080} ..."
+	go run ./backend/cmd/admin
+
+run-pda: ## Run the PDA server (requires: make dev)
+	@echo "Starting PDA server on http://localhost:$${PDA_PORT:-8081} ..."
+	go run ./backend/cmd/pda
 
 # ── Build & Test ────────────────────────────────────────────
 
@@ -46,9 +56,15 @@ db-up: ## Start database only
 	docker-compose up -d postgres
 	@sleep 3
 
-db-migrate: ## Run database migrations
-	@echo "Migrations are auto-applied via docker-entrypoint-initdb.d on first start"
-	@echo "For manual migrations, use: psql -h localhost -U wms -d wms -f migrations/000001_init_schema.sql"
+db-migrate: migrate ## Run database migrations (alias for migrate)
+
+migrate: ## Run database migrations (requires: make dev)
+	@echo "Applying migrations..."
+	@for f in $$(ls migrations/*.sql 2>/dev/null | sort); do \
+		echo "  $$(basename $$f)"; \
+		docker exec -i wms-postgres psql -U wms -d wms < "$$f" || exit 1; \
+	done
+	@echo "Migrations complete."
 
 db-reset: ## Reset database
 	docker-compose down -v postgres
