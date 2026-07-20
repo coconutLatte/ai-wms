@@ -365,6 +365,18 @@ func (r *TaskRepo) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
+// CountWaves returns the total count of waves for a given warehouse.
+func (r *TaskRepo) CountWaves(ctx context.Context, warehouseID uuid.UUID) (int, error) {
+	const query = `SELECT COUNT(*) FROM waves WHERE warehouse_id = $1`
+
+	var count int
+	err := r.queryRow(ctx, query, warehouseID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count waves: %w", err)
+	}
+	return count, nil
+}
+
 // ── Helpers ────────────────────────────────────────────────
 
 // scanTask scans a single task row.

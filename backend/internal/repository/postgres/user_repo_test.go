@@ -932,3 +932,41 @@ func TestUserRepo_CountAuditLogs(t *testing.T) {
 		t.Errorf("Expected 0 nonexistent logs, got %d", noMatch)
 	}
 }
+
+func TestUserRepo_CountRoles(t *testing.T) {
+	db, cleanup := setupUserTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewUserRepo(db)
+
+	// Count should include seeded roles (admin, operator) plus any test roles
+	initial, err := repo.CountRoles(ctx)
+	if err != nil {
+		t.Fatalf("CountRoles failed: %v", err)
+	}
+	if initial < 2 {
+		t.Errorf("Expected at least 2 roles (seeded admin + operator), got %d", initial)
+	}
+
+	// Create 3 test roles
+	for i := 0; i < 3; i++ {
+		role := &domain.Role{
+			Name: "TEST-role-count-" + uuid.New().String()[:8],
+		}
+		if err := repo.CreateRole(ctx, role); err != nil {
+			t.Fatalf("CreateRole failed: %v", err)
+		}
+	}
+
+	total, err := repo.CountRoles(ctx)
+	if err != nil {
+		t.Fatalf("CountRoles failed: %v", err)
+	}
+	if total != initial+3 {
+		t.Errorf("Expected %d roles total, got %d", initial+3, total)
+	}
+}

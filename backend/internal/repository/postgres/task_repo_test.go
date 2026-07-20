@@ -1189,3 +1189,55 @@ func TestTaskRepo_CreateWave_WithTaskIDs(t *testing.T) {
 		t.Errorf("task_ids[2] = %s, want %s", got.TaskIDs[2], taskID3)
 	}
 }
+
+func TestTaskRepo_CountWaves(t *testing.T) {
+	db, cleanup := setupTaskTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	taskRepo := NewTaskRepo(db)
+
+	wh := createTaskTestWarehouse(t, ctx, whRepo)
+
+	// Initially zero waves
+	count, err := taskRepo.CountWaves(ctx, wh.ID)
+	if err != nil {
+		t.Fatalf("CountWaves failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 waves, got %d", count)
+	}
+
+	// Create 3 waves
+	for i := 1; i <= 3; i++ {
+		wave := &domain.Wave{
+			WaveNo:      "TEST-WAVE-CNT-00" + string(rune('0'+i)),
+			WarehouseID: wh.ID,
+			WaveType:    domain.WaveTypeBatch,
+		}
+		if err := taskRepo.CreateWave(ctx, wave); err != nil {
+			t.Fatalf("CreateWave [%d] failed: %v", i, err)
+		}
+	}
+
+	count, err = taskRepo.CountWaves(ctx, wh.ID)
+	if err != nil {
+		t.Fatalf("CountWaves failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 waves, got %d", count)
+	}
+
+	// Different warehouse should return 0
+	count, err = taskRepo.CountWaves(ctx, uuid.New())
+	if err != nil {
+		t.Fatalf("CountWaves for unknown warehouse failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 waves for unknown warehouse, got %d", count)
+	}
+}

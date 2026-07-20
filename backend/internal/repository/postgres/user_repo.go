@@ -325,6 +325,18 @@ func (r *UserRepo) UpdateRole(ctx context.Context, role *domain.Role) error {
 	return nil
 }
 
+// CountRoles returns the total number of roles.
+func (r *UserRepo) CountRoles(ctx context.Context) (int, error) {
+	const query = "SELECT COUNT(*) FROM roles"
+
+	var count int
+	err := r.queryRow(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count roles: %w", err)
+	}
+	return count, nil
+	}
+
 // ── AuditLog ────────────────────────────────────────────────
 
 // CreateAuditLog inserts a new audit log entry.

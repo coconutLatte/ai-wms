@@ -130,6 +130,15 @@ func (m *mockTaskRepo) ListWaves(ctx context.Context, warehouseID uuid.UUID) ([]
 func (m *mockTaskRepo) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error {
 	return nil
 }
+func (m *mockTaskRepo) CountWaves(ctx context.Context, warehouseID uuid.UUID) (int, error) {
+	count := 0
+	for _, w := range m.waves {
+		if w.WarehouseID == warehouseID {
+			count++
+		}
+	}
+	return count, nil
+}
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 

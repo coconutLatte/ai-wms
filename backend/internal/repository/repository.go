@@ -140,6 +140,7 @@ type TaskRepository interface {
 	GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error)
 	ListWaves(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Wave, error)
 	UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error
+	CountWaves(ctx context.Context, warehouseID uuid.UUID) (int, error)
 }
 
 // TaskFilter defines query parameters for task search.
@@ -170,6 +171,7 @@ type UserRepository interface {
 	GetRole(ctx context.Context, id uuid.UUID) (*domain.Role, error)
 	ListRoles(ctx context.Context) ([]*domain.Role, error)
 	UpdateRole(ctx context.Context, r *domain.Role) error
+	CountRoles(ctx context.Context) (int, error)
 
 	// AuditLog
 	CreateAuditLog(ctx context.Context, log *domain.AuditLog) error
