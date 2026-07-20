@@ -5,6 +5,8 @@ package repository
 import (
 	"context"
 
+	"time"
+
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
 	"github.com/google/uuid"
 )
@@ -145,7 +147,8 @@ type UserRepository interface {
 	ListUsers(ctx context.Context, filter UserFilter) ([]*domain.User, error)
 	UpdateUser(ctx context.Context, u *domain.User) error
 	UpdateUserStatus(ctx context.Context, id uuid.UUID, status domain.UserStatus) error
-		CountUsers(ctx context.Context, filter UserFilter) (int, error)
+	UpdateLastLogin(ctx context.Context, id uuid.UUID, t time.Time) error
+	CountUsers(ctx context.Context, filter UserFilter) (int, error)
 
 	// Role
 	CreateRole(ctx context.Context, r *domain.Role) error

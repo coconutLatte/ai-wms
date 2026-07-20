@@ -188,6 +188,20 @@ func (r *UserRepo) UpdateUserStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
+// UpdateLastLogin updates the last_login timestamp for a user.
+func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID, t time.Time) error {
+	const query = `UPDATE users SET last_login=$1, updated_at=$2 WHERE id=$3`
+
+	tag, err := r.db.Pool.Exec(ctx, query, t, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("update last login: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update last login %s: not found", id)
+	}
+	return nil
+}
+
 // CountUsers returns the total number of users matching the filter.
 func (r *UserRepo) CountUsers(ctx context.Context, filter repository.UserFilter) (int, error) {
 	var conditions []string

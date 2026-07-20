@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -14,6 +15,7 @@ func TestLoadDefaults(t *testing.T) {
 		"DB_MAX_CONNS", "DB_MIN_CONNS",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_DB",
 		"LOG_LEVEL", "ENV",
+		"JWT_SECRET", "JWT_ACCESS_TTL_MINUTES", "JWT_REFRESH_TTL_HOURS",
 	} {
 		os.Unsetenv(key)
 	}
@@ -66,6 +68,7 @@ func TestLoadFromEnv(t *testing.T) {
 			"DB_MAX_CONNS", "DB_MIN_CONNS",
 			"REDIS_HOST", "REDIS_PORT", "REDIS_DB",
 			"LOG_LEVEL", "ENV",
+				"JWT_SECRET", "JWT_ACCESS_TTL_MINUTES", "JWT_REFRESH_TTL_HOURS",
 		} {
 			os.Unsetenv(key)
 		}
@@ -176,6 +179,9 @@ func TestValidate_Success(t *testing.T) {
 		DBMaxConns: 20,
 		DBMinConns: 2,
 		LogLevel:   "info",
+		JWTSecret:  "test-secret",
+		JWTAccessTTL:  15 * time.Minute,
+		JWTRefreshTTL: 7 * 24 * time.Hour,
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -191,42 +197,42 @@ func TestValidate_Errors(t *testing.T) {
 	}{
 		{
 			name:    "missing admin port",
-			cfg:     &Config{AdminPort: "", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "ADMIN_PORT is required",
 		},
 		{
 			name:    "missing pda port",
-			cfg:     &Config{AdminPort: "8080", PDAPort: "", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "8080", PDAPort: "", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "PDA_PORT is required",
 		},
 		{
 			name:    "invalid admin port",
-			cfg:     &Config{AdminPort: "99999", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "99999", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "ADMIN_PORT",
 		},
 		{
 			name:    "invalid db port",
-			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "abc", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "abc", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "DB_PORT",
 		},
 		{
 			name:    "max conns < 1",
-			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 0, DBMinConns: 0, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 0, DBMinConns: 0, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "DB_MAX_CONNS",
 		},
 		{
 			name:    "min conns > max conns",
-			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 10, DBMinConns: 20, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 10, DBMinConns: 20, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "DB_MIN_CONNS",
 		},
 		{
 			name:    "min conns negative",
-			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 10, DBMinConns: -1, LogLevel: "info"},
+			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 10, DBMinConns: -1, LogLevel: "info", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "DB_MIN_CONNS",
 		},
 		{
 			name:    "invalid log level",
-			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "trace"},
+			cfg:     &Config{AdminPort: "8080", PDAPort: "8081", DBHost: "h", DBPort: "5432", DBUser: "u", DBName: "n", DBMaxConns: 20, DBMinConns: 0, LogLevel: "trace", JWTSecret: "s", JWTAccessTTL: time.Minute, JWTRefreshTTL: time.Hour},
 			errText: "LOG_LEVEL",
 		},
 	}

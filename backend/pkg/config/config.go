@@ -30,8 +30,11 @@ type Config struct {
 	RedisDB   int
 
 	// Application
-	LogLevel string
-	Env      string
+	LogLevel    string
+	Env         string
+	JWTSecret   string
+	JWTAccessTTL  time.Duration
+	JWTRefreshTTL time.Duration
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -52,6 +55,9 @@ func Load() *Config {
 		RedisDB:    getEnvInt("REDIS_DB", 0),
 		LogLevel:   getEnv("LOG_LEVEL", "info"),
 		Env:        getEnv("ENV", "development"),
+		JWTSecret:  getEnv("JWT_SECRET", "change-me-in-production-REPLACE-ME"),
+		JWTAccessTTL:  time.Duration(getEnvInt("JWT_ACCESS_TTL_MINUTES", 15)) * time.Minute,
+		JWTRefreshTTL: time.Duration(getEnvInt("JWT_REFRESH_TTL_HOURS", 168)) * time.Hour, // 7 days
 	}
 }
 
@@ -107,6 +113,20 @@ func (c *Config) Validate() error {
 	case "debug", "info", "warn", "error":
 	default:
 		return fmt.Errorf("LOG_LEVEL must be one of [debug, info, warn, error], got %q", c.LogLevel)
+	}
+
+	// Validate JWT configuration.
+	if c.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET is required")
+	}
+	if c.JWTSecret == "change-me-in-production-REPLACE-ME" && c.IsProduction() {
+		return fmt.Errorf("JWT_SECRET must be changed from the default in production")
+	}
+	if c.JWTAccessTTL <= 0 {
+		return fmt.Errorf("JWT_ACCESS_TTL_MINUTES must be > 0, got %v", c.JWTAccessTTL)
+	}
+	if c.JWTRefreshTTL <= 0 {
+		return fmt.Errorf("JWT_REFRESH_TTL_HOURS must be > 0, got %v", c.JWTRefreshTTL)
 	}
 
 	return nil

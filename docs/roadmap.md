@@ -41,7 +41,7 @@
 | P2-01 | P1 | DB transaction support for atomic inventory operations | completed | 2026-07-20 | TxManager interface + pgx impl; inventory qty+txn are now atomic via WithTx; 5 integration tests |
 | P2-02 | P1 | Pagination metadata for all list endpoints | completed | 2026-07-20 | `ListResponse[T]` generic envelope with total/page/page_size/total_pages; Count* methods on all repos; 8 endpoints updated |
 | P2-03 | P1 | Domain unit tests (state machines, business rules) | completed | 2026-07-20 | 88 tests across 4 files: Order/Task/Wave/ASN/OrderLine state machines, Inventory biz rules (CanDeduct, CanReserve, FEFO/FIFO helpers), Permission.Can, struct validation; moved state transition logic from service → domain (proper DDD) |
-| P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | pending | — | Blocks admin login page |
+| P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | completed | 2026-07-20 | AuthService with bcrypt passwords, JWT HS256 access (15min) + refresh (7d) tokens, Auth middleware with OptionalAuth variant, context helpers (GetUserID/GetUsername/GetUserRoleIDs), POST /api/v1/auth/login + refresh + GET /me endpoints, UpdateLastLogin repo method; 17 unit tests (service + middleware) |
 | P2-05 | P1 | Makefile: run-admin, run-pda, migrate targets | pending | — | Dev workflow; build/test/lint already work |
 | P2-06 | P1 | Seed data script (demo warehouse, zones, SKUs) | pending | — | Enables UI development; basic seed already in migration |
 | P2-07 | P2 | Admin frontend scaffold (React + Ant Design + routing) | pending | — | Layout, navigation, theme, API client |
@@ -57,5 +57,10 @@
 | P2-17 | P2 | Location status state machine (domain methods + service operations) | pending | — | empty→occupied→reserved→blocked transitions; formalize with CanTransitionTo on Location |
 | P2-18 | P2 | Order line & ASN status transition operations in OrderService | pending | — | Services currently lack UpdateOrderLineStatus/UpdateASNStatus methods; domain state machines ready |
 | P2-19 | P2 | Service tests for order line, ASN, and inventory status transitions | pending | — | Cover the remaining entity state machines at the service layer; domain tests already done |
+| P2-20 | P1 | Seed data: create default admin user with hashed password | pending | — | Blocks login testing; use bcrypt from auth service; insert via migration or seed script |
+| P2-21 | P2 | Role-based authorization middleware (check permissions on API routes) | pending | — | Depends on P2-04; parse role_ids from JWT, check Permission.Can() against resource+action; decorate endpoints with required permissions |
+| P2-22 | P2 | User service + Admin API (CRUD users, register, /me profile) | pending | — | Create/list/update users, password change, proper GET /api/v1/auth/me response with full user profile |
+| P2-23 | P2 | Token blacklist / logout (invalidate refresh tokens) | pending | — | Redis-backed JTI blacklist; logout endpoint; middleware checks blacklist on each request |
+| P2-24 | P2 | Apply auth middleware to PDA server (cmd/pda) | pending | — | PDA endpoints (task assignment, status updates) should require auth; share middleware from api/middleware |
 
 <!-- DISCOVER will refill when pending < 3 -->

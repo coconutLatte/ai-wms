@@ -5,6 +5,14 @@ import (
 	"net/http"
 )
 
+// RegisterAuthRoutes registers authentication API routes on the given mux.
+// Auth routes handle login, token refresh, and current user info.
+func RegisterAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
+	mux.HandleFunc("POST /api/v1/auth/login", h.Login)
+	mux.HandleFunc("POST /api/v1/auth/refresh", h.Refresh)
+	mux.HandleFunc("GET /api/v1/auth/me", h.Me)
+}
+
 // RegisterWarehouseRoutes registers warehouse, zone, and location API routes on the given mux.
 // Uses Go 1.22+ enhanced routing with method patterns and path parameters.
 func RegisterWarehouseRoutes(mux *http.ServeMux, h *WarehouseHandler) {

@@ -56,6 +56,7 @@ func main() {
 	inventoryRepo := postgres.NewInventoryRepo(db)
 	orderRepo := postgres.NewOrderRepo(db)
 	taskRepo := postgres.NewTaskRepo(db)
+	userRepo := postgres.NewUserRepo(db)
 
 	// Initialize services.
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
@@ -63,6 +64,7 @@ func main() {
 	inventorySvc := service.NewInventoryService(inventoryRepo)
 	orderSvc := service.NewOrderService(orderRepo)
 	taskSvc := service.NewTaskService(taskRepo)
+	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	// Initialize API handlers.
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
@@ -70,21 +72,40 @@ func main() {
 	inventoryHandler := api.NewInventoryHandler(inventorySvc, log.Logger)
 	orderHandler := api.NewOrderHandler(orderSvc, log.Logger)
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
+	authHandler := api.NewAuthHandler(authSvc, log.Logger)
 
-	// Initialize API router with Go 1.22+ enhanced routing.
+	// ── Route Setup ──────────────────────────────────────────────────────────
+
 	mux := http.NewServeMux()
+
+	// Health check (no auth required).
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok","service":"admin","version":"0.1.0"}`)
 	})
-	api.RegisterWarehouseRoutes(mux, warehouseHandler)
-	api.RegisterSKURoutes(mux, skuHandler)
-	api.RegisterInventoryRoutes(mux, inventoryHandler)
-	api.RegisterOrderRoutes(mux, orderHandler)
-	api.RegisterTaskRoutes(mux, taskHandler)
 
-	// Apply middleware stack: RequestID → Recovery → Logger → CORS → handler.
+	// Auth routes (no auth required — these are the login/refresh endpoints).
+	api.RegisterAuthRoutes(mux, authHandler)
+
+	// Protected routes — wrapped in JWT auth middleware.
+	// Go 1.22+ ServeMux: exact method+path patterns take priority over prefix patterns.
+	// The auth routes above are exact matches and bypass the middleware.
+	// Everything else under /api/v1/ goes through the auth middleware.
+	protected := http.NewServeMux()
+	api.RegisterWarehouseRoutes(protected, warehouseHandler)
+	api.RegisterSKURoutes(protected, skuHandler)
+	api.RegisterInventoryRoutes(protected, inventoryHandler)
+	api.RegisterOrderRoutes(protected, orderHandler)
+	api.RegisterTaskRoutes(protected, taskHandler)
+
+	// Mount protected sub-router under /api/v1/ with auth middleware.
+	authMiddleware := middleware.Auth(cfg.JWTSecret)
+	mux.Handle("/api/v1/", authMiddleware(protected))
+
+	// ── Global Middleware Stack ───────────────────────────────────────────────
+
+	// RequestID → Recovery → Logger → CORS → mux.
 	handler := middleware.RequestID(
 		middleware.Recovery(log.Logger)(
 			middleware.Logger(log.Logger)(
