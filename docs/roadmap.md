@@ -40,7 +40,7 @@
 |----|----------|------|--------|-----------|-------|
 | P2-01 | P1 | DB transaction support for atomic inventory operations | completed | 2026-07-20 | TxManager interface + pgx impl; inventory qty+txn are now atomic via WithTx; 5 integration tests |
 | P2-02 | P1 | Pagination metadata for all list endpoints | completed | 2026-07-20 | `ListResponse[T]` generic envelope with total/page/page_size/total_pages; Count* methods on all repos; 8 endpoints updated |
-| P2-03 | P1 | Domain unit tests (state machines, business rules) | pending | — | Pure Go tests for Order/Task status transitions, Inventory invariants |
+| P2-03 | P1 | Domain unit tests (state machines, business rules) | completed | 2026-07-20 | 88 tests across 4 files: Order/Task/Wave/ASN/OrderLine state machines, Inventory biz rules (CanDeduct, CanReserve, FEFO/FIFO helpers), Permission.Can, struct validation; moved state transition logic from service → domain (proper DDD) |
 | P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | pending | — | Blocks admin login page |
 | P2-05 | P1 | Makefile: run-admin, run-pda, migrate targets | pending | — | Dev workflow; build/test/lint already work |
 | P2-06 | P1 | Seed data script (demo warehouse, zones, SKUs) | pending | — | Enables UI development; basic seed already in migration |
@@ -54,5 +54,8 @@
 | P2-14 | P2 | CountWaves + CountRoles for TaskRepository and UserRepository | pending | — | ListWaves and ListRoles lack count methods; needed for future paginated wave/role list APIs |
 | P2-15 | P2 | AuditLog list endpoint with pagination (service + Admin API) | pending | — | CountAuditLogs now exists; needs service + handler wrapping ListResponse[T] |
 | P2-16 | P2 | User list endpoint with pagination (service + Admin API) | pending | — | CountUsers now exists; needs service + handler wrapping ListResponse[T] |
+| P2-17 | P2 | Location status state machine (domain methods + service operations) | pending | — | empty→occupied→reserved→blocked transitions; formalize with CanTransitionTo on Location |
+| P2-18 | P2 | Order line & ASN status transition operations in OrderService | pending | — | Services currently lack UpdateOrderLineStatus/UpdateASNStatus methods; domain state machines ready |
+| P2-19 | P2 | Service tests for order line, ASN, and inventory status transitions | pending | — | Cover the remaining entity state machines at the service layer; domain tests already done |
 
 <!-- DISCOVER will refill when pending < 3 -->

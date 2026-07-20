@@ -99,3 +99,96 @@ const (
 	InventoryTxAdjustment  InventoryTxType = "adjustment"  // Manual adjustment (cycle count)
 	InventoryTxReturn      InventoryTxType = "return"      // Customer return
 )
+
+// ── Business Rule Methods ────────────────────────────────────────────────────
+
+// Available returns the currently available quantity (on-hand minus reserved).
+func (inv *Inventory) Available() float64 {
+	return inv.Qty - inv.ReservedQty
+}
+
+// CanDeduct returns true if the requested quantity can be deducted from available inventory.
+// Rule: inventory cannot be negative, and deduction must come from available qty.
+func (inv *Inventory) CanDeduct(qty float64) bool {
+	if qty <= 0 {
+		return false
+	}
+	return inv.Available() >= qty
+}
+
+// CanReserve returns true if the requested quantity can be reserved.
+// Rule: reserve only against available inventory, adjusted for already-reserved.
+func (inv *Inventory) CanReserve(qty float64) bool {
+	if qty <= 0 {
+		return false
+	}
+	return inv.Qty-inv.ReservedQty >= qty
+}
+
+// ResultingQty returns what the on-hand quantity would be after applying deltaQty.
+// Rules: does NOT perform validation — just arithmetic.
+func (inv *Inventory) ResultingQty(deltaQty float64) float64 {
+	return inv.Qty + deltaQty
+}
+
+// CanAdjustTo checks whether adjusting inventory by deltaQty would violate business rules.
+// Rule: resulting qty must be >= 0 (no negative inventory).
+func (inv *Inventory) CanAdjustTo(deltaQty float64) bool {
+	return inv.ResultingQty(deltaQty) >= 0
+}
+
+// IsExpired returns true if the inventory is past its expiry date.
+func (inv *Inventory) IsExpired() bool {
+	if inv.ExpiryDate == nil {
+		return false
+	}
+	return time.Now().After(*inv.ExpiryDate)
+}
+
+// IsExpiredAt returns true if the inventory is past the given reference time.
+func (inv *Inventory) IsExpiredAt(ref time.Time) bool {
+	if inv.ExpiryDate == nil {
+		return false
+	}
+	return ref.After(*inv.ExpiryDate)
+}
+
+// IsOlderThan returns true if this inventory was received before the other.
+// Used for FIFO allocation decisions.
+func (inv *Inventory) IsOlderThan(other *Inventory) bool {
+	return inv.ReceivedAt.Before(other.ReceivedAt)
+}
+
+// HasEarlierExpiry returns true if this inventory expires before the other.
+// Nil expiry is treated as "never expires" (sorted last). Used for FEFO.
+func (inv *Inventory) HasEarlierExpiry(other *Inventory) bool {
+	if inv.ExpiryDate == nil {
+		return false
+	}
+	if other.ExpiryDate == nil {
+		return true
+	}
+	return inv.ExpiryDate.Before(*other.ExpiryDate)
+}
+
+// IsActive returns true if the SKU is available for operations.
+func (s *SKU) IsActive() bool {
+	return s.Status == SKUStatusActive
+}
+
+// IsDiscontinued returns true if the SKU has been discontinued.
+func (s *SKU) IsDiscontinued() bool {
+	return s.Status == SKUStatusDiscontinued
+}
+
+// ── InventoryTransaction Methods ──────────────────────────────────────────────
+
+// IsIncrease returns true if the transaction adds inventory.
+func (tx *InventoryTransaction) IsIncrease() bool {
+	return tx.DeltaQty > 0
+}
+
+// IsDecrease returns true if the transaction removes inventory.
+func (tx *InventoryTransaction) IsDecrease() bool {
+	return tx.DeltaQty < 0
+}

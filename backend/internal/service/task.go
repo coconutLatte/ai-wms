@@ -4,7 +4,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -208,7 +207,7 @@ func (s *TaskService) UpdateTaskStatus(ctx context.Context, id uuid.UUID, input 
 	}
 
 	// Validate the state transition.
-	if !isValidTaskTransition(task.Status, input.Status) {
+	if !task.CanTransitionTo(input.Status) {
 		return nil, pkgerrors.NewInvalidStatus(string(task.Status), string(input.Status))
 	}
 
@@ -285,46 +284,4 @@ func isValidTaskStatus(s domain.TaskStatus) bool {
 		return true
 	}
 	return false
-}
-
-// isValidTaskTransition validates a task status state machine transition.
-//
-// Valid transitions:
-//
-//	pending   → assigned, cancelled
-//	assigned  → in_progress, cancelled
-//	in_progress → completed, paused, cancelled
-//	paused    → in_progress, cancelled
-//	exception → in_progress, cancelled
-//
-// Terminal states (completed, cancelled) allow no further transitions.
-func isValidTaskTransition(current, target domain.TaskStatus) bool {
-	if current == target {
-		return false // No-op
-	}
-
-	// Terminal states — no further transitions allowed.
-	if current == domain.TaskStatusCompleted || current == domain.TaskStatusCancelled {
-		return false
-	}
-
-	// Any non-terminal status can be cancelled.
-	if target == domain.TaskStatusCancelled {
-		return true
-	}
-
-	valid := map[domain.TaskStatus][]domain.TaskStatus{
-		domain.TaskStatusPending:    {domain.TaskStatusAssigned},
-		domain.TaskStatusAssigned:   {domain.TaskStatusInProgress},
-		domain.TaskStatusInProgress: {domain.TaskStatusCompleted, domain.TaskStatusPaused},
-		domain.TaskStatusPaused:     {domain.TaskStatusInProgress},
-		domain.TaskStatusException:  {domain.TaskStatusInProgress},
-	}
-
-	allowed, ok := valid[current]
-	if !ok {
-		return false
-	}
-
-	return slices.Contains(allowed, target)
 }

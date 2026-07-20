@@ -108,8 +108,113 @@ const (
 type WaveStatus string
 
 const (
-	WaveStatusCreated   WaveStatus = "created"
-	WaveStatusReleased  WaveStatus = "released"  // Tasks generated
+	WaveStatusCreated    WaveStatus = "created"
+	WaveStatusReleased   WaveStatus = "released"  // Tasks generated
 	WaveStatusInProgress WaveStatus = "in_progress"
-	WaveStatusCompleted WaveStatus = "completed"
+	WaveStatusCompleted  WaveStatus = "completed"
 )
+
+// ── State Machine Methods ────────────────────────────────────────────────────
+
+// IsTerminal returns true if the task is in a terminal (immutable) state.
+func (t *Task) IsTerminal() bool {
+	return t.Status == TaskStatusCompleted || t.Status == TaskStatusCancelled
+}
+
+// CanTransitionTo checks whether the task can transition from its current
+// status to the target status. This is the authoritative task state machine.
+//
+// Valid transitions:
+//
+//	pending     → assigned, cancelled
+//	assigned    → in_progress, cancelled
+//	in_progress → completed, paused, cancelled
+//	paused      → in_progress, cancelled
+//	exception   → in_progress, cancelled
+//	completed   → (terminal)
+//	cancelled   → (terminal)
+func (t *Task) CanTransitionTo(target TaskStatus) bool {
+	if t.Status == target {
+		return false
+	}
+	if t.IsTerminal() {
+		return false
+	}
+	// Any non-terminal status can be cancelled.
+	if target == TaskStatusCancelled {
+		return true
+	}
+
+	switch t.Status {
+	case TaskStatusPending:
+		return target == TaskStatusAssigned
+	case TaskStatusAssigned:
+		return target == TaskStatusInProgress
+	case TaskStatusInProgress:
+		return target == TaskStatusCompleted || target == TaskStatusPaused
+	case TaskStatusPaused:
+		return target == TaskStatusInProgress
+	case TaskStatusException:
+		return target == TaskStatusInProgress
+	default:
+		return false
+	}
+}
+
+// CanBeAssigned returns true if the task is eligible to be assigned to a worker.
+func (t *Task) CanBeAssigned() bool {
+	return t.Status == TaskStatusPending
+}
+
+// CanBeStarted returns true if the task can be started (moved to in_progress).
+func (t *Task) CanBeStarted() bool {
+	return t.Status == TaskStatusAssigned || t.Status == TaskStatusException
+}
+
+// CanBeCompleted returns true if the task can be completed.
+func (t *Task) CanBeCompleted() bool {
+	return t.Status == TaskStatusInProgress
+}
+
+// CanBePaused returns true if the task can be paused.
+func (t *Task) CanBePaused() bool {
+	return t.Status == TaskStatusInProgress
+}
+
+// CanBeResumed returns true if the task can be resumed from paused or exception.
+func (t *Task) CanBeResumed() bool {
+	return t.Status == TaskStatusPaused || t.Status == TaskStatusException
+}
+
+// IsTerminal returns true if the wave is in a terminal state.
+func (w *Wave) IsTerminal() bool {
+	return w.Status == WaveStatusCompleted
+}
+
+// CanTransitionTo checks whether the wave can transition state.
+//
+// Valid transitions:
+//
+//	created     → released
+//	released    → in_progress
+//	in_progress → completed
+//	completed   → (terminal)
+func (w *Wave) CanTransitionTo(target WaveStatus) bool {
+	if w.Status == target {
+		return false
+	}
+	if w.IsTerminal() {
+		return false
+	}
+
+	switch w.Status {
+	case WaveStatusCreated:
+		return target == WaveStatusReleased
+	case WaveStatusReleased:
+		return target == WaveStatusInProgress
+	case WaveStatusInProgress:
+		return target == WaveStatusCompleted
+	default:
+		return false
+	}
+}

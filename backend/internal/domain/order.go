@@ -126,3 +126,120 @@ const (
 	ASNLineStatusPartial   ASNLineStatus = "partial"
 	ASNLineStatusReceived  ASNLineStatus = "received"
 )
+
+// ── State Machine Methods ────────────────────────────────────────────────────
+
+// IsTerminal returns true if the order is in a terminal (immutable) state.
+func (o *Order) IsTerminal() bool {
+	return o.Status == OrderStatusCancelled || o.Status == OrderStatusCompleted
+}
+
+// CanTransitionTo checks whether the order can transition from its current
+// status to the target status. This is the authoritative order state machine.
+//
+// Valid transitions:
+//
+//	draft      → confirmed, cancelled
+//	confirmed  → processing, cancelled
+//	processing → completed, partial, cancelled
+//	partial    → completed, cancelled
+//	cancelled  → (terminal)
+//	completed  → (terminal)
+func (o *Order) CanTransitionTo(target OrderStatus) bool {
+	if o.Status == target {
+		return false
+	}
+	if o.IsTerminal() {
+		return false
+	}
+	// Any non-terminal status can be cancelled.
+	if target == OrderStatusCancelled {
+		return true
+	}
+
+	switch o.Status {
+	case OrderStatusDraft:
+		return target == OrderStatusConfirmed
+	case OrderStatusConfirmed:
+		return target == OrderStatusProcessing
+	case OrderStatusProcessing:
+		return target == OrderStatusCompleted || target == OrderStatusPartial
+	case OrderStatusPartial:
+		return target == OrderStatusCompleted
+	default:
+		return false
+	}
+}
+
+// IsTerminal returns true if the order line is in a terminal state.
+func (ol *OrderLine) IsTerminal() bool {
+	return ol.Status == OrderLineStatusFulfilled || ol.Status == OrderLineStatusCancelled
+}
+
+// CanTransitionTo checks whether the order line can transition state.
+//
+// Valid transitions:
+//
+//	pending   → allocated, cancelled
+//	allocated → partial, fulfilled, cancelled
+//	partial   → fulfilled, cancelled
+//	fulfilled → (terminal)
+//	cancelled → (terminal)
+func (ol *OrderLine) CanTransitionTo(target OrderLineStatus) bool {
+	if ol.Status == target {
+		return false
+	}
+	if ol.IsTerminal() {
+		return false
+	}
+	if target == OrderLineStatusCancelled {
+		return true
+	}
+
+	switch ol.Status {
+	case OrderLineStatusPending:
+		return target == OrderLineStatusAllocated
+	case OrderLineStatusAllocated:
+		return target == OrderLineStatusPartial || target == OrderLineStatusFulfilled
+	case OrderLineStatusPartial:
+		return target == OrderLineStatusFulfilled
+	default:
+		return false
+	}
+}
+
+// IsTerminal returns true if the ASN is in a terminal state.
+func (a *ASN) IsTerminal() bool {
+	return a.Status == ASNStatusReceived
+}
+
+// CanTransitionTo checks whether the ASN can transition state.
+//
+// Valid transitions:
+//
+//	pending   → arrived
+//	arrived   → receiving
+//	receiving → partial, received
+//	partial   → received
+//	received  → (terminal)
+func (a *ASN) CanTransitionTo(target ASNStatus) bool {
+	if a.Status == target {
+		return false
+	}
+	if a.IsTerminal() {
+		return false
+	}
+
+	switch a.Status {
+	case ASNStatusPending:
+		return target == ASNStatusArrived
+	case ASNStatusArrived:
+		return target == ASNStatusReceiving
+	case ASNStatusReceiving:
+		return target == ASNStatusPartial || target == ASNStatusReceived
+	case ASNStatusPartial:
+		return target == ASNStatusReceived
+	default:
+		return false
+	}
+}

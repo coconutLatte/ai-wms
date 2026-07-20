@@ -4,7 +4,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -246,7 +245,7 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id uuid.UUID, inpu
 	}
 
 	// Validate the state transition.
-	if !isValidOrderTransition(order.Status, input.Status) {
+	if !order.CanTransitionTo(input.Status) {
 		return nil, pkgerrors.NewInvalidStatus(string(order.Status), string(input.Status))
 	}
 
@@ -364,42 +363,8 @@ func isValidOrderStatus(s domain.OrderStatus) bool {
 }
 
 // isValidOrderTransition validates an order status state machine transition.
-// Valid transitions:
-//
-//	draft → confirmed, cancelled
-//	confirmed → processing, cancelled
-//	processing → completed, partial, cancelled
-//	partial → completed, cancelled
+// DEPRECATED: Delegates to Order.CanTransitionTo() — keep for reference.
 func isValidOrderTransition(current, target domain.OrderStatus) bool {
-	if current == target {
-		return false // No-op
-	}
-
-	// Cancelled is terminal — no further transitions allowed.
-	if current == domain.OrderStatusCancelled {
-		return false
-	}
-	// Completed is terminal — no further transitions allowed.
-	if current == domain.OrderStatusCompleted {
-		return false
-	}
-
-	// Any non-terminal status CAN be cancelled.
-	if target == domain.OrderStatusCancelled {
-		return true
-	}
-
-	valid := map[domain.OrderStatus][]domain.OrderStatus{
-		domain.OrderStatusDraft:     {domain.OrderStatusConfirmed},
-		domain.OrderStatusConfirmed: {domain.OrderStatusProcessing},
-		domain.OrderStatusProcessing: {domain.OrderStatusCompleted, domain.OrderStatusPartial},
-		domain.OrderStatusPartial:   {domain.OrderStatusCompleted},
-	}
-
-	allowed, ok := valid[current]
-	if !ok {
-		return false
-	}
-
-	return slices.Contains(allowed, target)
+	o := &domain.Order{Status: current}
+	return o.CanTransitionTo(target)
 }
