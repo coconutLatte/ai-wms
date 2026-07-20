@@ -68,6 +68,11 @@ func RegisterAuditLogRoutes(mux *http.ServeMux, h *AuditLogHandler) {
 	mux.HandleFunc("GET /api/v1/audit-logs", h.ListAuditLogs)
 }
 
+// RegisterUserRoutes registers user API routes on the given mux (Admin only).
+func RegisterUserRoutes(mux *http.ServeMux, h *UserHandler) {
+	mux.HandleFunc("GET /api/v1/users", h.ListUsers)
+}
+
 // RegisterTaskRoutes registers task API routes on the given mux.
 // Tasks are accessible from both Admin (management) and PDA (execution).
 func RegisterTaskRoutes(mux *http.ServeMux, h *TaskHandler) {

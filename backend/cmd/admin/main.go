@@ -69,6 +69,7 @@ func main() {
 	taskSvc := service.NewTaskService(taskRepo)
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	auditLogSvc := service.NewAuditLogService(userRepo)
+	userSvc := service.NewUserService(userRepo)
 
 	// Initialize API handlers.
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
@@ -78,6 +79,7 @@ func main() {
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
 	authHandler := api.NewAuthHandler(authSvc, log.Logger)
 	auditLogHandler := api.NewAuditLogHandler(auditLogSvc, log.Logger)
+	userHandler := api.NewUserHandler(userSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -104,6 +106,7 @@ func main() {
 	api.RegisterOrderRoutes(protected, orderHandler)
 	api.RegisterTaskRoutes(protected, taskHandler)
 	api.RegisterAuditLogRoutes(protected, auditLogHandler)
+	api.RegisterUserRoutes(protected, userHandler)
 
 	// Mount protected sub-router under /api/v1/ with auth middleware.
 	authMiddleware := middleware.Auth(cfg.JWTSecret)

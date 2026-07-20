@@ -53,7 +53,7 @@
 | P2-13 | P2 | DI wiring: wire TxManager into server startup (cmd/admin, cmd/pda) | completed | 2026-07-21 | TxManager created at startup in both cmd/admin and cmd/pda; inventory service uses NewInventoryServiceWithTx for atomic adjust operations |
 | P2-14 | P2 | CountWaves + CountRoles for TaskRepository and UserRepository | completed | 2026-07-21 | Added CountWaves(warehouseID) to TaskRepository + postgres impl with 1 integration test; Added CountRoles() to UserRepository + postgres impl with 1 integration test; updated mockTaskRepo and stubUserRepo in service tests |
 | P2-15 | P2 | AuditLog list endpoint with pagination (service + Admin API) | completed | 2026-07-21 | AuditLogService.ListAuditLogs + AuditLogHandler.ListAuditLogs (GET /api/v1/audit-logs) with user_id/action/resource filters |
-| P2-16 | P2 | User list endpoint with pagination (service + Admin API) | pending | — | CountUsers now exists; needs service + handler wrapping ListResponse[T] |
+| P2-16 | P2 | User list endpoint with pagination (service + Admin API) | completed | 2026-07-21 | UserService.ListUsers + UserHandler.ListUsers (GET /api/v1/users) with status filter + pagination; 3 unit tests
 | P2-17 | P2 | Location status state machine (domain methods + service operations) | pending | — | empty→occupied→reserved→blocked transitions; formalize with CanTransitionTo on Location |
 | P2-18 | P2 | Order line & ASN status transition operations in OrderService | pending | — | Services currently lack UpdateOrderLineStatus/UpdateASNStatus methods; domain state machines ready |
 | P2-19 | P2 | Service tests for order line, ASN, and inventory status transitions | pending | — | Cover the remaining entity state machines at the service layer; domain tests already done |
