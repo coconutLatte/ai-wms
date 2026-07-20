@@ -6,6 +6,7 @@
 *.dylib
 backend/cmd/admin/admin
 backend/cmd/pda/pda
+backend/cmd/seed/seed
 
 # Test binary
 *.test

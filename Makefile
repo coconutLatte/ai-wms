@@ -29,6 +29,10 @@ run-pda: ## Run the PDA server (requires: make dev)
 	@echo "Starting PDA server on http://localhost:$${PDA_PORT:-8081} ..."
 	go run ./backend/cmd/pda
 
+seed: ## Run seed data script (requires: make dev + make migrate)
+	@echo "Seeding demo data..."
+	go run ./backend/cmd/seed
+
 # ── Build & Test ────────────────────────────────────────────
 
 build: ## Build all Go binaries

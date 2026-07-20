@@ -43,7 +43,7 @@
 | P2-03 | P1 | Domain unit tests (state machines, business rules) | completed | 2026-07-20 | 88 tests across 4 files: Order/Task/Wave/ASN/OrderLine state machines, Inventory biz rules (CanDeduct, CanReserve, FEFO/FIFO helpers), Permission.Can, struct validation; moved state transition logic from service → domain (proper DDD) |
 | P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | completed | 2026-07-20 | AuthService with bcrypt passwords, JWT HS256 access (15min) + refresh (7d) tokens, Auth middleware with OptionalAuth variant, context helpers (GetUserID/GetUsername/GetUserRoleIDs), POST /api/v1/auth/login + refresh + GET /me endpoints, UpdateLastLogin repo method; 17 unit tests (service + middleware) |
 | P2-05 | P1 | Makefile: run-admin, run-pda, migrate targets | completed | 2026-07-20 | `make run-admin` (port 8080), `make run-pda` (port 8081) via go run; `make migrate` applies all SQL files via docker exec psql; db-migrate now aliases migrate |
-| P2-06 | P1 | Seed data script (demo warehouse, zones, SKUs) | pending | — | Enables UI development; basic seed already in migration |
+| P2-06 | P1 | Seed data script (demo warehouse, zones, SKUs) | completed | 2026-07-20 | `backend/cmd/seed/main.go`: idempotent Go binary seeding 1 warehouse, 7 zones, 35 locations, 16 SKUs across 6 categories, 25 inventory records with batch tracking. Also fixes admin password to real bcrypt hash. `make seed` target added. |
 | P2-07 | P2 | Admin frontend scaffold (React + Ant Design + routing) | pending | — | Layout, navigation, theme, API client |
 | P2-08 | P2 | Admin: Warehouse management pages (list, create, edit) | pending | — | Warehouse + zone + location CRUD UI |
 | P2-09 | P2 | FEFO/FIFO inventory retrieval queries | pending | — | GetOldestInventory / GetExpiringInventory methods |
@@ -57,13 +57,15 @@
 | P2-17 | P2 | Location status state machine (domain methods + service operations) | pending | — | empty→occupied→reserved→blocked transitions; formalize with CanTransitionTo on Location |
 | P2-18 | P2 | Order line & ASN status transition operations in OrderService | pending | — | Services currently lack UpdateOrderLineStatus/UpdateASNStatus methods; domain state machines ready |
 | P2-19 | P2 | Service tests for order line, ASN, and inventory status transitions | pending | — | Cover the remaining entity state machines at the service layer; domain tests already done |
-| P2-20 | P1 | Seed data: create default admin user with hashed password | pending | — | Blocks login testing; use bcrypt from auth service; insert via migration or seed script |
+| P2-20 | P1 | Seed data: create default admin user with hashed password | pending | — | Blocks login testing; seed script (P2-06) now updates admin password to real bcrypt hash at runtime; initial migration still has placeholder — update migration to use a real hash too |
 | P2-21 | P2 | Role-based authorization middleware (check permissions on API routes) | pending | — | Depends on P2-04; parse role_ids from JWT, check Permission.Can() against resource+action; decorate endpoints with required permissions |
 | P2-22 | P2 | User service + Admin API (CRUD users, register, /me profile) | pending | — | Create/list/update users, password change, proper GET /api/v1/auth/me response with full user profile |
 | P2-23 | P2 | Token blacklist / logout (invalidate refresh tokens) | pending | — | Redis-backed JTI blacklist; logout endpoint; middleware checks blacklist on each request |
 | P2-24 | P2 | Apply auth middleware to PDA server (cmd/pda) | pending | — | PDA endpoints (task assignment, status updates) should require auth; share middleware from api/middleware |
 | P2-25 | P2 | Makefile `watch` target for hot-reload development | pending | — | Use `air` or similar for auto-rebuild on file changes; speeds up admin/PDA UI iteration |
 | P2-26 | P2 | Migration tracking table (schema_migrations) | pending | — | Current `make migrate` blindly applies all .sql files; add a tracking table so each migration runs exactly once |
+| P2-27 | P2 | UserRepository.UpdatePasswordHash method | pending | — | UpdateUser skips password_hash; seed script uses raw SQL. Add UpdatePasswordHash(ctx, userID, hash) to the repo interface + impl; update auth service's password change to use it |
+| P2-28 | P2 | Makefile `setup-full` target (dev + migrate + seed in one step) | pending | — | Single command for fresh dev environment; depends on P2-06 + P2-26 |
 
 ## Phase 3: Admin & PDA UI
 
