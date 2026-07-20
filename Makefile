@@ -33,6 +33,26 @@ seed: ## Run seed data script (requires: make dev + make migrate)
 	@echo "Seeding demo data..."
 	go run ./backend/cmd/seed
 
+# ── Frontend ──────────────────────────────────────────────────
+
+install-admin-ui: ## Install admin frontend dependencies
+	cd frontend/admin && npm install
+
+install-pda-ui: ## Install PDA frontend dependencies
+	cd frontend/pda && npm install
+
+dev-admin-ui: ## Start admin frontend dev server (port 3000)
+	cd frontend/admin && npm run dev
+
+dev-pda-ui: ## Start PDA frontend dev server (port 3001)
+	cd frontend/pda && npm run dev
+
+build-admin-ui: ## Build admin frontend for production
+	cd frontend/admin && npm run build
+
+build-pda-ui: ## Build PDA frontend for production
+	cd frontend/pda && npm run build
+
 # ── Build & Test ────────────────────────────────────────────
 
 build: ## Build all Go binaries

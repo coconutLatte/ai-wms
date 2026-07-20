@@ -44,7 +44,7 @@
 | P2-04 | P1 | Authentication (JWT login, token refresh, middleware) | completed | 2026-07-20 | AuthService with bcrypt passwords, JWT HS256 access (15min) + refresh (7d) tokens, Auth middleware with OptionalAuth variant, context helpers (GetUserID/GetUsername/GetUserRoleIDs), POST /api/v1/auth/login + refresh + GET /me endpoints, UpdateLastLogin repo method; 17 unit tests (service + middleware) |
 | P2-05 | P1 | Makefile: run-admin, run-pda, migrate targets | completed | 2026-07-20 | `make run-admin` (port 8080), `make run-pda` (port 8081) via go run; `make migrate` applies all SQL files via docker exec psql; db-migrate now aliases migrate |
 | P2-06 | P1 | Seed data script (demo warehouse, zones, SKUs) | completed | 2026-07-20 | `backend/cmd/seed/main.go`: idempotent Go binary seeding 1 warehouse, 7 zones, 35 locations, 16 SKUs across 6 categories, 25 inventory records with batch tracking. Also fixes admin password to real bcrypt hash. `make seed` target added. |
-| P2-07 | P2 | Admin frontend scaffold (React + Ant Design + routing) | pending | — | Layout, navigation, theme, API client |
+| P2-07 | P2 | Admin frontend scaffold (React + Ant Design + routing) | completed | 2026-07-20 | React 18 + Ant Design 5 + react-router-dom v6; AdminLayout with collapsible sidebar + header with user dropdown; all module routes (dashboard, warehouses, SKUs, inventory, orders, tasks); axios client with JWT auth interceptor + auto-refresh on 401 with request queuing; zustand auth store with localStorage persistence; Ant Design ConfigProvider theme tokens; shared API types matching backend ListResponse[T] envelope; Login + 404 placeholder pages; global CSS with layout overrides |
 | P2-08 | P2 | Admin: Warehouse management pages (list, create, edit) | pending | — | Warehouse + zone + location CRUD UI |
 | P2-09 | P2 | FEFO/FIFO inventory retrieval queries | pending | — | GetOldestInventory / GetExpiringInventory methods |
 | P2-10 | P2 | PDA frontend scaffold (React + mobile-first) | pending | — | Mobile layout, barcode scanner component, task list |
@@ -66,6 +66,9 @@
 | P2-26 | P2 | Migration tracking table (schema_migrations) | pending | — | Current `make migrate` blindly applies all .sql files; add a tracking table so each migration runs exactly once |
 | P2-27 | P2 | UserRepository.UpdatePasswordHash method | pending | — | UpdateUser skips password_hash; seed script uses raw SQL. Add UpdatePasswordHash(ctx, userID, hash) to the repo interface + impl; update auth service's password change to use it |
 | P2-28 | P2 | Makefile `setup-full` target (dev + migrate + seed in one step) | pending | — | Single command for fresh dev environment; depends on P2-06 + P2-26 |
+| P2-29 | P2 | Admin: ProtectedRoute auth guard (redirect unauthenticated users to /login) | pending | — | Wrap admin layout routes; redirect to /login if no access token in zustand store; preserve intended destination for post-login redirect |
+| P2-30 | P2 | Admin: ESLint + Prettier config | pending | — | Add .eslintrc.cjs with @typescript-eslint + react-hooks plugin; .prettierrc with consistent formatting; lint script already in package.json |
+| P2-31 | P2 | Admin: API service modules (warehouses, SKUs, inventory, orders, tasks, auth) | pending | — | Per-entity API modules wrapping the axios client; typed request/response functions for each endpoint; used by Phase 3 page components |
 
 ## Phase 3: Admin & PDA UI
 
@@ -78,7 +81,7 @@
 | P3-05 | P2 | Admin: task monitoring pages (list, detail, wave view) | pending | — | Filter by type/status/assignee; detail with scan history; wave grouping |
 | P3-06 | P2 | Admin: user management pages (list, create, edit, roles) | pending | — | CRUD users; role assignment; password reset for admins |
 | P3-07 | P2 | Admin: audit log viewer (filterable, paginated) | pending | — | Filter by entity type, action, user, date range; export to CSV |
-| P3-08 | P2 | Admin: API client layer (axios/fetch wrapper with JWT refresh) | pending | — | Shared API module with auth token injection, auto-refresh on 401, error handling |
+| P3-08 | P2 | Admin: API client layer (axios/fetch wrapper with JWT refresh) | completed | 2026-07-20 | Implemented in P2-07; axios instance with Bearer token injection, 401 interceptor with JWT refresh + concurrent request queuing, shared API TypeScript types matching backend response envelope |
 | P3-09 | P2 | PDA: login + task list screen | pending | — | Mobile-first login; swipe-to-refresh task list; status badges |
 | P3-10 | P2 | PDA: barcode scanner component (webcam + keyboard wedge) | pending | — | Support both camera-based scanning (html5-qrcode) and hardware scanner input; vibrate on scan |
 | P3-11 | P2 | PDA: receiving flow (scan ASN → confirm items → submit) | pending | — | Step-by-step wizard: scan ASN barcode, verify lines, enter received qty, confirm |

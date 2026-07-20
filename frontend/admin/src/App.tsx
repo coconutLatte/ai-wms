@@ -1,0 +1,53 @@
+// Root application component with routing.
+// Sets up React Router with the admin layout shell and all page routes.
+
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ConfigProvider, App as AntApp } from 'antd'
+import AdminLayout from '@/layouts/AdminLayout'
+import LoginPage from '@/pages/Login'
+import DashboardPage from '@/pages/Dashboard'
+import WarehousesPage from '@/pages/Warehouses'
+import SKUsPage from '@/pages/Skus'
+import InventoryPage from '@/pages/Inventory'
+import OrdersPage from '@/pages/Orders'
+import TasksPage from '@/pages/Tasks'
+import NotFoundPage from '@/pages/NotFound'
+
+// ── Ant Design theme ────────────────────────────────────────────────
+
+const themeConfig = {
+  token: {
+    colorPrimary: '#1677ff',
+    borderRadius: 6,
+    fontFamily: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`,
+  },
+}
+
+export default function App() {
+  return (
+    <ConfigProvider theme={themeConfig}>
+      <AntApp>
+        <BrowserRouter>
+          <Routes>
+            {/* Public */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Protected — admin layout shell */}
+            <Route element={<AdminLayout />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/warehouses" element={<WarehousesPage />} />
+              <Route path="/skus" element={<SKUsPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/tasks" element={<TasksPage />} />
+            </Route>
+
+            {/* Default redirect */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </BrowserRouter>
+      </AntApp>
+    </ConfigProvider>
+  )
+}
