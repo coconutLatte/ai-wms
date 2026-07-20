@@ -60,9 +60,9 @@
 | P2-06 | P2 | Inventory overview page (list, search, filter, detail, transaction log) | pending | — | Filterable inventory table; drill-down to transaction history |
 | P2-07 | P2 | Order management pages (inbound list, outbound list, create, detail) | pending | — | Order CRUD; order line editor; status timeline; external_ref linking |
 | P2-08 | P2 | Task monitoring dashboard (task list, status filter, assignment) | pending | — | Task table by status; assign worker; view task detail with instructions |
-| P2-09 | P2 | Dashboard home page (KPIs, charts, alerts summary) | pending | — | Inventory turnover, order volume, task completion rate, low-stock alerts |
+| P2-09 | P2 | Dashboard home page (KPIs, charts, alerts summary) | pending | — | Inventory turnover, order volume, task completion rate, low-stock alerts; depends on P2-03 through P2-08 (aggregates data from all management pages); should be last Phase 2 UI task |
 | P2-10 | P2 | User & Role management pages | pending | — | User CRUD; role editor with permission matrix; blocks P5-06 UI |
-| P2-11 | P2 | Shared API client + TypeScript types (generated from OpenAPI or handwritten) | pending | — | Typed API client shared between admin and PDA; request/response types; error handling; reduces frontend integration bugs |
+| P2-11 | P2 | Shared API client + TypeScript types (generated from OpenAPI or handwritten) | pending | — | Typed API client shared between admin and PDA; request/response types; error handling; reduces frontend integration bugs; blocks P2-03 through P2-08 (admin pages need typed API client); depends on P6-08 for OpenAPI generation |
 
 ## Phase 3: PDA Operations
 
@@ -87,7 +87,7 @@
 | P4-01 | P4 | Integration adapter interface definition (common protocol + message format) | pending | — | Define IntegrationAdapter interface; standard message envelope; ack/nack protocol |
 | P4-02 | P4 | WebSocket real-time events (inventory changes, task updates, alerts) | pending | — | Push events to admin + PDA clients; connection management; reconnection; depends on P1-27 domain event bus |
 | P4-03 | P4 | Message queue integration (NATS for async task dispatch, event bus) | pending | — | Pub/sub for domain events; dead-letter queue; retry policies |
-| P4-04 | P4 | API gateway + rate limiting + JWT auth enforcement | pending | — | Route-based rate limiting; JWT validation on all protected routes; API key for integrations |
+| P4-04 | P4 | API gateway + rate limiting + JWT auth enforcement | pending | — | Route-based rate limiting; JWT validation on all protected routes; API key for integrations; depends on P1-19 auth service for JWT validation logic |
 | P4-05 | P4 | WCS adapter — conveyor control (divert, route, status query) | pending | — | Adapter for conveyor/sorter hardware; WebSocket or TCP protocol |
 | P4-06 | P4 | WCS adapter — sorter interface (scan, sort, chute assignment) | pending | — | Scan-and-sort workflow; chute/door assignment; sort plan upload |
 | P4-07 | P4 | RCS adapter — AGV/AMR task dispatch (move, dock, charge) | pending | — | Robot task dispatch via VDA 5050 or custom gRPC; position tracking |
@@ -109,7 +109,7 @@
 | P5-05 | P5 | Operational reports (order fill rate, pick accuracy, cycle count variance) | pending | — | Operational KPI dashboards; date-range filtering; drill-down |
 | P5-06 | P5 | RBAC permissions (role-based access control UI + API enforcement) | pending | — | Permission middleware; resource/action checks on every API call; depends on P2-10 |
 | P5-07 | P5 | Audit log viewer (operation history, traceability, compliance export) | pending | — | Filterable audit log UI; date range; export for compliance audit |
-| P5-08 | P5 | Inventory alerts engine (low stock, expiry, stranded, slow-moving) | pending | — | Configurable thresholds; notification channels (in-app, email, webhook) |
+| P5-08 | P5 | Inventory alerts engine (low stock, expiry, stranded, slow-moving) | pending | — | Configurable thresholds; notification channels (in-app, email, webhook); depends on P8-08 for notification delivery |
 | P5-09 | P5 | Multi-warehouse support (cross-warehouse transfers, global inventory view) | pending | — | Transfer orders between warehouses; consolidated inventory dashboard |
 | P5-10 | P5 | Lot/batch traceability (raw material → WIP → finished goods — full chain) | pending | — | Lot genealogy; forward and backward trace; recall support |
 | P5-11 | P5 | Replenishment engine (min/max levels, demand-driven, auto task generation) | pending | — | Replenishment rules per SKU/zone; auto-create replenishment tasks when low |
@@ -118,7 +118,7 @@
 | P5-14 | P5 | Cross-docking flow (receiving → sort → ship, bypass storage) | pending | — | Identify cross-dock candidates; sort-by-destination; time-window management |
 | P5-15 | P5 | Kitting / de-kitting (bundle and unbundle SKUs) | pending | — | Kit BOM definition; kit assembly tasks; component consumption; kit disassembly |
 | P5-16 | P5 | Cartonization engine (optimal packaging per order) | pending | — | Box selection by item dimensions/weight; multi-carton split; packing slip generation |
-| P5-17 | P5 | Scheduled report generation (cron-based, email delivery, PDF) | pending | — | Schedule daily/weekly/monthly reports; email with PDF attachment; report history |
+| P5-17 | P5 | Scheduled report generation (cron-based, email delivery, PDF) | pending | — | Schedule daily/weekly/monthly reports; email with PDF attachment; report history; depends on P5-18 export engine + P8-08 notification + P21-03 email sending |
 | P5-18 | P5 | CSV/PDF export engine (generic export for all list views) | pending | — | Streaming CSV writer for large datasets; PDF with header/logo; used by P5-04 and P5-05 |
 | P5-19 | P5 | Pick path optimization (shortest path routing through warehouse) | pending | — | Compute optimal pick sequence through warehouse zones/locations; reduce travel distance per wave |
 | P5-20 | P5 | Task interleaving (combine putaway + pick for same operator/zone) | pending | — | Merge putaway and pick tasks in same zone to minimize empty travel; operator efficiency gains |
@@ -131,6 +131,7 @@
 | P5-27 | P5 | SKU substitution rules (alternative SKUs when primary is out of stock) | pending | — | Substitution entity (primary SKU → alternate SKU); priority ranking; auto-substitution during allocation when primary unavailable; substitution approval toggle (auto vs manual review); substitution audit log |
 | P5-28 | P5 | Catch weight management (variable-weight SKUs, scale integration) | pending | — | Catch weight flag on SKU; expected vs actual weight capture at receiving/shipping; weight tolerance thresholds; scale integration via serial/TCP; price-by-weight support; catch weight audit trail |
 | P5-29 | P5 | Blind receiving workflow (receive without pre-advice, identify on dock) | pending | — | Scan barcode → identify SKU → capture qty → generate putaway; unknown barcode exception flow; mobile-first receiving screen for PDA; inventory created without ASN pre-notification; links to P3-05/P3-10 |
+| P5-30 | P5 | Order consolidation engine (merge orders by destination/customer, wave grouping) | pending | — | Identify consolidatable orders (same customer, destination, carrier, ship-date); auto-merge into consolidated pick wave; consolidated packing (all items for one destination packed together); split back if consolidation fails; consolidation audit log; reduces pick+pack labor for multi-order customers |
 
 ## Phase 6: Production Operations & DevOps
 
@@ -143,7 +144,7 @@
 | P6-05 | P6 | Prometheus metrics instrumentation (HTTP latency, DB pool, business KPIs) | pending | — | /metrics endpoint; custom metrics (order count, task throughput, inventory changes) |
 | P6-06 | P6 | Structured logging to stdout (JSON format, log levels, sampling) | pending | — | slog or zerolog integration; structured fields; sampling for high-volume paths |
 | P6-07 | P6 | Distributed tracing (OpenTelemetry — trace propagation across services) | pending | — | OTLP exporter; span context in middleware; DB query spans |
-| P6-08 | P6 | OpenAPI/Swagger documentation (auto-generated from code annotations) | pending | — | swaggo or similar; /api/docs endpoint; publish to API docs portal |
+| P6-08 | P6 | OpenAPI/Swagger documentation (auto-generated from code annotations) | pending | — | swaggo or similar; /api/docs endpoint; publish to API docs portal; blocks P2-11 (TypeScript types generation) + P7-10 (API client SDK) + P10-06 (developer portal) |
 | P6-09 | P6 | Database backup & restore tooling (pg_dump automation, point-in-time recovery) | pending | — | Cron job for backups; restore procedure documented; backup verification |
 | P6-10 | P6 | Health check endpoints (liveness, readiness, DB/Redis connectivity) | pending | — | /livez (process alive), /readyz (DB+Redis ok), /healthz (combined) |
 | P6-11 | P6 | gRPC server implementation (inter-service communication + integration adapters) | pending | — | gRPC server bootstrap; reflection; interceptors (auth, logging, tracing) |
@@ -207,7 +208,7 @@
 | P8-05 | P8 | Synthetic monitoring (external health probes simulating user flows) | pending | — | Blackbox exporter probes for critical API paths; login → dashboard → order create flow |
 | P8-06 | P8 | Cloud resource tagging + cost allocation (per-environment cost tracking) | pending | — | Standard tags (env, service, owner); cost dashboards; unused resource detection |
 | P8-07 | P8 | Chaos engineering baseline (controlled failure injection, resilience validation) | pending | — | Kill a DB replica, kill a pod, network partition; verify graceful degradation and recovery |
-| P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager; blocks P8-02 delivery channel |
+| P8-08 | P8 | Notification infrastructure (email + in-app notification delivery) | pending | — | SMTP email service with Go templates; in-app notification center (persisted, mark-read, real-time via WebSocket); used by P5-08 alerts + P8-02 alertmanager + P19-04 escalation; blocks P8-02 delivery channel; depends on P21-03 email sending service for email channel |
 | P8-09 | P8 | SLO tracking & error budget dashboard (p50/p95/p99 per endpoint, burn rate) | pending | — | Grafana dashboard with per-endpoint latency histogram; SLO compliance gauges; error budget remaining/burn rate; 30-day rolling windows; depends on P6-05 metrics + P6-07 tracing; complements P8-03 SLO definitions |
 
 ## Phase 9: Advanced WMS Features
@@ -249,7 +250,7 @@
 
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
-| P12-01 | P12 | i18n framework setup (react-i18next, locale detection, translation file structure) | pending | — | Shared i18n config for admin + PDA; locale auto-detection from browser/navigator; translation namespace organization |
+| P12-01 | P12 | i18n framework setup (react-i18next, locale detection, translation file structure) | pending | — | Shared i18n config for admin + PDA; locale auto-detection from browser/navigator; translation namespace organization; blocks P12-02 through P12-05 (translations depend on framework) |
 | P12-02 | P12 | Chinese (zh-CN) translation — Admin UI | pending | — | Full translation of all admin pages, forms, tables, notifications; most common operator locale in APAC |
 | P12-03 | P12 | Japanese (ja-JP) translation — Admin UI | pending | — | Full translation of admin UI; important for Japan-market warehouses |
 | P12-04 | P12 | PDA UI translations (zh-CN, ja-JP) | pending | — | Mobile-optimized translations for PDA flows; short labels for small screens |
@@ -289,6 +290,7 @@
 | P15-04 | P15 | Reason code management (standardized codes for exceptions, adjustments, holds) | pending | — | Reason code entity (code, category, description); categories: adjustment, exception, QC hold, return disposition, damage; API for PDA/Admin lookups; blocks consistent exception handling in P3-10 |
 | P15-05 | P15 | Holiday calendar & shift management (working days, shift schedules, SLA) | pending | — | Calendar entity per warehouse; holiday dates; shift definitions (morning/night, start/end); working hours; SLA calculation uses calendar (skip holidays, respect shifts); blocks P5-22 cycle count scheduling accuracy |
 | P15-06 | P15 | Document number sequence engine (configurable prefixes, auto-increment) | pending | — | Sequence definition per document type (order, ASN, task, wave); configurable prefix + date component + counter; yearly/monthly/daily reset option; gapless mode for compliance; replaces inline number generation in repos |
+| P15-07 | P15 | Wireless printer support (Bluetooth/WiFi printer discovery + printing from PDA) | pending | — | Web Bluetooth API for printer discovery on PDA; connect to Zebra/SATO/Brother mobile printers; print labels directly from PDA receiving/putaway flow; printer pairing management; fallback to server-side printing when direct connect unavailable; depends on P15-02 label template engine |
 
 ## Phase 16: Mobile/PDA Enhancements
 
@@ -298,6 +300,7 @@
 | P16-02 | P16 | PDA voice input (Web Speech API for hands-free quantity entry + confirmation) | pending | — | Speech recognition for quantity entry ("five"), location codes ("A-01-02-03"), task confirmation ("confirm putaway"); wake-word "Hey WMS" for hands-free operation; language selection (en, zh, ja); fallback to manual input when speech unavailable |
 | P16-03 | P16 | PDA NFC tag support (equipment check-in, location verification, tap-to-confirm) | pending | — | Web NFC API for reading NDEF tags; equipment check-in/out via NFC tag on forklift/cart; location verification (tap location tag = confirm you're at right place); tap-to-confirm for task completion; graceful fallback when NFC unavailable |
 | P16-04 | P16 | PDA geofencing (zone-based auto task filtering, wrong-zone alerts) | pending | — | Geolocation API with warehouse zone polygons; auto-filter task list to current zone; wrong-zone alert when starting task outside expected zone; zone-entry/exit time logging for labor tracking; low-accuracy mode via BLE beacons for indoor positioning |
+| P16-05 | P16 | PDA camera/image capture (photo documentation + barcode fallback) | pending | — | Camera capture via MediaDevices API; attach photos to receiving (damage evidence, pack condition); attach photos to exception reports; image compression before upload; photo gallery per task/receipt; barcode scanning from still image as fallback when live scanner fails; offline-queue photo uploads via P3-11 |
 
 ## Phase 17: Simulation & Digital Twin
 
@@ -316,15 +319,48 @@
 | P18-03 | P18 | 3PL billing engine (activity-based billing, storage charges, invoice generation) | pending | — | Billable event capture (receipt, putaway, pick, pack, ship, storage-day); rate card per client (different rates per activity); storage charges by volume × days; minimum charges and tiered pricing; invoice generation with line-item detail; extends P9-06 3PL support with billing specifics |
 | P18-04 | P18 | Customer inventory visibility portal (external view of owned inventory + orders) | pending | — | Customer-facing portal for 3PL clients; view own inventory levels by SKU/warehouse; order status tracking; shipment history with tracking numbers; stock arrival notification preferences; data scoped to client ownership only (security-critical); read-only access |
 
+## Phase 19: Workflow & Approval Engine
+
+> Approval workflows are essential for production WMS operations — inventory adjustments, order cancellations, and exceptions all need configurable approval chains before execution.
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P19-01 | P19 | Approval workflow engine (configurable multi-step approval chains) | pending | — | Domain entity: ApprovalRequest (resource type, resource ID, action, requested_by, status); ApprovalStep (step order, approver role/user, decision, comment); configurable workflow templates per action type; auto-approve on no matching approver; delegation support (approver can delegate); approval deadline with auto-reject; audit log of all decisions |
+| P19-02 | P19 | Inventory adjustment approval workflow | pending | — | Define thresholds: qty-change < X% → auto-approve, < Y% → supervisor approval, ≥ Y% → manager approval; high-value SKU flag triggers mandatory approval regardless of qty; batch approval for cycle count variance reconciliation; depends on P19-01 |
+| P19-03 | P19 | Order cancellation approval workflow | pending | — | Cancel request captures reason + impact (qty picked, inventory state); auto-approve if no inventory allocated yet; requires approval if picking has started; inventory restoration validation on cancel; customer credit check integration point; depends on P19-01 |
+| P19-04 | P19 | Exception escalation workflow (SLA-based escalation, supervisor routing) | pending | — | Exception types linked to escalation paths (P15-04 reason codes); SLA timer per exception severity (critical: 5min, high: 15min, normal: 1hr); auto-escalate to next level on SLA breach; supervisor assignment by zone/shift (P15-05 calendar-aware); notification via P16-01 push + P8-08 email; resolution audit trail; depends on P19-01 + P15-04 |
+
+## Phase 20: Data Migration & Onboarding
+
+> Enterprise WMS adoption requires migrating data from legacy systems. This phase provides the tooling and processes for safe, validated data migration.
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P20-01 | P20 | Data migration framework (extract → validate → transform → load pipeline) | pending | — | Pipeline stages: Extract (CSV/JSON/DB reader) → Validate (schema + business rules) → Transform (field mapping, ID remapping) → Load (batch insert with transaction safety); progress tracking per entity type; error collection (row-level errors, not fail-all); rollback on critical failure; migration run metadata (started, completed, entity counts) |
+| P20-02 | P20 | SKU master + inventory opening balance import | pending | — | CSV template with field mapping config; SKU dedup strategy (by code, by barcode); opening balance import: create inventory records with "migration" transaction type; batch insert with COPY protocol for speed; validation: required fields, UOM consistency, barcode format; linked to P20-01 framework; dry-run mode for validation without writing |
+| P20-03 | P20 | Warehouse structure import (warehouses, zones, locations bulk import) | pending | — | Hierarchical import: warehouse → zones → locations; location barcode generation if missing; capacity validation; zone-type consistency check; parent-child referential integrity; location code format validation; depends on P20-01 |
+| P20-04 | P20 | Open order import (in-progress orders at cutover point) | pending | — | Import partially-fulfilled orders at go-live; preserve original order_no + external_ref; line-level fulfilled_qty import; task generation for remaining work; inventory state reconciliation post-import; critical path — must be validated with P20-05 dry-run before go-live |
+| P20-05 | P20 | Migration dry-run + validation report (pre-cutover verification suite) | pending | — | Execute full migration pipeline against staging; automated validation: row counts match, inventory qty sums balance, location occupancy consistent, order line sums correct; diff report (source vs target); performance benchmark (estimated cutover window); rollback test (restore from backup, verify clean state); pre-cutover checklist generation |
+
+## Phase 21: Email & Communications
+
+> Transactional emails are critical for WMS operations — order confirmations, shipment notifications, and alert delivery all need reliable email infrastructure.
+
+| ID | Priority | Task | Status | Completed | Notes |
+|----|----------|------|--------|-----------|-------|
+| P21-01 | P21 | Email template engine (Go html/template, variable interpolation, i18n-aware) | pending | — | HTML email templates with Go html/template; variable substitution from domain events (order, shipment, alert); layout/base template with header/footer; i18n template lookup by locale; plaintext fallback generation; preview mode (render template with sample data in admin UI); template versioning |
+| P21-02 | P21 | Transactional email templates (order confirm, ship notify, alert, report, welcome) | pending | — | Pre-built templates: order confirmation (inbound/outbound), shipment notification with tracking, inventory alert (low stock, expiry), scheduled report delivery (P5-17), user welcome + password reset; responsive HTML tested across email clients; unsubscribe header compliance; depends on P21-01 |
+| P21-03 | P21 | Email sending service (SMTP + provider abstraction, delivery tracking) | pending | — | Provider interface: SMTP + SendGrid/Resend/Mailgun implementations; connection pooling for SMTP; delivery status webhook handling (delivered, bounced, complained, opened); retry with backoff on transient failures; send rate limiting per provider; email send audit log; blocks P8-08 notification delivery + P5-17 report email delivery |
+
 ## Evolution Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 216 |
+| Total tasks | 231 |
 | Completed | 9 |
 | In progress | 0 |
-| Pending | 207 |
+| Pending | 222 |
 | Success rate | — |
 | Started | 2026-07-20 |
 | Last evolution | 2026-07-20 (Round 3: P1-03 SKU+Inventory repos) |
-| Last grooming | 2026-07-20 (Round 14: added 20 new tasks — P5-27 SKU substitution, P5-28 catch weight, P5-29 blind receiving; P6-22 pod topology spread, P6-23 migration CI/CD, P6-24 service mesh; P7-28 graceful degradation, P7-29 table partitioning, P7-30 deadlock detection; Phase 16 PDA enhancements (4 tasks); Phase 17 simulation & digital twin (3 tasks); Phase 18 supplier & partner enablement (4 tasks); added dependency links for P5-01→P1-05, P7-13→P1-24, P7-19→P7-13, P8-02→P8-08, P3-10↔P15-04) |
+| Last grooming | 2026-07-20 (Round 15: added 15 new tasks — P5-30 order consolidation; P15-07 wireless printer support; P16-05 camera capture; Phase 19 workflow & approval engine (4 tasks); Phase 20 data migration & onboarding (5 tasks); Phase 21 email & communications (3 tasks); added dependency notes for P2-11) |
