@@ -37,6 +37,9 @@ func main() {
 
 	ctx := context.Background()
 
+	// Always ensure admin user and default roles exist (before idempotency check).
+	seedAdminUser(ctx, db, log)
+
 	// ── Idempotency Check ──────────────────────────────────────
 	warehouseCount, err := warehouseRepo.CountWarehouses(ctx)
 	if err != nil {
@@ -65,9 +68,6 @@ func main() {
 
 	// ── 5. Inventory ───────────────────────────────────────────
 	seedInventory(ctx, inventoryRepo, warehouse.ID, skus, locationMap, log)
-
-	// ── 6. Fix Admin Password ─────────────────────────────────
-	fixAdminPassword(ctx, db, log)
 
 	// ── Summary ────────────────────────────────────────────────
 	log.Info("")
@@ -429,28 +429,108 @@ func seedInventory(ctx context.Context, repo *postgres.InventoryRepo, warehouseI
 	log.Info(fmt.Sprintf("  ✓ Created %d inventory records", created))
 }
 
-func fixAdminPassword(ctx context.Context, db *postgres.DB, log *logger.Logger) {
-	// Check if admin user exists.
-	var userID string
-	err := db.Pool.QueryRow(ctx, `SELECT id FROM users WHERE username = 'admin'`).Scan(&userID)
+func seedAdminUser(ctx context.Context, db *postgres.DB, log *logger.Logger) {
+	userRepo := postgres.NewUserRepo(db)
+
+	// ── 1. Default Roles (idempotent) ──────────────────────────
+	roleCount, err := userRepo.CountRoles(ctx)
 	if err != nil {
-		log.Info("  ⚠ Admin user not found, skipping password fix")
+		log.Info(fmt.Sprintf("  ⚠ Could not count roles: %v", err))
 		return
 	}
 
-	hash, err := service.HashPassword("admin123")
+	if roleCount == 0 {
+		defaultRoles := []struct {
+			name        string
+			description string
+			permissions []domain.Permission
+		}{
+			{"admin", "System Administrator", []domain.Permission{{Resource: "*", Actions: []string{"*"}}}},
+			{"operator", "Warehouse Operator", []domain.Permission{
+				{Resource: "warehouse", Actions: []string{"read"}},
+				{Resource: "inventory", Actions: []string{"read", "update"}},
+				{Resource: "order", Actions: []string{"read", "create", "update"}},
+				{Resource: "task", Actions: []string{"read", "update"}},
+			}},
+			{"picker", "Picker (PDA User)", []domain.Permission{
+				{Resource: "task", Actions: []string{"read", "update"}},
+				{Resource: "inventory", Actions: []string{"read"}},
+			}},
+		}
+		for _, r := range defaultRoles {
+			role := &domain.Role{
+				Name:        r.name,
+				Description: r.description,
+				Permissions: r.permissions,
+			}
+			if err := userRepo.CreateRole(ctx, role); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create role %s: %v\n", r.name, err)
+				os.Exit(1)
+			}
+		}
+		log.Info(fmt.Sprintf("  ✓ Created %d default roles", len(defaultRoles)))
+	}
+
+	// ── 2. Admin User (idempotent) ─────────────────────────────
+	adminUser, err := userRepo.GetUserByUsername(ctx, "admin")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
-		os.Exit(1)
+		// Admin user does not exist — create one.
+		hash, hashErr := service.HashPassword("admin123")
+		if hashErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", hashErr)
+			os.Exit(1)
+		}
+
+		// Fetch the admin role ID.
+		roles, roleErr := userRepo.ListRoles(ctx)
+		if roleErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to list roles: %v\n", roleErr)
+			os.Exit(1)
+		}
+
+		var adminRoleID uuid.UUID
+		for _, r := range roles {
+			if r.Name == "admin" {
+				adminRoleID = r.ID
+				break
+			}
+		}
+		if adminRoleID == uuid.Nil {
+			fmt.Fprintf(os.Stderr, "Admin role not found after seeding\n")
+			os.Exit(1)
+		}
+
+		admin := &domain.User{
+			Username:     "admin",
+			Email:        "admin@wms.local",
+			PasswordHash: hash,
+			DisplayName:  "System Admin",
+			RoleIDs:      []uuid.UUID{adminRoleID},
+			Status:       domain.UserStatusActive,
+		}
+		if createErr := userRepo.CreateUser(ctx, admin); createErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create admin user: %v\n", createErr)
+			os.Exit(1)
+		}
+		log.Info("  ✓ Admin user created with hashed password (admin123)")
+		return
 	}
 
-	_, execErr := db.Pool.Exec(ctx, `UPDATE users SET password_hash=$1 WHERE username='admin'`, hash)
-	if execErr != nil {
-		fmt.Fprintf(os.Stderr, "Failed to update admin password: %v\n", execErr)
-		os.Exit(1)
+	// Admin user exists — update password hash if it looks like a placeholder.
+	if len(adminUser.PasswordHash) < 20 || adminUser.PasswordHash[:4] != "$2a$" {
+		hash, hashErr := service.HashPassword("admin123")
+		if hashErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", hashErr)
+			os.Exit(1)
+		}
+		if _, execErr := db.Pool.Exec(ctx, `UPDATE users SET password_hash=$1 WHERE username='admin'`, hash); execErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to update admin password: %v\n", execErr)
+			os.Exit(1)
+		}
+		log.Info("  ✓ Admin user password updated to bcrypt hash")
+	} else {
+		log.Info("  ✓ Admin user already exists with valid password hash")
 	}
-
-	log.Info("  ✓ Admin user password updated")
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

@@ -297,7 +297,7 @@ INSERT INTO roles (id, name, description, permissions) VALUES
 -- Default admin user (password: admin123 — CHANGE IN PRODUCTION)
 INSERT INTO users (id, username, email, password_hash, display_name, role_ids) VALUES
     (gen_random_uuid(), 'admin', 'admin@wms.local',
-     '$2a$10$dummy_hash_replace_with_real_bcrypt', -- placeholder
+     '$2a$10$3oMF9qsdLBRGrIs8oQD/Z.Eon1bZ.EHLPToHmwsrbpwTlZq8YE5sW',
      'System Admin',
      ARRAY(SELECT id FROM roles WHERE name = 'admin'));
 
