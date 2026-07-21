@@ -33,8 +33,11 @@ jobs:
 
       - name: Copy build to docs/
         run: |
-          rm -rf docs/
-          cp -r frontend/admin/dist docs/
+          # Only remove demo files — keep documentation (roadmap.md, architecture.md, etc.)
+          rm -f docs/index.html docs/404.html docs/mockServiceWorker.js
+          rm -rf docs/assets/
+          # Copy new demo build
+          cp -r frontend/admin/dist/* docs/
           # Ensure 404.html for SPA routing on GitHub Pages
           cp docs/index.html docs/404.html
 
