@@ -631,6 +631,128 @@ func (r *InventoryRepo) CountTransactions(ctx context.Context, inventoryID uuid.
 	return count, nil
 }
 
+// ── Dashboard Queries ────────────────────────────────────────
+
+// GetInventoryDashboardStats returns aggregate inventory statistics.
+// When warehouseID is uuid.Nil, stats cover all warehouses.
+func (r *InventoryRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
+	const query = `
+		SELECT
+			COUNT(*) as total_records,
+			COALESCE(SUM(qty), 0) as total_qty,
+			COALESCE(SUM(reserved_qty), 0) as total_reserved_qty,
+			COALESCE(SUM(qty - reserved_qty), 0) as total_available_qty,
+			COUNT(*) FILTER (WHERE status = 'available') as available_count,
+			COUNT(*) FILTER (WHERE status = 'quarantine') as quarantine_count,
+			COUNT(*) FILTER (WHERE status = 'damaged') as damaged_count,
+			COUNT(*) FILTER (WHERE status = 'expired') as expired_count,
+			COUNT(*) FILTER (WHERE (qty - reserved_qty) > 0 AND (qty - reserved_qty) <= $2) as low_stock_count
+		FROM inventory
+		WHERE ($1::uuid = '00000000-0000-0000-0000-000000000000' OR warehouse_id = $1)`
+
+	stats := &repository.InventoryDashboardStats{}
+	err := r.queryRow(ctx, query, warehouseID, lowStockThreshold).Scan(
+		&stats.TotalRecords,
+		&stats.TotalQty,
+		&stats.TotalReservedQty,
+		&stats.TotalAvailableQty,
+		&stats.AvailableCount,
+		&stats.QuarantineCount,
+		&stats.DamagedCount,
+		&stats.ExpiredCount,
+		&stats.LowStockCount,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get inventory dashboard stats: %w", err)
+	}
+	return stats, nil
+}
+
+// GetLowStockInventory returns inventory records where available quantity is
+// positive but at or below the given threshold. When warehouseID is uuid.Nil,
+// all warehouses are included.
+func (r *InventoryRepo) GetLowStockInventory(ctx context.Context, threshold float64, warehouseID uuid.UUID, limit int) ([]*domain.Inventory, error) {
+	query := `
+		SELECT id, sku_id, location_id, warehouse_id, batch_no,
+		       qty, reserved_qty, status, production_date, expiry_date,
+		       received_at, updated_at
+		FROM inventory
+		WHERE (qty - reserved_qty) > 0
+		  AND (qty - reserved_qty) <= $1
+		  AND ($2::uuid = '00000000-0000-0000-0000-000000000000' OR warehouse_id = $2)
+		ORDER BY (qty - reserved_qty) ASC`
+
+	args := []any{threshold, warehouseID}
+	argIdx := 3
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, limit)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get low stock inventory: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*domain.Inventory
+	for rows.Next() {
+		inv, err := r.scanInventoryFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan low stock inventory: %w", err)
+		}
+		results = append(results, inv)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate low stock inventory: %w", err)
+	}
+	return results, nil
+}
+
+// GetInventoryByWarehouse returns inventory aggregated by warehouse.
+func (r *InventoryRepo) GetInventoryByWarehouse(ctx context.Context) ([]*repository.InventoryByWarehouseRow, error) {
+	const query = `
+		SELECT
+			w.id, w.name, w.code,
+			COALESCE(SUM(i.qty), 0),
+			COALESCE(SUM(i.reserved_qty), 0),
+			COALESCE(SUM(i.qty - i.reserved_qty), 0),
+			COUNT(i.id)
+		FROM warehouses w
+		LEFT JOIN inventory i ON w.id = i.warehouse_id
+		GROUP BY w.id, w.name, w.code
+		ORDER BY w.name`
+
+	rows, err := r.query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("get inventory by warehouse: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*repository.InventoryByWarehouseRow
+	for rows.Next() {
+		row := &repository.InventoryByWarehouseRow{}
+		if err := rows.Scan(
+			&row.WarehouseID,
+			&row.WarehouseName,
+			&row.WarehouseCode,
+			&row.TotalQty,
+			&row.ReservedQty,
+			&row.AvailableQty,
+			&row.RecordCount,
+		); err != nil {
+			return nil, fmt.Errorf("scan inventory by warehouse row: %w", err)
+		}
+		results = append(results, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inventory by warehouse: %w", err)
+	}
+	return results, nil
+}
+
 // ── Helpers ────────────────────────────────────────────────
 
 // scanSKU scans a single SKU row.

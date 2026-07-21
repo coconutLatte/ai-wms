@@ -265,3 +265,86 @@ func (h *InventoryHandler) GetExpiringInventory(w http.ResponseWriter, r *http.R
 		"count": len(results),
 	})
 }
+
+// ── Dashboard Response Types ────────────────────────────────────────────────────────────
+
+// dashboardStatsResponse mirrors repository.InventoryDashboardStats for the JSON API.
+type dashboardStatsResponse struct {
+	TotalRecords      int     `json:"total_records"`
+	TotalQty          float64 `json:"total_qty"`
+	TotalReservedQty  float64 `json:"total_reserved_qty"`
+	TotalAvailableQty float64 `json:"total_available_qty"`
+	AvailableCount    int     `json:"available_count"`
+	QuarantineCount   int     `json:"quarantine_count"`
+	DamagedCount      int     `json:"damaged_count"`
+	ExpiredCount      int     `json:"expired_count"`
+	LowStockCount     int     `json:"low_stock_count"`
+}
+
+// warehouseBreakdownResponse mirrors repository.InventoryByWarehouseRow.
+type warehouseBreakdownResponse struct {
+	WarehouseID   string  `json:"warehouse_id"`
+	WarehouseName string  `json:"warehouse_name"`
+	WarehouseCode string  `json:"warehouse_code"`
+	TotalQty      float64 `json:"total_qty"`
+	ReservedQty   float64 `json:"reserved_qty"`
+	AvailableQty  float64 `json:"available_qty"`
+	RecordCount   int     `json:"record_count"`
+}
+
+// dashboardResponse is the full JSON shape for GET /api/v1/inventory/dashboard
+type dashboardResponse struct {
+	Stats       *dashboardStatsResponse      `json:"stats"`
+	LowStock    []inventoryResponse          `json:"low_stock"`
+	ByWarehouse []warehouseBreakdownResponse `json:"by_warehouse"`
+}
+
+// GetDashboard handles GET /api/v1/inventory/dashboard
+func (h *InventoryHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
+	input := service.DashboardInput{
+		WarehouseID:       QueryParam(r, "warehouse_id", ""),
+		LowStockThreshold: float64(QueryParamInt(r, "low_stock_threshold", 10)),
+	}
+
+	stats, lowStock, byWarehouse, err := h.svc.GetDashboardStats(r.Context(), input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	// Convert low stock inventory
+	lowStockResp := make([]inventoryResponse, 0, len(lowStock))
+	for _, inv := range lowStock {
+		lowStockResp = append(lowStockResp, toInventoryResponse(inv))
+	}
+
+	// Convert warehouse breakdown
+	whResp := make([]warehouseBreakdownResponse, 0, len(byWarehouse))
+	for _, w := range byWarehouse {
+		whResp = append(whResp, warehouseBreakdownResponse{
+			WarehouseID:   w.WarehouseID.String(),
+			WarehouseName: w.WarehouseName,
+			WarehouseCode: w.WarehouseCode,
+			TotalQty:      w.TotalQty,
+			ReservedQty:   w.ReservedQty,
+			AvailableQty:  w.AvailableQty,
+			RecordCount:   w.RecordCount,
+		})
+	}
+
+	WriteJSON(w, http.StatusOK, dashboardResponse{
+		Stats: &dashboardStatsResponse{
+			TotalRecords:      stats.TotalRecords,
+			TotalQty:          stats.TotalQty,
+			TotalReservedQty:  stats.TotalReservedQty,
+			TotalAvailableQty: stats.TotalAvailableQty,
+			AvailableCount:    stats.AvailableCount,
+			QuarantineCount:   stats.QuarantineCount,
+			DamagedCount:      stats.DamagedCount,
+			ExpiredCount:      stats.ExpiredCount,
+			LowStockCount:     stats.LowStockCount,
+		},
+		LowStock:    lowStockResp,
+		ByWarehouse: whResp,
+	})
+}

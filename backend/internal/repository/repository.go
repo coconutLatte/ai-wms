@@ -64,6 +64,11 @@ type InventoryRepository interface {
 	CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error
 	ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error)
 	CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error)
+
+	// Dashboard queries
+	GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*InventoryDashboardStats, error)
+	GetLowStockInventory(ctx context.Context, threshold float64, warehouseID uuid.UUID, limit int) ([]*domain.Inventory, error)
+	GetInventoryByWarehouse(ctx context.Context) ([]*InventoryByWarehouseRow, error)
 }
 
 // InventoryFilter defines query parameters for inventory search.
@@ -85,6 +90,30 @@ type InventoryRetrievalFilter struct {
 	WarehouseID uuid.UUID
 	SKUID       uuid.UUID
 	Limit       int
+}
+
+// InventoryDashboardStats holds aggregate inventory statistics for the dashboard.
+type InventoryDashboardStats struct {
+	TotalRecords      int     `json:"total_records"`
+	TotalQty          float64 `json:"total_qty"`
+	TotalReservedQty  float64 `json:"total_reserved_qty"`
+	TotalAvailableQty float64 `json:"total_available_qty"`
+	AvailableCount    int     `json:"available_count"`
+	QuarantineCount   int     `json:"quarantine_count"`
+	DamagedCount      int     `json:"damaged_count"`
+	ExpiredCount      int     `json:"expired_count"`
+	LowStockCount     int     `json:"low_stock_count"`
+}
+
+// InventoryByWarehouseRow holds inventory grouped by warehouse for the dashboard.
+type InventoryByWarehouseRow struct {
+	WarehouseID   uuid.UUID `json:"warehouse_id"`
+	WarehouseName string    `json:"warehouse_name"`
+	WarehouseCode string    `json:"warehouse_code"`
+	TotalQty      float64   `json:"total_qty"`
+	ReservedQty   float64   `json:"reserved_qty"`
+	AvailableQty  float64   `json:"available_qty"`
+	RecordCount   int       `json:"record_count"`
 }
 
 // OrderRepository manages order, order line, and ASN persistence.

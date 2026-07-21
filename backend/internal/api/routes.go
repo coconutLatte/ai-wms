@@ -52,6 +52,7 @@ func RegisterInventoryRoutes(mux *http.ServeMux, h *InventoryHandler) {
 	// FEFO / FIFO retrieval strategies
 	mux.HandleFunc("GET /api/v1/inventory/fifo", h.GetOldestInventory)
 	mux.HandleFunc("GET /api/v1/inventory/fefo", h.GetExpiringInventory)
+	mux.HandleFunc("GET /api/v1/inventory/dashboard", h.GetDashboard)
 }
 
 // RegisterOrderRoutes registers order API routes on the given mux.

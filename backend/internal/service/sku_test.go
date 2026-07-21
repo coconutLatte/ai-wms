@@ -274,6 +274,92 @@ func (m *mockInventoryRepo) CountTransactions(ctx context.Context, inventoryID u
 	return count, nil
 }
 
+// ── Dashboard Queries (stubs) ──────────────
+
+func (m *mockInventoryRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
+	stats := &repository.InventoryDashboardStats{}
+	for _, inv := range m.inventories {
+		if warehouseID != uuid.Nil && inv.WarehouseID != warehouseID {
+			continue
+		}
+		stats.TotalRecords++
+		stats.TotalQty += inv.Qty
+		stats.TotalReservedQty += inv.ReservedQty
+		stats.TotalAvailableQty += inv.Qty - inv.ReservedQty
+		switch inv.Status {
+		case domain.InventoryStatusAvailable:
+			stats.AvailableCount++
+		case domain.InventoryStatusQuarantine:
+			stats.QuarantineCount++
+		case domain.InventoryStatusDamaged:
+			stats.DamagedCount++
+		case domain.InventoryStatusExpired:
+			stats.ExpiredCount++
+		}
+		availableQty := inv.Qty - inv.ReservedQty
+		if availableQty > 0 && availableQty <= lowStockThreshold {
+			stats.LowStockCount++
+		}
+	}
+	return stats, nil
+}
+
+func (m *mockInventoryRepo) GetLowStockInventory(ctx context.Context, threshold float64, warehouseID uuid.UUID, limit int) ([]*domain.Inventory, error) {
+	var result []*domain.Inventory
+	for _, inv := range m.inventories {
+		availableQty := inv.Qty - inv.ReservedQty
+		if availableQty <= 0 || availableQty > threshold {
+			continue
+		}
+		if warehouseID != uuid.Nil && inv.WarehouseID != warehouseID {
+			continue
+		}
+		result = append(result, inv)
+	}
+	// Sort by available_qty ASC (simple insertion order is not guaranteed)
+	sortInventoryLowStock(result)
+	if limit > 0 && limit < len(result) {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
+// sortInventoryLowStock sorts inventory by available_qty ASC.
+func sortInventoryLowStock(inv []*domain.Inventory) {
+	for i := 0; i < len(inv); i++ {
+		for j := i + 1; j < len(inv); j++ {
+			if (inv[j].Qty-inv[j].ReservedQty) < (inv[i].Qty-inv[i].ReservedQty) {
+				inv[i], inv[j] = inv[j], inv[i]
+			}
+		}
+	}
+}
+
+func (m *mockInventoryRepo) GetInventoryByWarehouse(ctx context.Context) ([]*repository.InventoryByWarehouseRow, error) {
+	// Aggregate by WarehouseID
+	agg := make(map[uuid.UUID]*repository.InventoryByWarehouseRow)
+	for _, inv := range m.inventories {
+		row, ok := agg[inv.WarehouseID]
+		if !ok {
+			row = &repository.InventoryByWarehouseRow{
+				WarehouseID: inv.WarehouseID,
+			}
+			agg[inv.WarehouseID] = row
+		}
+		row.TotalQty += inv.Qty
+		row.ReservedQty += inv.ReservedQty
+		row.AvailableQty += inv.Qty - inv.ReservedQty
+		row.RecordCount++
+	}
+	// For test purposes, warehouse name/code is unknown from the mock
+	// (it doesn't hold warehouse aggregates). These fields will be empty.
+	result := make([]*repository.InventoryByWarehouseRow, 0, len(agg))
+	for _, row := range agg {
+		result = append(result, row)
+	}
+	return result, nil
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 func TestSKUService_CreateSKU(t *testing.T) {

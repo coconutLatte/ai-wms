@@ -398,3 +398,60 @@ func isValidInventoryStatus(s domain.InventoryStatus) bool {
 	}
 	return false
 }
+
+// ── Inventory Dashboard ──────────────────────────────────────────────────────
+
+// DashboardInput is the input for the inventory dashboard.
+type DashboardInput struct {
+	WarehouseID       string  `json:"warehouse_id,omitempty"`
+	LowStockThreshold float64 `json:"low_stock_threshold,omitempty"`
+}
+
+// Validate sets defaults and validates the input.
+func (in *DashboardInput) Validate() {
+	if in.LowStockThreshold <= 0 {
+		in.LowStockThreshold = 10.0
+	}
+}
+
+// ToFilter converts to filter params.
+func (in *DashboardInput) ToFilter() (warehouseID uuid.UUID, threshold float64, err error) {
+	threshold = in.LowStockThreshold
+	if threshold <= 0 {
+		threshold = 10.0
+	}
+	if in.WarehouseID != "" {
+		id, err := uuid.Parse(in.WarehouseID)
+		if err != nil {
+			return uuid.Nil, 0, pkgerrors.NewInvalidInput("invalid warehouse_id UUID")
+		}
+		warehouseID = id
+	}
+	return warehouseID, threshold, nil
+}
+
+// GetDashboardStats returns aggregated inventory dashboard data.
+func (s *InventoryService) GetDashboardStats(ctx context.Context, input DashboardInput) (*repository.InventoryDashboardStats, []*domain.Inventory, []*repository.InventoryByWarehouseRow, error) {
+	input.Validate()
+	warehouseID, threshold, err := input.ToFilter()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	stats, err := s.repo.GetInventoryDashboardStats(ctx, warehouseID, threshold)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("inventory service: dashboard stats: %w", err)
+	}
+
+	lowStock, err := s.repo.GetLowStockInventory(ctx, threshold, warehouseID, 20)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("inventory service: low stock: %w", err)
+	}
+
+	byWarehouse, err := s.repo.GetInventoryByWarehouse(ctx)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("inventory service: by warehouse: %w", err)
+	}
+
+	return stats, lowStock, byWarehouse, nil
+}

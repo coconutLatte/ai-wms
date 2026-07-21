@@ -170,10 +170,15 @@ export interface Inventory {
   id: string
   sku_id: string
   location_id: string
+  warehouse_id: string
   batch_no: string
-  quantity: number
-  reserved_quantity: number
-  created_at: string
+  qty: number
+  reserved_qty: number
+  available_qty: number
+  status: string
+  production_date?: string
+  expiry_date?: string
+  received_at: string
   updated_at: string
 }
 
@@ -185,6 +190,36 @@ export interface InventoryTransaction {
   reference_type: string
   reference_id: string
   created_at: string
+}
+
+// ── Inventory Dashboard ────────────────────────────────────────────────────
+
+export interface DashboardStats {
+  total_records: number
+  total_qty: number
+  total_reserved_qty: number
+  total_available_qty: number
+  available_count: number
+  quarantine_count: number
+  damaged_count: number
+  expired_count: number
+  low_stock_count: number
+}
+
+export interface WarehouseBreakdown {
+  warehouse_id: string
+  warehouse_name: string
+  warehouse_code: string
+  total_qty: number
+  reserved_qty: number
+  available_qty: number
+  record_count: number
+}
+
+export interface DashboardResponse {
+  stats: DashboardStats
+  low_stock: Inventory[]
+  by_warehouse: WarehouseBreakdown[]
 }
 
 // ── Orders ─────────────────────────────────────────────────────────────────
