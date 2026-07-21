@@ -1,10 +1,12 @@
-// 404 Not Found page.
+// 404 Not Found page with i18n.
 
 import { Button, Result } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 export default function NotFoundPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   return (
     <div
@@ -17,11 +19,11 @@ export default function NotFoundPage() {
     >
       <Result
         status="404"
-        title="404"
-        subTitle="Sorry, the page you visited does not exist."
+        title={t('notFound.title')}
+        subTitle={t('notFound.subtitle')}
         extra={
           <Button type="primary" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
+            {t('notFound.backToDashboard')}
           </Button>
         }
       />

@@ -70,7 +70,7 @@
 | P3-06 | P1 | Token blacklist / logout | completed | 2026-07-21 | Refresh token revocation DB-backed; logout endpoint; blacklist check on refresh |
 | P3-07 | P2 | Health check endpoints (/health, /ready) | completed | 2026-07-21 | `/health` exists in both admin + PDA servers; no DB ping readiness check yet |
 | P3-08 | P2 | PDA: Login + task list screen | completed | 2026-07-21 | Real JWT login via POST /api/v1/auth/login, auth middleware on PDA server, protected routes, React Query task fetching |
-| P3-09 | P1 | i18n: Chinese (default) + English for Admin + PDA | pending | — | react-i18next, zh-CN default, language switcher in header, all page text + form labels translated |
+| P3-09 | P1 | i18n: Chinese (default) + English for Admin + PDA | completed | 2026-07-21 | react-i18next + i18next-browser-languagedetector, zh-CN default + en, language switcher in Admin header + PDA header, all page text + form labels + Ant Design locale translated |
 | P3-10 | P2 | GitHub Pages: deploy PDA demo alongside admin | pending | — | Build PDA to docs/pda/, add link between admin ↔ PDA in header |
 | P3-11 | P2 | Redis client bootstrap | pending | — | Blocks rate limiting, caching, session store |
 | P3-12 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |

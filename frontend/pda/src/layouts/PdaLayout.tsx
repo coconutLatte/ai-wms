@@ -1,22 +1,25 @@
 // PDA Layout — mobile-first shell with bottom tab bar.
 // Wraps all authenticated PDA pages with mobile navigation.
+// Includes language switcher in the header.
 
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 
 // ── Tab definitions ───────────────────────────────────────────────────
 
 interface TabItem {
   key: string
   icon: string
-  label: string
+  labelKey: string
   path: string
 }
 
 const tabs: TabItem[] = [
-  { key: 'tasks', icon: '📋', label: 'Tasks', path: '/tasks' },
-  { key: 'scan', icon: '📷', label: 'Scan', path: '/scan' },
-  { key: 'profile', icon: '👤', label: 'Me', path: '/profile' },
+  { key: 'tasks', icon: '\u{1F4CB}', labelKey: 'tabs.tasks', path: '/tasks' },
+  { key: 'scan', icon: '\u{1F4F7}', labelKey: 'tabs.scan', path: '/scan' },
+  { key: 'profile', icon: '\u{1F464}', labelKey: 'tabs.profile', path: '/profile' },
 ]
 
 // ── Helper: map path → tab key ────────────────────────────────────────
@@ -31,19 +34,20 @@ function getActiveTab(pathname: string): string {
 // ── Header title ──────────────────────────────────────────────────────
 
 function getHeaderTitle(pathname: string): string {
-  if (pathname.startsWith('/tasks')) return 'Tasks'
-  if (pathname.startsWith('/scan')) return 'Scanner'
-  if (pathname.startsWith('/profile')) return 'Profile'
-  return 'AI-WMS PDA'
+  if (pathname.startsWith('/tasks')) return 'app.headerTasks'
+  if (pathname.startsWith('/scan')) return 'app.headerScan'
+  if (pathname.startsWith('/profile')) return 'app.headerProfile'
+  return 'app.headerHome'
 }
 
 export default function PdaLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { clearTokens } = useAuth()
+  const { t } = useTranslation()
 
   const activeTab = getActiveTab(location.pathname)
-  const title = getHeaderTitle(location.pathname)
+  const title = t(getHeaderTitle(location.pathname))
 
   const handleTabClick = (tab: TabItem) => {
     navigate(tab.path)
@@ -59,20 +63,23 @@ export default function PdaLayout() {
       {/* Header */}
       <div className="pda-header">
         <span className="pda-title">{title}</span>
-        <button
-          onClick={handleLogout}
-          style={{
-            background: 'rgba(255,255,255,0.15)',
-            border: 'none',
-            color: '#fff',
-            padding: '6px 12px',
-            borderRadius: 6,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <LanguageSwitcher />
+          <button
+            onClick={handleLogout}
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: 'none',
+              color: '#fff',
+              padding: '6px 12px',
+              borderRadius: 6,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            {t('common.logout')}
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -89,7 +96,7 @@ export default function PdaLayout() {
             onClick={() => handleTabClick(tab)}
           >
             <span className="pda-tab-icon">{tab.icon}</span>
-            <span>{tab.label}</span>
+            <span>{t(tab.labelKey)}</span>
           </div>
         ))}
       </div>

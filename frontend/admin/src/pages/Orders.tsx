@@ -1,5 +1,6 @@
 // Order management page with list, filtering, detail view and status transitions.
-// Replaces the P3-04 placeholder with real data from GET /api/v1/orders.
+// Uses GET /api/v1/orders for real data.
+// All UI text is translated via react-i18next.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -30,6 +31,7 @@ import {
   ExclamationCircleOutlined,
   EditOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import type { ColumnsType } from 'antd/es/table'
 import client from '@/api/client'
 import type {
@@ -80,7 +82,6 @@ function titleCase(s: string): string {
 }
 
 // ── Valid status transitions ───────────────────────────────────────────────
-// Mirrors the backend state machine in domain/order.go
 
 const statusTransitions: Record<string, string[]> = {
   draft: ['confirmed', 'cancelled'],
@@ -97,6 +98,32 @@ const PAGE_SIZE = 10
 
 export default function OrdersPage() {
   const { message } = App.useApp()
+  const { t } = useTranslation()
+
+  // ── Localized labels ─────────────────────────────────────────────────────
+
+  const typeLabels: Record<string, string> = useMemo(() => ({
+    inbound: t('order.inbound'),
+    outbound: t('order.outbound'),
+    transfer: t('order.transfer'),
+    return: t('order.return'),
+  }), [t])
+
+  const statusLabels: Record<string, string> = useMemo(() => ({
+    draft: t('order.draft'),
+    confirmed: t('order.confirmed'),
+    processing: t('order.processing'),
+    partial: t('order.partial'),
+    completed: t('order.completed'),
+    cancelled: t('order.cancelled'),
+  }), [t])
+
+  const priorityLabels: Record<string, string> = useMemo(() => ({
+    low: t('order.low'),
+    normal: t('order.normal'),
+    high: t('order.high'),
+    urgent: t('order.urgent'),
+  }), [t])
 
   // ── List state ───────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<OrderSummary[]>([])
@@ -132,12 +159,12 @@ export default function OrdersPage() {
         setOrders(data.data)
         setTotal(data.pagination.total)
       } catch {
-        message.error('Failed to load orders')
+        message.error(t('order.loadFailed'))
       } finally {
         setLoading(false)
       }
     },
-    [message],
+    [message, t],
   )
 
   useEffect(() => {
@@ -175,7 +202,7 @@ export default function OrdersPage() {
       const { data } = await client.get<Order>(`/orders/${orderId}`)
       setSelectedOrder(data)
     } catch {
-      message.error('Failed to load order detail')
+      message.error(t('order.loadDetailFailed'))
     } finally {
       setDrawerLoading(false)
     }
@@ -193,14 +220,12 @@ export default function OrdersPage() {
       await client.put(`/orders/${order.id}/status`, {
         status: newStatus,
       } satisfies UpdateOrderStatusRequest)
-      message.success(`Order status changed to ${titleCase(newStatus)}`)
-      // Re-fetch detail
+      message.success(t('order.statusUpdated', { status: titleCase(newStatus) }))
       const { data } = await client.get<Order>(`/orders/${order.id}`)
       setSelectedOrder(data)
-      // Refresh list in background
       fetchOrders(page, filterType, filterStatus)
     } catch {
-      message.error('Failed to update order status')
+      message.error(t('order.statusUpdateFailed'))
     }
   }
 
@@ -209,7 +234,7 @@ export default function OrdersPage() {
   const columns: ColumnsType<OrderSummary> = useMemo(
     () => [
       {
-        title: 'Order No',
+        title: t('order.orderNo'),
         dataIndex: 'order_no',
         key: 'order_no',
         width: 180,
@@ -220,16 +245,16 @@ export default function OrdersPage() {
         ),
       },
       {
-        title: 'Type',
+        title: t('order.orderType'),
         dataIndex: 'order_type',
         key: 'order_type',
         width: 110,
-        render: (t: string) => (
-          <Tag color={orderTypeColors[t] ?? 'default'}>{titleCase(t)}</Tag>
+        render: (ot: string) => (
+          <Tag color={orderTypeColors[ot] ?? 'default'}>{typeLabels[ot] ?? titleCase(ot)}</Tag>
         ),
       },
       {
-        title: 'Status',
+        title: t('common.status'),
         dataIndex: 'status',
         key: 'status',
         width: 130,
@@ -246,23 +271,23 @@ export default function OrdersPage() {
             ) : null
           return (
             <Tag icon={icon} color={orderStatusColors[s] ?? 'default'}>
-              {titleCase(s)}
+              {statusLabels[s] ?? titleCase(s)}
             </Tag>
           )
         },
       },
       {
-        title: 'Priority',
+        title: t('order.priority'),
         dataIndex: 'priority',
         key: 'priority',
         width: 100,
         responsive: ['md'],
         render: (p: string) => (
-          <Tag color={orderPriorityColors[p] ?? 'default'}>{titleCase(p)}</Tag>
+          <Tag color={orderPriorityColors[p] ?? 'default'}>{priorityLabels[p] ?? titleCase(p)}</Tag>
         ),
       },
       {
-        title: 'External Ref',
+        title: t('order.externalRef'),
         dataIndex: 'external_ref',
         key: 'external_ref',
         width: 150,
@@ -272,7 +297,7 @@ export default function OrdersPage() {
           ref || <Typography.Text type="secondary">—</Typography.Text>,
       },
       {
-        title: 'Created',
+        title: t('common.created'),
         dataIndex: 'created_at',
         key: 'created_at',
         width: 170,
@@ -280,7 +305,7 @@ export default function OrdersPage() {
         render: (v: string) => new Date(v).toLocaleString(),
       },
       {
-        title: 'Actions',
+        title: t('common.actions'),
         key: 'actions',
         width: 90,
         render: (_: unknown, record: OrderSummary) => (
@@ -290,12 +315,12 @@ export default function OrdersPage() {
             icon={<FileTextOutlined />}
             onClick={() => openDetail(record.id)}
           >
-            View
+            {t('order.view')}
           </Button>
         ),
       },
     ],
-    [],
+    [t, typeLabels, statusLabels, priorityLabels],
   )
 
   // ── Order summary stats ──────────────────────────────────────────────────
@@ -320,13 +345,13 @@ export default function OrdersPage() {
 
   const lineColumns: ColumnsType<OrderLine> = [
     {
-      title: '#',
+      title: t('order.lineNo'),
       dataIndex: 'line_no',
       key: 'line_no',
       width: 50,
     },
     {
-      title: 'SKU ID',
+      title: t('order.skuId'),
       dataIndex: 'sku_id',
       key: 'sku_id',
       width: 200,
@@ -338,7 +363,7 @@ export default function OrdersPage() {
       ),
     },
     {
-      title: 'Qty',
+      title: t('order.qty'),
       dataIndex: 'ordered_qty',
       key: 'ordered_qty',
       width: 90,
@@ -346,7 +371,7 @@ export default function OrdersPage() {
       render: (v: number) => v.toLocaleString(),
     },
     {
-      title: 'Fulfilled',
+      title: t('order.fulfilled'),
       dataIndex: 'fulfilled_qty',
       key: 'fulfilled_qty',
       width: 90,
@@ -354,13 +379,13 @@ export default function OrdersPage() {
       render: (v: number) => v.toLocaleString(),
     },
     {
-      title: 'UOM',
+      title: t('order.uom'),
       dataIndex: 'uom',
       key: 'uom',
       width: 70,
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 110,
@@ -369,7 +394,7 @@ export default function OrdersPage() {
       ),
     },
     {
-      title: 'Batch',
+      title: t('inventory.batch'),
       dataIndex: 'batch_no',
       key: 'batch_no',
       width: 110,
@@ -384,9 +409,9 @@ export default function OrdersPage() {
   return (
     <div>
       <div className="page-header">
-        <Typography.Title level={2}>Orders</Typography.Title>
+        <Typography.Title level={2}>{t('order.title')}</Typography.Title>
         <Typography.Text type="secondary">
-          Manage inbound, outbound, transfer, and return orders.
+          {t('order.subtitle')}
         </Typography.Text>
       </div>
 
@@ -396,7 +421,7 @@ export default function OrdersPage() {
         <Col xs={12} sm={8} md={4}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Total"
+              title={t('common.total')}
               value={stats.total}
               prefix={<FileTextOutlined />}
               formatter={(v) => Number(v).toLocaleString()}
@@ -406,7 +431,7 @@ export default function OrdersPage() {
         <Col xs={12} sm={8} md={4}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Draft"
+              title={t('order.draft')}
               value={stats.draft}
               prefix={<EditOutlined />}
               valueStyle={{ color: stats.draft > 0 ? '#8c8c8c' : undefined }}
@@ -417,7 +442,7 @@ export default function OrdersPage() {
         <Col xs={12} sm={8} md={4}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Processing"
+              title={t('order.processing')}
               value={stats.processing}
               prefix={<SyncOutlined spin={stats.processing > 0} />}
               valueStyle={{
@@ -430,7 +455,7 @@ export default function OrdersPage() {
         <Col xs={12} sm={8} md={4}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Completed"
+              title={t('order.completed')}
               value={stats.completed}
               prefix={<CheckCircleOutlined />}
               valueStyle={{
@@ -443,7 +468,7 @@ export default function OrdersPage() {
         <Col xs={12} sm={8} md={4}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Partial"
+              title={t('order.partial')}
               value={stats.partial}
               prefix={<ExclamationCircleOutlined />}
               valueStyle={{
@@ -456,7 +481,7 @@ export default function OrdersPage() {
         <Col xs={12} sm={8} md={4}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Cancelled"
+              title={t('order.cancelled')}
               value={stats.cancelled}
               prefix={<CloseCircleOutlined />}
               valueStyle={{
@@ -474,42 +499,42 @@ export default function OrdersPage() {
         title={
           <Space>
             <InboxOutlined />
-            <span>All Orders</span>
+            <span>{t('order.allOrders')}</span>
           </Space>
         }
         extra={
           <Space>
             <FilterOutlined />
             <Select
-              placeholder="Order Type"
+              placeholder={t('order.filterType')}
               allowClear
               style={{ width: 140 }}
               value={filterType || undefined}
               onChange={(v) => handleFilterChange(v ?? '', filterStatus)}
               options={[
-                { label: 'Inbound', value: 'inbound' },
-                { label: 'Outbound', value: 'outbound' },
-                { label: 'Transfer', value: 'transfer' },
-                { label: 'Return', value: 'return' },
+                { label: t('order.inbound'), value: 'inbound' },
+                { label: t('order.outbound'), value: 'outbound' },
+                { label: t('order.transfer'), value: 'transfer' },
+                { label: t('order.return'), value: 'return' },
               ]}
             />
             <Select
-              placeholder="Status"
+              placeholder={t('order.filterStatus')}
               allowClear
               style={{ width: 140 }}
               value={filterStatus || undefined}
               onChange={(v) => handleFilterChange(filterType, v ?? '')}
               options={[
-                { label: 'Draft', value: 'draft' },
-                { label: 'Confirmed', value: 'confirmed' },
-                { label: 'Processing', value: 'processing' },
-                { label: 'Partial', value: 'partial' },
-                { label: 'Completed', value: 'completed' },
-                { label: 'Cancelled', value: 'cancelled' },
+                { label: t('order.draft'), value: 'draft' },
+                { label: t('order.confirmed'), value: 'confirmed' },
+                { label: t('order.processing'), value: 'processing' },
+                { label: t('order.partial'), value: 'partial' },
+                { label: t('order.completed'), value: 'completed' },
+                { label: t('order.cancelled'), value: 'cancelled' },
               ]}
             />
             <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
-              Refresh
+              {t('order.refresh')}
             </Button>
           </Space>
         }
@@ -529,13 +554,13 @@ export default function OrdersPage() {
             pageSize: PAGE_SIZE,
             total: total,
             showSizeChanger: false,
-            showTotal: (t, range) => `${range[0]}-${range[1]} of ${t}`,
+            showTotal: (t2, range) => `${range[0]}-${range[1]} of ${t2}`,
           }}
           locale={{
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No orders found. Try adjusting your filters."
+                description={t('order.noOrders')}
               />
             ),
           }}
@@ -549,11 +574,11 @@ export default function OrdersPage() {
           selectedOrder ? (
             <Space>
               <FileTextOutlined />
-              <span>Order Detail</span>
+              <span>{t('order.orderDetail')}</span>
               <Typography.Text code>{selectedOrder.order_no}</Typography.Text>
             </Space>
           ) : (
-            'Order Detail'
+            t('order.orderDetail')
           )
         }
         placement="right"
@@ -562,11 +587,11 @@ export default function OrdersPage() {
         onClose={closeDrawer}
         destroyOnClose
         extra={
-          <Button onClick={closeDrawer}>Close</Button>
+          <Button onClick={closeDrawer}>{t('common.close')}</Button>
         }
       >
         {drawerLoading ? (
-          <Empty description="Loading order detail…" />
+          <Empty description={t('order.loadingDetail')} />
         ) : selectedOrder ? (
           <>
             {/* ── Order info ──────────────────────────────────────────────────── */}
@@ -577,55 +602,55 @@ export default function OrdersPage() {
               size="small"
               style={{ marginBottom: 24 }}
             >
-              <Descriptions.Item label="Order No">
+              <Descriptions.Item label={t('order.orderNo')}>
                 <Typography.Text code>{selectedOrder.order_no}</Typography.Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Type">
+              <Descriptions.Item label={t('order.orderType')}>
                 <Tag color={orderTypeColors[selectedOrder.order_type] ?? 'default'}>
-                  {titleCase(selectedOrder.order_type)}
+                  {typeLabels[selectedOrder.order_type] ?? titleCase(selectedOrder.order_type)}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Status">
+              <Descriptions.Item label={t('common.status')}>
                 <Tag color={orderStatusColors[selectedOrder.status] ?? 'default'}>
-                  {titleCase(selectedOrder.status)}
+                  {statusLabels[selectedOrder.status] ?? titleCase(selectedOrder.status)}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Priority">
+              <Descriptions.Item label={t('order.priority')}>
                 <Tag color={orderPriorityColors[selectedOrder.priority] ?? 'default'}>
-                  {titleCase(selectedOrder.priority)}
+                  {priorityLabels[selectedOrder.priority] ?? titleCase(selectedOrder.priority)}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Warehouse ID">
+              <Descriptions.Item label={t('order.warehouseId')}>
                 <Typography.Text code style={{ fontSize: 12 }}>
                   {selectedOrder.warehouse_id}
                 </Typography.Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Created By">
+              <Descriptions.Item label={t('order.createdBy')}>
                 {selectedOrder.created_by}
               </Descriptions.Item>
               {selectedOrder.external_ref && (
-                <Descriptions.Item label="External Ref">
+                <Descriptions.Item label={t('order.externalRef')}>
                   {selectedOrder.external_ref}
                 </Descriptions.Item>
               )}
               {selectedOrder.external_type && (
-                <Descriptions.Item label="External Type">
+                <Descriptions.Item label={t('order.externalType')}>
                   <Typography.Text code>{selectedOrder.external_type}</Typography.Text>
                 </Descriptions.Item>
               )}
               {selectedOrder.notes && (
-                <Descriptions.Item label="Notes" span={2}>
+                <Descriptions.Item label={t('order.notes')} span={2}>
                   {selectedOrder.notes}
                 </Descriptions.Item>
               )}
-              <Descriptions.Item label="Created">
+              <Descriptions.Item label={t('common.created')}>
                 {new Date(selectedOrder.created_at).toLocaleString()}
               </Descriptions.Item>
-              <Descriptions.Item label="Updated">
+              <Descriptions.Item label={t('common.updated')}>
                 {new Date(selectedOrder.updated_at).toLocaleString()}
               </Descriptions.Item>
               {selectedOrder.completed_at && (
-                <Descriptions.Item label="Completed" span={2}>
+                <Descriptions.Item label={t('order.completed')} span={2}>
                   {new Date(selectedOrder.completed_at).toLocaleString()}
                 </Descriptions.Item>
               )}
@@ -637,19 +662,19 @@ export default function OrdersPage() {
               statusTransitions[selectedOrder.status].length > 0 && (
                 <Card
                   size="small"
-                  title="Status Actions"
+                  title={t('order.statusActions')}
                   style={{ marginBottom: 24 }}
                 >
                   <Space wrap>
                     {statusTransitions[selectedOrder.status].map((target) => (
                       <Popconfirm
                         key={target}
-                        title={`Move to "${titleCase(target)}"?`}
+                        title={t('order.moveTo', { target: statusLabels[target] ?? titleCase(target) })}
                         onConfirm={() =>
                           handleStatusTransition(selectedOrder, target)
                         }
-                        okText="Yes"
-                        cancelText="No"
+                        okText={t('common.yes')}
+                        cancelText={t('common.no')}
                       >
                         <Button
                           type={
@@ -665,7 +690,7 @@ export default function OrdersPage() {
                             ) : undefined
                           }
                         >
-                          {titleCase(target)}
+                          {statusLabels[target] ?? titleCase(target)}
                         </Button>
                       </Popconfirm>
                     ))}
@@ -680,7 +705,7 @@ export default function OrdersPage() {
               title={
                 <Space>
                   <InboxOutlined />
-                  <span>Line Items ({selectedOrder.lines?.length ?? 0})</span>
+                  <span>{t('order.lineItems', { count: selectedOrder.lines?.length ?? 0 })}</span>
                 </Space>
               }
             >
@@ -694,7 +719,7 @@ export default function OrdersPage() {
                   emptyText: (
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="No line items."
+                      description={t('order.noLineItems')}
                     />
                   ),
                 }}
@@ -702,7 +727,7 @@ export default function OrdersPage() {
             </Card>
           </>
         ) : (
-          <Empty description="No order selected." />
+          <Empty description={t('order.noOrderSelected')} />
         )}
       </Drawer>
     </div>

@@ -1,4 +1,4 @@
-// Login page — username/password authentication form.
+// Login page — username/password authentication form with i18n.
 // Posts credentials to the backend, stores JWT tokens on success,
 // and redirects to the dashboard.
 
@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { Card, Form, Input, Button, Typography, Alert, App } from 'antd'
 import { ShopOutlined, UserOutlined, LockOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import { login } from '@/api/auth'
 import type { LoginRequest } from '@/api/types'
@@ -17,9 +18,9 @@ export default function LoginPage() {
   const location = useLocation()
   const { setTokens, isAuthenticated } = useAuth()
   const { message } = App.useApp()
+  const { t } = useTranslation()
 
   // If already authenticated, redirect away from login page.
-  // Use the `from` query param if present (set by ProtectedRoute), otherwise dashboard.
   if (isAuthenticated) {
     const from = (location.state as { from?: string })?.from ?? '/dashboard'
     return <Navigate to={from} replace />
@@ -32,16 +33,15 @@ export default function LoginPage() {
     try {
       const result = await login(values)
       setTokens(result.access_token, result.refresh_token)
-      message.success('Welcome back!')
+      message.success(t('auth.welcomeBack'))
 
-      // Navigate to the page the user was trying to reach, or dashboard.
       const from = (location.state as { from?: string })?.from ?? '/dashboard'
       navigate(from, { replace: true })
     } catch (err: any) {
       const detail =
         err?.response?.data?.detail ??
         err?.response?.data?.message ??
-        'Login failed. Please check your credentials.'
+        t('auth.loginFailed')
       setError(detail)
     } finally {
       setLoading(false)
@@ -56,7 +56,7 @@ export default function LoginPage() {
           <div style={{ textAlign: 'center' }}>
             <ShopOutlined style={{ fontSize: 24, color: '#1677ff', marginRight: 8 }} />
             <Typography.Text strong style={{ fontSize: 18 }}>
-              AI-WMS Admin
+              {t('auth.adminTitle')}
             </Typography.Text>
           </div>
         }
@@ -81,21 +81,21 @@ export default function LoginPage() {
         >
           <Form.Item
             name="username"
-            rules={[{ required: true, message: 'Please enter your username' }]}
+            rules={[{ required: true, message: t('auth.pleaseEnterUsername') }]}
           >
-            <Input prefix={<UserOutlined />} placeholder="Username" autoFocus />
+            <Input prefix={<UserOutlined />} placeholder={t('auth.username')} autoFocus />
           </Form.Item>
 
           <Form.Item
             name="password"
-            rules={[{ required: true, message: 'Please enter your password' }]}
+            rules={[{ required: true, message: t('auth.pleaseEnterPassword') }]}
           >
-            <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+            <Input.Password prefix={<LockOutlined />} placeholder={t('auth.password')} />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" loading={loading} block>
-              Sign In
+              {loading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
           </Form.Item>
         </Form>

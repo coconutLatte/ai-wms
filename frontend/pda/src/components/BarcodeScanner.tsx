@@ -1,18 +1,22 @@
-// Barcode scanner component — placeholder for html5-qrcode integration.
-// Supports both camera-based scanning and keyboard wedge (hardware scanner) input.
-// Full implementation in P3-10.
+// Barcode scanner component — supports keyboard wedge (hardware scanner) input.
+// Camera-based scanning is planned for a future release.
+// All UI text is translated via react-i18next.
 
 import { useState, useCallback, useRef, useEffect, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void
   placeholder?: string
 }
 
-export default function BarcodeScanner({ onScan, placeholder = 'Scan a barcode...' }: BarcodeScannerProps) {
+export default function BarcodeScanner({ onScan, placeholder }: BarcodeScannerProps) {
+  const { t } = useTranslation()
   const [manualInput, setManualInput] = useState('')
   const [lastScanned, setLastScanned] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const defaultPlaceholder = placeholder ?? t('scan.scanPlaceholder')
 
   // Auto-focus the input field so hardware scanners (keyboard wedge) work immediately.
   useEffect(() => {
@@ -29,7 +33,6 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan a barcode..
     setManualInput('')
     onScan(trimmed)
 
-    // Re-focus for next scan
     inputRef.current?.focus()
   }, [manualInput, onScan])
 
@@ -53,7 +56,7 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan a barcode..
           value={manualInput}
           onChange={(e) => setManualInput(e.target.value)}
           onPaste={handlePaste}
-          placeholder={placeholder}
+          placeholder={defaultPlaceholder}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
@@ -75,14 +78,14 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan a barcode..
         />
       </form>
 
-      {/* Camera scanner placeholder — P3-10 will add html5-qrcode */}
+      {/* Camera scanner placeholder */}
       <div className="pda-scanner-placeholder">
         <span className="scanner-icon">📷</span>
         <p style={{ fontSize: 14, marginBottom: 4 }}>
-          Camera scanner coming soon
+          {t('scan.cameraComing')}
         </p>
         <p style={{ fontSize: 12, color: '#bfbfbf' }}>
-          Use the input above or scan with a hardware scanner
+          {t('scan.cameraHint')}
         </p>
       </div>
 
@@ -99,7 +102,7 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan a barcode..
             color: '#389e0d',
           }}
         >
-          Scanned: <strong>{lastScanned}</strong>
+          {t('scan.scanned')}: <strong>{lastScanned}</strong>
         </div>
       )}
     </div>

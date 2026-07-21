@@ -1,66 +1,68 @@
 // Tasks list page — primary PDA screen for warehouse operators.
 // Shows assigned tasks with status, type, and priority indicators.
 // Fetches tasks from GET /api/v1/tasks with swipable filter tabs.
+// All UI text is translated via react-i18next.
 
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import client from '@/api/client'
-import type { Task, TaskStatus, TaskType, ListResponse } from '@/api/types'
-
-// ── Display helpers ────────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  pending: 'Pending',
-  assigned: 'Assigned',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-  paused: 'Paused',
-  exception: 'Exception',
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  receiving: 'Receiving',
-  putaway: 'Putaway',
-  picking: 'Picking',
-  cycle_count: 'Cycle Count',
-  replenishment: 'Replenishment',
-  pick: 'Picking',
-  putaway: 'Putaway',
-  replenish: 'Replenish',
-  transfer: 'Transfer',
-  load: 'Load',
-  unload: 'Unload',
-}
-
-const TYPE_ICONS: Record<string, string> = {
-  receiving: '\u{1F4E5}',
-  putaway: '\u{1F4E6}',
-  picking: '\u{1F6D2}',
-  cycle_count: '\u{1F522}',
-  replenishment: '\u{1F504}',
-  pick: '\u{1F6D2}',
-  replenish: '\u{1F504}',
-  transfer: '\u{2194}\u{FE0F}',
-  load: '\u{2B06}\u{FE0F}',
-  unload: '\u{2B07}\u{FE0F}',
-}
+import type { Task, TaskStatus, ListResponse } from '@/api/types'
 
 // ── Filter tabs ────────────────────────────────────────────────────────
 
 type FilterKey = 'all' | 'pending' | 'in_progress' | 'completed'
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'completed', label: 'Done' },
-]
-
 export default function TasksPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<FilterKey>('all')
+
+  // ── Localized maps ───────────────────────────────────────────────────
+
+  const STATUS_LABELS: Record<TaskStatus, string> = {
+    pending: t('task.statusPending'),
+    assigned: t('task.statusAssigned'),
+    in_progress: t('task.statusInProgress'),
+    completed: t('task.statusCompleted'),
+    cancelled: t('task.statusCancelled'),
+    paused: t('task.statusPaused'),
+    exception: t('task.statusException'),
+  }
+
+  const TYPE_LABELS: Record<string, string> = {
+    receiving: t('task.typeReceiving'),
+    putaway: t('task.typePutaway'),
+    picking: t('task.typePicking'),
+    cycle_count: t('task.typeCycleCount'),
+    replenishment: t('task.typeReplenishment'),
+    pick: t('task.typePicking'),
+    replenish: t('task.typeReplenishment'),
+    transfer: t('task.typeTransfer'),
+    load: t('task.typeLoad'),
+    unload: t('task.typeUnload'),
+  }
+
+  const TYPE_ICONS: Record<string, string> = {
+    receiving: '\u{1F4E5}',
+    putaway: '\u{1F4E6}',
+    picking: '\u{1F6D2}',
+    cycle_count: '\u{1F522}',
+    replenishment: '\u{1F504}',
+    pick: '\u{1F6D2}',
+    replenish: '\u{1F504}',
+    transfer: '\u{2194}\u{FE0F}',
+    load: '\u{2B06}\u{FE0F}',
+    unload: '\u{2B07}\u{FE0F}',
+  }
+
+  const FILTERS: { key: FilterKey; label: string }[] = [
+    { key: 'all', label: t('task.all') },
+    { key: 'pending', label: t('task.pending') },
+    { key: 'in_progress', label: t('task.inProgress') },
+    { key: 'completed', label: t('task.done') },
+  ]
 
   // ── Fetch tasks from API ─────────────────────────────────────────────
 
@@ -70,7 +72,7 @@ export default function TasksPage() {
       const { data } = await client.get<ListResponse<Task>>('/tasks')
       return data
     },
-    staleTime: 10_000, // 10s before refetch
+    staleTime: 10_000,
   })
 
   const tasks = (data?.data ?? []).filter((task) => {
@@ -130,7 +132,7 @@ export default function TasksPage() {
 
       {/* Refresh indicator */}
       {isFetching && (
-        <div className="pda-pull-indicator">Refreshing...</div>
+        <div className="pda-pull-indicator">{t('task.refreshing')}</div>
       )}
 
       {/* Refresh button */}
@@ -148,7 +150,7 @@ export default function TasksPage() {
             cursor: isFetching ? 'not-allowed' : 'pointer',
           }}
         >
-          {isFetching ? '...' : '↻ Refresh'}
+          {isFetching ? '...' : t('task.refresh')}
         </button>
       </div>
 
@@ -156,17 +158,17 @@ export default function TasksPage() {
       {isLoading && (
         <div className="pda-empty">
           <span className="empty-icon">{'⏳'}</span>
-          <p className="empty-text">Loading tasks...</p>
+          <p className="empty-text">{t('task.loadingTasks')}</p>
         </div>
       )}
 
       {/* Error state */}
       {isError && (
         <div className="pda-empty">
-          <span className="empty-icon">{'⚠'}️</span>
-          <p className="empty-text">Failed to load tasks</p>
+          <span className="empty-icon">{'⚠️'}</span>
+          <p className="empty-text">{t('task.failedToLoad')}</p>
           <p style={{ fontSize: 12, color: '#bfbfbf', marginTop: 8 }}>
-            {(error as Error)?.message || 'Unknown error'}
+            {(error as Error)?.message || t('task.unknownError')}
           </p>
           <button
             onClick={handleRefresh}
@@ -181,7 +183,7 @@ export default function TasksPage() {
               cursor: 'pointer',
             }}
           >
-            Retry
+            {t('task.retry')}
           </button>
         </div>
       )}
@@ -190,7 +192,7 @@ export default function TasksPage() {
       {!isLoading && !isError && tasks.length === 0 && (
         <div className="pda-empty">
           <span className="empty-icon">{'\u{1F4CB}'}</span>
-          <p className="empty-text">No tasks found</p>
+          <p className="empty-text">{t('task.noTasks')}</p>
           <button
             onClick={handleRefresh}
             style={{
@@ -204,7 +206,7 @@ export default function TasksPage() {
               cursor: 'pointer',
             }}
           >
-            Refresh
+            {t('task.refreshTasks')}
           </button>
         </div>
       )}
@@ -230,8 +232,8 @@ export default function TasksPage() {
             </span>
           </div>
           <div className="task-meta">
-            <span>Qty: {task.expected_qty} {task.uom}</span>
-            <span>Prio: {task.priority}</span>
+            <span>{t('task.qty')}: {task.expected_qty} {task.uom}</span>
+            <span>{t('task.prio')}: {task.priority}</span>
           </div>
         </div>
       ))}

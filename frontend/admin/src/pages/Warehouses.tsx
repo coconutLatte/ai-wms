@@ -1,5 +1,6 @@
 // Warehouse management page with full CRUD for warehouses, zones, and locations.
 // Supports listing, creating, and editing warehouses with nested zone/location management.
+// All UI text is translated via react-i18next.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -27,6 +28,7 @@ import {
   AppstoreOutlined,
   HomeOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import type { ColumnsType } from 'antd/es/table'
 import client from '@/api/client'
 import type {
@@ -57,14 +59,6 @@ const zoneTypeColors: Record<string, string> = {
   staging: 'gold',
 }
 
-const locationTypeLabels: Record<string, string> = {
-  pallet: 'Pallet',
-  shelf: 'Shelf',
-  floor: 'Floor',
-  conveyor: 'Conveyor',
-  agv: 'AGV Dock',
-}
-
 const locationStatusColors: Record<string, string> = {
   empty: 'default',
   occupied: 'green',
@@ -90,6 +84,32 @@ const PAGE_SIZE = 10
 
 export default function WarehousesPage() {
   const { message } = App.useApp()
+  const { t } = useTranslation()
+
+  // ── Localized labels ──────────────────────────────────────────────────
+
+  const locationTypeLabels: Record<string, string> = useMemo(() => ({
+    pallet: t('location.typePallet'),
+    shelf: t('location.typeShelf'),
+    floor: t('location.typeFloor'),
+    conveyor: t('location.typeConveyor'),
+    agv: t('location.typeAgv'),
+  }), [t])
+
+  const zoneTypeLabels: Record<string, string> = useMemo(() => ({
+    receiving: t('zone.typeReceiving'),
+    storage: t('zone.typeStorage'),
+    picking: t('zone.typePicking'),
+    shipping: t('zone.typeShipping'),
+    returns: t('zone.typeReturns'),
+    staging: t('zone.typeStaging'),
+  }), [t])
+
+  const warehouseStatusLabels: Record<string, string> = useMemo(() => ({
+    active: t('warehouse.statusActive'),
+    inactive: t('warehouse.statusInactive'),
+    archived: t('warehouse.statusArchived'),
+  }), [t])
 
   // ── View navigation ──────────────────────────────────────────────────
   const [view, setView] = useState<ViewState>({ type: 'warehouses' })
@@ -133,11 +153,11 @@ export default function WarehousesPage() {
       setWarehouses(data.data)
       setWarehouseTotal(data.pagination.total)
     } catch {
-      message.error('Failed to load warehouses')
+      message.error(t('warehouse.loadFailed'))
     } finally {
       setWarehouseLoading(false)
     }
-  }, [message])
+  }, [message, t])
 
   const fetchZones = useCallback(async (warehouseId: string, page: number) => {
     setZoneLoading(true)
@@ -149,11 +169,11 @@ export default function WarehousesPage() {
       setZones(data.data)
       setZoneTotal(data.pagination.total)
     } catch {
-      message.error('Failed to load zones')
+      message.error(t('zone.loadFailed'))
     } finally {
       setZoneLoading(false)
     }
-  }, [message])
+  }, [message, t])
 
   const fetchLocations = useCallback(async (zoneId: string, page: number) => {
     setLocationLoading(true)
@@ -165,11 +185,11 @@ export default function WarehousesPage() {
       setLocations(data.data)
       setLocationTotal(data.pagination.total)
     } catch {
-      message.error('Failed to load locations')
+      message.error(t('location.loadFailed'))
     } finally {
       setLocationLoading(false)
     }
-  }, [message])
+  }, [message, t])
 
   // ── Initial load & view changes ──────────────────────────────────────
 
@@ -188,7 +208,6 @@ export default function WarehousesPage() {
       setLocationPage(1)
       fetchLocations(view.zone.id, 1)
     }
-    // Only react to view.type changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view])
 
@@ -262,12 +281,11 @@ export default function WarehousesPage() {
       const values = await warehouseForm.validateFields()
       setModalLoading(true)
       await client.post('/warehouses', values)
-      message.success('Warehouse created')
+      message.success(t('warehouse.created'))
       closeModal()
       fetchWarehouses(warehousePage)
     } catch {
-      // Validation error — form shows inline errors; API error shows via interceptor
-      if (modal.type !== 'none') message.error('Failed to create warehouse')
+      if (modal.type !== 'none') message.error(t('warehouse.createFailed'))
     } finally {
       setModalLoading(false)
     }
@@ -278,17 +296,16 @@ export default function WarehousesPage() {
     try {
       const values = await editWarehouseForm.validateFields()
       setModalLoading(true)
-      // Only send changed fields
       const payload: UpdateWarehouseRequest = {}
       if (values.name) payload.name = values.name
       if (values.address !== undefined) payload.address = values.address
       if (values.status) payload.status = values.status
       await client.put(`/warehouses/${modal.warehouse.id}`, payload)
-      message.success('Warehouse updated')
+      message.success(t('warehouse.updated'))
       closeModal()
       fetchWarehouses(warehousePage)
     } catch {
-      message.error('Failed to update warehouse')
+      message.error(t('warehouse.updateFailed'))
     } finally {
       setModalLoading(false)
     }
@@ -300,11 +317,11 @@ export default function WarehousesPage() {
       const values = await zoneForm.validateFields()
       setModalLoading(true)
       await client.post(`/warehouses/${view.warehouse.id}/zones`, values)
-      message.success('Zone created')
+      message.success(t('zone.zoneCreated'))
       closeModal()
       fetchZones(view.warehouse.id, zonePage)
     } catch {
-      if (modal.type !== 'none') message.error('Failed to create zone')
+      if (modal.type !== 'none') message.error(t('zone.createFailed'))
     } finally {
       setModalLoading(false)
     }
@@ -316,11 +333,11 @@ export default function WarehousesPage() {
       const values = await locationForm.validateFields()
       setModalLoading(true)
       await client.post(`/zones/${view.zone.id}/locations`, values)
-      message.success('Location created')
+      message.success(t('location.locationCreated'))
       closeModal()
       fetchLocations(view.zone.id, locationPage)
     } catch {
-      if (modal.type !== 'none') message.error('Failed to create location')
+      if (modal.type !== 'none') message.error(t('location.createFailed'))
     } finally {
       setModalLoading(false)
     }
@@ -330,36 +347,38 @@ export default function WarehousesPage() {
 
   const warehouseColumns: ColumnsType<Warehouse> = useMemo(() => [
     {
-      title: 'Code',
+      title: t('warehouse.warehouseCode'),
       dataIndex: 'code',
       key: 'code',
       width: 140,
       render: (code: string) => <Typography.Text code>{code}</Typography.Text>,
     },
     {
-      title: 'Name',
+      title: t('warehouse.warehouseName'),
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
     },
     {
-      title: 'Address',
+      title: t('warehouse.address'),
       dataIndex: 'address',
       key: 'address',
       ellipsis: true,
       responsive: ['md'],
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status: string) => (
-        <Tag color={warehouseStatusColors[status] ?? 'default'}>{status}</Tag>
+        <Tag color={warehouseStatusColors[status] ?? 'default'}>
+          {warehouseStatusLabels[status] ?? status}
+        </Tag>
       ),
     },
     {
-      title: 'Created',
+      title: t('common.created'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 170,
@@ -367,7 +386,7 @@ export default function WarehousesPage() {
       render: (v: string) => new Date(v).toLocaleString(),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 180,
       render: (_: unknown, record: Warehouse) => (
@@ -378,7 +397,7 @@ export default function WarehousesPage() {
             icon={<EditOutlined />}
             onClick={() => openEditWarehouse(record)}
           >
-            Edit
+            {t('common.edit')}
           </Button>
           <Button
             type="primary"
@@ -386,40 +405,40 @@ export default function WarehousesPage() {
             icon={<AppstoreOutlined />}
             onClick={() => navigateToZones(record)}
           >
-            Zones
+            {t('warehouse.zones')}
           </Button>
         </Space>
       ),
     },
-  ], [])
+  ], [t, warehouseStatusLabels])
 
   // ── Zone columns ─────────────────────────────────────────────────────
 
   const zoneColumns: ColumnsType<Zone> = useMemo(() => [
     {
-      title: 'Code',
+      title: t('zone.zoneCode'),
       dataIndex: 'code',
       key: 'code',
       width: 140,
       render: (code: string) => <Typography.Text code>{code}</Typography.Text>,
     },
     {
-      title: 'Name',
+      title: t('zone.zoneName'),
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
     },
     {
-      title: 'Type',
+      title: t('zone.zoneType'),
       dataIndex: 'zone_type',
       key: 'zone_type',
       width: 120,
-      render: (t: string) => (
-        <Tag color={zoneTypeColors[t] ?? 'default'}>{t}</Tag>
+      render: (t2: string) => (
+        <Tag color={zoneTypeColors[t2] ?? 'default'}>{zoneTypeLabels[t2] ?? t2}</Tag>
       ),
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
@@ -430,7 +449,7 @@ export default function WarehousesPage() {
       ),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 140,
       render: (_: unknown, record: Zone) => (
@@ -440,24 +459,24 @@ export default function WarehousesPage() {
           icon={<EnvironmentOutlined />}
           onClick={() => navigateToLocations(record)}
         >
-          Locations
+          {t('warehouse.locations')}
         </Button>
       ),
     },
-  ], [])
+  ], [t, zoneTypeLabels])
 
   // ── Location columns ─────────────────────────────────────────────────
 
   const locationColumns: ColumnsType<Location> = useMemo(() => [
     {
-      title: 'Code',
+      title: t('location.locationCode'),
       dataIndex: 'code',
       key: 'code',
       width: 150,
       render: (code: string) => <Typography.Text code>{code}</Typography.Text>,
     },
     {
-      title: 'Barcode',
+      title: t('location.barcode'),
       dataIndex: 'barcode',
       key: 'barcode',
       width: 160,
@@ -465,14 +484,14 @@ export default function WarehousesPage() {
       render: (b: string) => b || <Typography.Text type="secondary">—</Typography.Text>,
     },
     {
-      title: 'Type',
+      title: t('location.locationType'),
       dataIndex: 'location_type',
       key: 'location_type',
       width: 110,
-      render: (t: string) => locationTypeLabels[t] ?? t,
+      render: (lt: string) => locationTypeLabels[lt] ?? lt,
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
@@ -481,23 +500,23 @@ export default function WarehousesPage() {
       ),
     },
     {
-      title: 'Capacity',
+      title: t('location.capacity'),
       key: 'capacity',
       width: 170,
       responsive: ['lg'],
       render: (_: unknown, record: Location) => {
-        if (!record.capacity) return <Typography.Text type="secondary">Unlimited</Typography.Text>
+        if (!record.capacity) return <Typography.Text type="secondary">{t('location.unlimited')}</Typography.Text>
         const c = record.capacity
         return (
           <Typography.Text>
-            {c.max_qty > 0 ? `${c.max_qty} units` : ''}
+            {c.max_qty > 0 ? `${c.max_qty} ${t('location.units')}` : ''}
             {c.max_weight > 0 ? ` · ${c.max_weight}kg` : ''}
             {c.max_volume > 0 ? ` · ${c.max_volume}m³` : ''}
           </Typography.Text>
         )
       },
     },
-  ], [])
+  ], [t, locationTypeLabels])
 
   // ── Breadcrumb items ─────────────────────────────────────────────────
 
@@ -506,7 +525,7 @@ export default function WarehousesPage() {
       {
         title: (
           <Button type="link" onClick={navigateToWarehouses} style={{ padding: 0 }}>
-            <HomeOutlined /> Warehouses
+            <HomeOutlined /> {t('warehouse.title')}
           </Button>
         ),
       },
@@ -536,7 +555,7 @@ export default function WarehousesPage() {
       })
     }
     return items
-  }, [view])
+  }, [view, t])
 
   // ── Render ───────────────────────────────────────────────────────────
 
@@ -546,10 +565,10 @@ export default function WarehousesPage() {
         <Breadcrumb items={breadcrumbItems} style={{ marginBottom: 8 }} />
         <Typography.Title level={2}>
           {view.type === 'warehouses'
-            ? 'Warehouses'
+            ? t('warehouse.title')
             : view.type === 'zones'
-              ? `Zones — ${view.warehouse.name}`
-              : `Locations — ${view.zone.name}`}
+              ? `${t('warehouse.zones')} — ${view.warehouse.name}`
+              : `${t('warehouse.locations')} — ${view.zone.name}`}
         </Typography.Title>
       </div>
 
@@ -560,12 +579,12 @@ export default function WarehousesPage() {
           title={
             <Space>
               <ShopOutlined />
-              <span>All Warehouses</span>
+              <span>{t('warehouse.allWarehouses')}</span>
             </Space>
           }
           extra={
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreateWarehouse}>
-              New Warehouse
+              {t('warehouse.newWarehouse')}
             </Button>
           }
         >
@@ -582,7 +601,7 @@ export default function WarehousesPage() {
               showSizeChanger: false,
               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
             }}
-            locale={{ emptyText: <Empty description="No warehouses yet" /> }}
+            locale={{ emptyText: <Empty description={t('warehouse.noWarehouses')} /> }}
           />
         </Card>
       )}
@@ -593,13 +612,13 @@ export default function WarehousesPage() {
         <>
           <Card size="small" style={{ marginBottom: 16 }}>
             <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small">
-              <Descriptions.Item label="Code">
+              <Descriptions.Item label={t('common.code')}>
                 <Typography.Text code>{view.warehouse.code}</Typography.Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Address">{view.warehouse.address}</Descriptions.Item>
-              <Descriptions.Item label="Status">
+              <Descriptions.Item label={t('warehouse.address')}>{view.warehouse.address}</Descriptions.Item>
+              <Descriptions.Item label={t('common.status')}>
                 <Tag color={warehouseStatusColors[view.warehouse.status]}>
-                  {view.warehouse.status}
+                  {warehouseStatusLabels[view.warehouse.status] ?? view.warehouse.status}
                 </Tag>
               </Descriptions.Item>
             </Descriptions>
@@ -609,12 +628,12 @@ export default function WarehousesPage() {
             title={
               <Space>
                 <AppstoreOutlined />
-                <span>Zones</span>
+                <span>{t('zone.title')}</span>
               </Space>
             }
             extra={
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreateZone}>
-                New Zone
+                {t('zone.newZone')}
               </Button>
             }
           >
@@ -631,7 +650,7 @@ export default function WarehousesPage() {
                 showSizeChanger: false,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
               }}
-              locale={{ emptyText: <Empty description="No zones yet. Create one to get started." /> }}
+              locale={{ emptyText: <Empty description={t('zone.noZones')} /> }}
             />
           </Card>
         </>
@@ -643,12 +662,12 @@ export default function WarehousesPage() {
         <>
           <Card size="small" style={{ marginBottom: 16 }}>
             <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small">
-              <Descriptions.Item label="Warehouse">{view.warehouse.name}</Descriptions.Item>
-              <Descriptions.Item label="Zone">
+              <Descriptions.Item label={t('warehouse.title')}>{view.warehouse.name}</Descriptions.Item>
+              <Descriptions.Item label={t('warehouse.zones')}>
                 <Typography.Text code>{view.zone.code}</Typography.Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Zone Type">
-                <Tag color={zoneTypeColors[view.zone.zone_type]}>{view.zone.zone_type}</Tag>
+              <Descriptions.Item label={t('zone.zoneType')}>
+                <Tag color={zoneTypeColors[view.zone.zone_type]}>{zoneTypeLabels[view.zone.zone_type] ?? view.zone.zone_type}</Tag>
               </Descriptions.Item>
             </Descriptions>
           </Card>
@@ -657,12 +676,12 @@ export default function WarehousesPage() {
             title={
               <Space>
                 <EnvironmentOutlined />
-                <span>Locations</span>
+                <span>{t('location.title')}</span>
               </Space>
             }
             extra={
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreateLocation}>
-                New Location
+                {t('location.newLocation')}
               </Button>
             }
           >
@@ -679,7 +698,7 @@ export default function WarehousesPage() {
                 showSizeChanger: false,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
               }}
-              locale={{ emptyText: <Empty description="No locations yet. Create one to get started." /> }}
+              locale={{ emptyText: <Empty description={t('location.noLocations')} /> }}
             />
           </Card>
         </>
@@ -688,7 +707,7 @@ export default function WarehousesPage() {
       {/* ── Create Warehouse Modal ────────────────────────────────────── */}
 
       <Modal
-        title="Create Warehouse"
+        title={t('warehouse.createWarehouse')}
         open={modal.type === 'create-warehouse'}
         onCancel={closeModal}
         onOk={handleCreateWarehouse}
@@ -698,20 +717,20 @@ export default function WarehousesPage() {
         <Form form={warehouseForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="code"
-            label="Warehouse Code"
-            rules={[{ required: true, message: 'Please enter a warehouse code' }]}
+            label={t('warehouse.warehouseCode')}
+            rules={[{ required: true, message: t('warehouse.pleaseEnterCode') }]}
           >
-            <Input placeholder="e.g. WH-SH-01" />
+            <Input placeholder={t('warehouse.codePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="name"
-            label="Name"
-            rules={[{ required: true, message: 'Please enter a warehouse name' }]}
+            label={t('warehouse.warehouseName')}
+            rules={[{ required: true, message: t('warehouse.pleaseEnterName') }]}
           >
-            <Input placeholder="e.g. Shanghai Main Warehouse" />
+            <Input placeholder={t('warehouse.namePlaceholder')} />
           </Form.Item>
-          <Form.Item name="address" label="Address">
-            <Input placeholder="Physical address (optional)" />
+          <Form.Item name="address" label={t('warehouse.address')}>
+            <Input placeholder={t('warehouse.addressPlaceholder')} />
           </Form.Item>
         </Form>
       </Modal>
@@ -719,7 +738,7 @@ export default function WarehousesPage() {
       {/* ── Edit Warehouse Modal ──────────────────────────────────────── */}
 
       <Modal
-        title="Edit Warehouse"
+        title={t('warehouse.editWarehouse')}
         open={modal.type === 'edit-warehouse'}
         onCancel={closeModal}
         onOk={handleEditWarehouse}
@@ -727,28 +746,28 @@ export default function WarehousesPage() {
         destroyOnClose
       >
         <Form form={editWarehouseForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="code" label="Warehouse Code">
+          <Form.Item name="code" label={t('warehouse.warehouseCode')}>
             <Input disabled />
           </Form.Item>
           <Form.Item
             name="name"
-            label="Name"
-            rules={[{ required: true, message: 'Please enter a warehouse name' }]}
+            label={t('warehouse.warehouseName')}
+            rules={[{ required: true, message: t('warehouse.pleaseEnterName') }]}
           >
-            <Input placeholder="e.g. Shanghai Main Warehouse" />
+            <Input placeholder={t('warehouse.namePlaceholder')} />
           </Form.Item>
-          <Form.Item name="address" label="Address">
-            <Input placeholder="Physical address" />
+          <Form.Item name="address" label={t('warehouse.address')}>
+            <Input placeholder={t('warehouse.addressPlaceholderEdit')} />
           </Form.Item>
           <Form.Item
             name="status"
-            label="Status"
-            rules={[{ required: true, message: 'Please select a status' }]}
+            label={t('common.status')}
+            rules={[{ required: true, message: t('warehouse.pleaseSelectStatus') }]}
           >
             <Select>
-              <Select.Option value="active">Active</Select.Option>
-              <Select.Option value="inactive">Inactive</Select.Option>
-              <Select.Option value="archived">Archived</Select.Option>
+              <Select.Option value="active">{t('warehouse.statusActive')}</Select.Option>
+              <Select.Option value="inactive">{t('warehouse.statusInactive')}</Select.Option>
+              <Select.Option value="archived">{t('warehouse.statusArchived')}</Select.Option>
             </Select>
           </Form.Item>
         </Form>
@@ -757,7 +776,7 @@ export default function WarehousesPage() {
       {/* ── Create Zone Modal ─────────────────────────────────────────── */}
 
       <Modal
-        title="Create Zone"
+        title={t('zone.createZone')}
         open={modal.type === 'create-zone'}
         onCancel={closeModal}
         onOk={handleCreateZone}
@@ -767,30 +786,30 @@ export default function WarehousesPage() {
         <Form form={zoneForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="code"
-            label="Zone Code"
-            rules={[{ required: true, message: 'Please enter a zone code' }]}
+            label={t('zone.zoneCode')}
+            rules={[{ required: true, message: t('zone.pleaseEnterCode') }]}
           >
-            <Input placeholder="e.g. ZONE-RCV-01" />
+            <Input placeholder={t('zone.codePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="name"
-            label="Name"
-            rules={[{ required: true, message: 'Please enter a zone name' }]}
+            label={t('zone.zoneName')}
+            rules={[{ required: true, message: t('zone.pleaseEnterName') }]}
           >
-            <Input placeholder="e.g. Receiving Zone A" />
+            <Input placeholder={t('zone.namePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="zone_type"
-            label="Zone Type"
-            rules={[{ required: true, message: 'Please select a zone type' }]}
+            label={t('zone.zoneType')}
+            rules={[{ required: true, message: t('zone.pleaseSelectType') }]}
           >
-            <Select placeholder="Select zone type">
-              <Select.Option value="receiving">Receiving</Select.Option>
-              <Select.Option value="storage">Storage</Select.Option>
-              <Select.Option value="picking">Picking</Select.Option>
-              <Select.Option value="shipping">Shipping</Select.Option>
-              <Select.Option value="returns">Returns</Select.Option>
-              <Select.Option value="staging">Staging</Select.Option>
+            <Select placeholder={t('zone.pleaseSelectType')}>
+              <Select.Option value="receiving">{t('zone.typeReceiving')}</Select.Option>
+              <Select.Option value="storage">{t('zone.typeStorage')}</Select.Option>
+              <Select.Option value="picking">{t('zone.typePicking')}</Select.Option>
+              <Select.Option value="shipping">{t('zone.typeShipping')}</Select.Option>
+              <Select.Option value="returns">{t('zone.typeReturns')}</Select.Option>
+              <Select.Option value="staging">{t('zone.typeStaging')}</Select.Option>
             </Select>
           </Form.Item>
         </Form>
@@ -799,7 +818,7 @@ export default function WarehousesPage() {
       {/* ── Create Location Modal ─────────────────────────────────────── */}
 
       <Modal
-        title="Create Location"
+        title={t('location.createLocation')}
         open={modal.type === 'create-location'}
         onCancel={closeModal}
         onOk={handleCreateLocation}
@@ -810,30 +829,30 @@ export default function WarehousesPage() {
         <Form form={locationForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="code"
-            label="Location Code"
-            rules={[{ required: true, message: 'Please enter a location code' }]}
+            label={t('location.locationCode')}
+            rules={[{ required: true, message: t('location.pleaseEnterCode') }]}
           >
-            <Input placeholder="e.g. A-01-02-03" />
+            <Input placeholder={t('location.codePlaceholder')} />
           </Form.Item>
-          <Form.Item name="barcode" label="Barcode">
-            <Input placeholder="Barcode on physical location (optional)" />
+          <Form.Item name="barcode" label={t('location.barcode')}>
+            <Input placeholder={t('location.barcodePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="location_type"
-            label="Location Type"
-            rules={[{ required: true, message: 'Please select a location type' }]}
+            label={t('location.locationType')}
+            rules={[{ required: true, message: t('location.pleaseSelectType') }]}
           >
-            <Select placeholder="Select location type">
-              <Select.Option value="pallet">Pallet</Select.Option>
-              <Select.Option value="shelf">Shelf</Select.Option>
-              <Select.Option value="floor">Floor</Select.Option>
-              <Select.Option value="conveyor">Conveyor</Select.Option>
-              <Select.Option value="agv">AGV Dock</Select.Option>
+            <Select placeholder={t('location.pleaseSelectType')}>
+              <Select.Option value="pallet">{t('location.typePallet')}</Select.Option>
+              <Select.Option value="shelf">{t('location.typeShelf')}</Select.Option>
+              <Select.Option value="floor">{t('location.typeFloor')}</Select.Option>
+              <Select.Option value="conveyor">{t('location.typeConveyor')}</Select.Option>
+              <Select.Option value="agv">{t('location.typeAgv')}</Select.Option>
             </Select>
           </Form.Item>
 
           <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-            Capacity (optional — leave empty or 0 for unlimited)
+            {t('location.capacityHint')}
           </Typography.Text>
 
           <Form.Item
@@ -843,26 +862,26 @@ export default function WarehousesPage() {
             }
           >
             {({ getFieldValue: _gfv }) => {
-              void _gfv('capacity') // trigger re-render when capacity changes
+              void _gfv('capacity')
               return (
                 <Space style={{ display: 'flex' }} align="start">
                   <Form.Item
                     name={['capacity', 'max_qty']}
-                    label="Max Qty"
+                    label={t('location.maxQty')}
                     style={{ marginBottom: 0 }}
                   >
-                    <InputNumber min={0} placeholder="Units" style={{ width: 110 }} />
+                    <InputNumber min={0} placeholder={t('location.units')} style={{ width: 110 }} />
                   </Form.Item>
                   <Form.Item
                     name={['capacity', 'max_weight']}
-                    label="Max Weight"
+                    label={t('location.maxWeight')}
                     style={{ marginBottom: 0 }}
                   >
                     <InputNumber min={0} step={0.1} placeholder="kg" style={{ width: 130 }} />
                   </Form.Item>
                   <Form.Item
                     name={['capacity', 'max_volume']}
-                    label="Max Volume"
+                    label={t('location.maxVolume')}
                     style={{ marginBottom: 0 }}
                   >
                     <InputNumber min={0} step={0.01} placeholder="m³" style={{ width: 130 }} />

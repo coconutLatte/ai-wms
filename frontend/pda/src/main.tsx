@@ -1,8 +1,10 @@
 // Application entry point.
+// Imports i18n setup before rendering.
 // Renders the root App component into the DOM.
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './i18n'
 import App from './App'
 import './styles/global.css'
 

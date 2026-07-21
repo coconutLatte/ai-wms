@@ -1,5 +1,6 @@
 // Root application component with routing for the PDA mobile app.
 // Sets up React Router with auth guard, PDA layout shell, and all page routes.
+// Integrates i18next for multilingual support (zh-CN default).
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from '@/components/ProtectedRoute'

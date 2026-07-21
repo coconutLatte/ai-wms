@@ -1,5 +1,6 @@
 // SKU management page with full CRUD for stock keeping units.
 // Supports listing, searching, creating, and editing SKUs with UOM and attributes.
+// All UI text is translated via react-i18next.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -27,6 +28,7 @@ import {
   DeleteOutlined,
   BarcodeOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import type { ColumnsType } from 'antd/es/table'
 import client from '@/api/client'
 import type {
@@ -71,6 +73,14 @@ const defaultUOM: UOM = {
 
 export default function SKUsPage() {
   const { message } = App.useApp()
+  const { t } = useTranslation()
+
+  // ── Status labels ──────────────────────────────────────────────────────
+  const skuStatusLabels: Record<string, string> = useMemo(() => ({
+    active: t('sku.statusActive'),
+    inactive: t('sku.statusInactive'),
+    discontinued: t('sku.statusDiscontinued'),
+  }), [t])
 
   // ── List state ─────────────────────────────────────────────────────────
   const [skus, setSkus] = useState<SKU[]>([])
@@ -104,11 +114,11 @@ export default function SKUsPage() {
       setSkus(data.data)
       setTotal(data.pagination.total)
     } catch {
-      message.error('Failed to load SKUs')
+      message.error(t('sku.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [message])
+  }, [message, t])
 
   useEffect(() => {
     fetchSKUs(page)
@@ -164,18 +174,17 @@ export default function SKUsPage() {
   const handleCreate = async () => {
     try {
       const values = await createForm.validateFields()
-      // Build attributes from key-value editor
       const attributes: Record<string, string> = {}
       createAttrs.forEach(({ key, value }) => {
         if (key.trim()) attributes[key.trim()] = value
       })
       setModalLoading(true)
       await client.post('/skus', { ...values, attributes } satisfies CreateSKURequest)
-      message.success('SKU created')
+      message.success(t('sku.skuCreated'))
       closeModal()
       fetchSKUs(page)
     } catch {
-      if (modal.type !== 'none') message.error('Failed to create SKU')
+      if (modal.type !== 'none') message.error(t('sku.createFailed'))
     } finally {
       setModalLoading(false)
     }
@@ -199,7 +208,6 @@ export default function SKUsPage() {
         payload.status = values.status
       if (values.uom) payload.uom = values.uom
 
-      // Attributes
       const attributes: Record<string, string> = {}
       editAttrs.forEach(({ key, value }) => {
         if (key.trim()) attributes[key.trim()] = value
@@ -212,11 +220,11 @@ export default function SKUsPage() {
 
       setModalLoading(true)
       await client.put(`/skus/${modal.sku.id}`, payload)
-      message.success('SKU updated')
+      message.success(t('sku.skuUpdated'))
       closeModal()
       fetchSKUs(page)
     } catch {
-      message.error('Failed to update SKU')
+      message.error(t('sku.updateFailed'))
     } finally {
       setModalLoading(false)
     }
@@ -246,20 +254,20 @@ export default function SKUsPage() {
 
   const columns: ColumnsType<SKU> = useMemo(() => [
     {
-      title: 'Code',
+      title: t('sku.skuCode'),
       dataIndex: 'code',
       key: 'code',
       width: 150,
       render: (code: string) => <Typography.Text code>{code}</Typography.Text>,
     },
     {
-      title: 'Name',
+      title: t('sku.skuName'),
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
     },
     {
-      title: 'Barcode',
+      title: t('sku.barcode'),
       dataIndex: 'barcode',
       key: 'barcode',
       width: 160,
@@ -268,7 +276,7 @@ export default function SKUsPage() {
       render: (b: string) => b || <Typography.Text type="secondary">—</Typography.Text>,
     },
     {
-      title: 'Category',
+      title: t('sku.category'),
       dataIndex: 'category',
       key: 'category',
       width: 120,
@@ -276,23 +284,23 @@ export default function SKUsPage() {
       render: (c: string) => c || <Typography.Text type="secondary">—</Typography.Text>,
     },
     {
-      title: 'Base Unit',
+      title: t('sku.baseUnit'),
       key: 'base_unit',
       width: 90,
       responsive: ['lg'],
       render: (_: unknown, record: SKU) => record.uom?.base_unit || '—',
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 120,
       render: (status: string) => (
-        <Tag color={skuStatusColors[status] ?? 'default'}>{status}</Tag>
+        <Tag color={skuStatusColors[status] ?? 'default'}>{skuStatusLabels[status] ?? status}</Tag>
       ),
     },
     {
-      title: 'Created',
+      title: t('common.created'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 170,
@@ -300,7 +308,7 @@ export default function SKUsPage() {
       render: (v: string) => new Date(v).toLocaleString(),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 100,
       render: (_: unknown, record: SKU) => (
@@ -310,11 +318,11 @@ export default function SKUsPage() {
           icon={<EditOutlined />}
           onClick={() => openEdit(record)}
         >
-          Edit
+          {t('common.edit')}
         </Button>
       ),
     },
-  ], [])
+  ], [t, skuStatusLabels])
 
   // ── UOM sub-form (shared between create and edit) ──────────────────────
 
@@ -324,55 +332,55 @@ export default function SKUsPage() {
         <Col xs={12} sm={8}>
           <Form.Item
             name={[...prefix, 'base_unit']}
-            label="Base Unit"
-            rules={[{ required: true, message: 'Required' }]}
+            label={t('sku.baseUnit')}
+            rules={[{ required: true, message: t('sku.baseUnit') }]}
           >
-            <Select placeholder="Select unit">
-              <Select.Option value="EA">EA (Each)</Select.Option>
-              <Select.Option value="KG">KG (Kilogram)</Select.Option>
-              <Select.Option value="M">M (Meter)</Select.Option>
-              <Select.Option value="L">L (Liter)</Select.Option>
-              <Select.Option value="BOX">BOX (Box)</Select.Option>
-              <Select.Option value="CASE">CASE</Select.Option>
-              <Select.Option value="PAL">PAL (Pallet)</Select.Option>
-              <Select.Option value="CS">CS (Case)</Select.Option>
+            <Select placeholder={t('sku.baseUnit')}>
+              <Select.Option value="EA">{t('sku.baseUnitEA')}</Select.Option>
+              <Select.Option value="KG">{t('sku.baseUnitKG')}</Select.Option>
+              <Select.Option value="M">{t('sku.baseUnitM')}</Select.Option>
+              <Select.Option value="L">{t('sku.baseUnitL')}</Select.Option>
+              <Select.Option value="BOX">{t('sku.baseUnitBOX')}</Select.Option>
+              <Select.Option value="CASE">{t('sku.baseUnitCASE')}</Select.Option>
+              <Select.Option value="PAL">{t('sku.baseUnitPAL')}</Select.Option>
+              <Select.Option value="CS">{t('sku.baseUnitCS')}</Select.Option>
             </Select>
           </Form.Item>
         </Col>
         <Col xs={12} sm={8}>
-          <Form.Item name={[...prefix, 'pack_unit']} label="Pack Unit">
+          <Form.Item name={[...prefix, 'pack_unit']} label={t('sku.packUnit')}>
             <Input placeholder="e.g. CASE" />
           </Form.Item>
         </Col>
         <Col xs={12} sm={8}>
-          <Form.Item name={[...prefix, 'pack_qty']} label="Pack Qty">
+          <Form.Item name={[...prefix, 'pack_qty']} label={t('sku.packQty')}>
             <InputNumber min={1} style={{ width: '100%' }} placeholder="1" />
           </Form.Item>
         </Col>
       </Row>
       <Row gutter={16}>
         <Col xs={12} sm={6}>
-          <Form.Item name={[...prefix, 'weight']} label="Weight (kg)">
+          <Form.Item name={[...prefix, 'weight']} label={t('sku.weight')}>
             <InputNumber min={0} step={0.001} style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
         </Col>
         <Col xs={12} sm={6}>
-          <Form.Item name={[...prefix, 'volume']} label="Volume (m³)">
+          <Form.Item name={[...prefix, 'volume']} label={t('sku.volume')}>
             <InputNumber min={0} step={0.0001} style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Item name={[...prefix, 'length']} label="L (cm)">
+          <Form.Item name={[...prefix, 'length']} label={t('sku.length')}>
             <InputNumber min={0} step={0.1} style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Item name={[...prefix, 'width']} label="W (cm)">
+          <Form.Item name={[...prefix, 'width']} label={t('sku.width')}>
             <InputNumber min={0} step={0.1} style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Item name={[...prefix, 'height']} label="H (cm)">
+          <Form.Item name={[...prefix, 'height']} label={t('sku.height')}>
             <InputNumber min={0} step={0.1} style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
         </Col>
@@ -390,20 +398,20 @@ export default function SKUsPage() {
   ) => (
     <div>
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-        Custom attributes (optional)
+        {t('sku.customAttributes')}
       </Typography.Text>
       {attrs.map((attr, idx) => (
         <Row key={idx} gutter={8} style={{ marginBottom: 8 }}>
           <Col xs={10}>
             <Input
-              placeholder="Key (e.g. color)"
+              placeholder={t('sku.attrKeyPlaceholder')}
               value={attr.key}
               onChange={(e) => onChange(idx, 'key', e.target.value)}
             />
           </Col>
           <Col xs={10}>
             <Input
-              placeholder="Value (e.g. red)"
+              placeholder={t('sku.attrValuePlaceholder')}
               value={attr.value}
               onChange={(e) => onChange(idx, 'value', e.target.value)}
             />
@@ -420,7 +428,7 @@ export default function SKUsPage() {
         </Row>
       ))}
       <Button type="dashed" onClick={onAdd} block icon={<PlusOutlined />}>
-        Add Attribute
+        {t('sku.addAttribute')}
       </Button>
     </div>
   )
@@ -430,20 +438,20 @@ export default function SKUsPage() {
   return (
     <div>
       <div className="page-header">
-        <Typography.Title level={2}>SKUs</Typography.Title>
+        <Typography.Title level={2}>{t('sku.title')}</Typography.Title>
       </div>
 
       <Card
         title={
           <Space>
             <BarcodeOutlined />
-            <span>All SKUs</span>
+            <span>{t('sku.allSkus')}</span>
           </Space>
         }
         extra={
           <Space>
             <Input
-              placeholder="Search code, name, or barcode…"
+              placeholder={t('sku.searchPlaceholder')}
               prefix={<SearchOutlined />}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -451,7 +459,7 @@ export default function SKUsPage() {
               style={{ width: 260 }}
             />
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              New SKU
+              {t('sku.newSku')}
             </Button>
           </Space>
         }
@@ -469,14 +477,14 @@ export default function SKUsPage() {
             showSizeChanger: false,
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
           }}
-          locale={{ emptyText: <Empty description="No SKUs yet. Create one to get started." /> }}
+          locale={{ emptyText: <Empty description={t('sku.noSkus')} /> }}
         />
       </Card>
 
       {/* ── Create SKU Modal ───────────────────────────────────────────── */}
 
       <Modal
-        title="Create SKU"
+        title={t('sku.createSku')}
         open={modal.type === 'create'}
         onCancel={closeModal}
         onOk={handleCreate}
@@ -489,48 +497,48 @@ export default function SKUsPage() {
             <Col xs={12}>
               <Form.Item
                 name="code"
-                label="SKU Code"
-                rules={[{ required: true, message: 'Please enter a SKU code' }]}
+                label={t('sku.skuCode')}
+                rules={[{ required: true, message: t('sku.pleaseEnterCode') }]}
               >
-                <Input placeholder="e.g. SKU-12345" />
+                <Input placeholder={t('sku.codePlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={12}>
               <Form.Item
                 name="barcode"
-                label="Barcode"
+                label={t('sku.barcode')}
               >
-                <Input placeholder="UPC / EAN / GS1-128" />
+                <Input placeholder={t('sku.barcodePlaceholder')} />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item
             name="name"
-            label="Name"
-            rules={[{ required: true, message: 'Please enter a SKU name' }]}
+            label={t('sku.skuName')}
+            rules={[{ required: true, message: t('sku.pleaseEnterName') }]}
           >
-            <Input placeholder="e.g. Widget A - Blue" />
+            <Input placeholder={t('sku.namePlaceholder')} />
           </Form.Item>
           <Row gutter={16}>
             <Col xs={12}>
-              <Form.Item name="category" label="Category">
-                <Input placeholder="e.g. Raw Material, Finished Goods" />
+              <Form.Item name="category" label={t('sku.category')}>
+                <Input placeholder={t('sku.categoryPlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={12}>
-              <Form.Item name="description" label="Description">
-                <Input placeholder="Brief description (optional)" />
+              <Form.Item name="description" label={t('sku.description')}>
+                <Input placeholder={t('sku.descriptionPlaceholder')} />
               </Form.Item>
             </Col>
           </Row>
 
           <Divider orientation="left" plain>
-            <Typography.Text type="secondary">Unit of Measure</Typography.Text>
+            <Typography.Text type="secondary">{t('sku.uom')}</Typography.Text>
           </Divider>
           {uomFields(['uom'])}
 
           <Divider orientation="left" plain>
-            <Typography.Text type="secondary">Attributes</Typography.Text>
+            <Typography.Text type="secondary">{t('sku.attributes')}</Typography.Text>
           </Divider>
           {attributesEditor(createAttrs, addCreateAttr, removeCreateAttr, updateCreateAttr)}
         </Form>
@@ -542,10 +550,10 @@ export default function SKUsPage() {
         title={
           modal.type === 'edit' ? (
             <span>
-              Edit SKU — <Typography.Text code>{modal.sku.code}</Typography.Text>
+              {t('sku.editSku')} — <Typography.Text code>{modal.sku.code}</Typography.Text>
             </span>
           ) : (
-            'Edit SKU'
+            t('sku.editSku')
           )
         }
         open={modal.type === 'edit'}
@@ -558,46 +566,46 @@ export default function SKUsPage() {
         <Form form={editForm} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={16}>
             <Col xs={12}>
-              <Form.Item name="name" label="Name">
-                <Input placeholder="SKU name" />
+              <Form.Item name="name" label={t('sku.skuName')}>
+                <Input placeholder={t('sku.namePlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={12}>
-              <Form.Item name="barcode" label="Barcode">
-                <Input placeholder="UPC / EAN / GS1-128" />
+              <Form.Item name="barcode" label={t('sku.barcode')}>
+                <Input placeholder={t('sku.barcodePlaceholder')} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col xs={12}>
-              <Form.Item name="category" label="Category">
-                <Input placeholder="e.g. Raw Material, Finished Goods" />
+              <Form.Item name="category" label={t('sku.category')}>
+                <Input placeholder={t('sku.categoryPlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={12}>
-              <Form.Item name="description" label="Description">
-                <Input placeholder="Brief description" />
+              <Form.Item name="description" label={t('sku.description')}>
+                <Input placeholder={t('sku.descriptionPlaceholderEdit')} />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item
             name="status"
-            label="Status"
+            label={t('common.status')}
           >
             <Select>
-              <Select.Option value="active">Active</Select.Option>
-              <Select.Option value="inactive">Inactive</Select.Option>
-              <Select.Option value="discontinued">Discontinued</Select.Option>
+              <Select.Option value="active">{t('sku.statusActive')}</Select.Option>
+              <Select.Option value="inactive">{t('sku.statusInactive')}</Select.Option>
+              <Select.Option value="discontinued">{t('sku.statusDiscontinued')}</Select.Option>
             </Select>
           </Form.Item>
 
           <Divider orientation="left" plain>
-            <Typography.Text type="secondary">Unit of Measure</Typography.Text>
+            <Typography.Text type="secondary">{t('sku.uom')}</Typography.Text>
           </Divider>
           {uomFields(['uom'])}
 
           <Divider orientation="left" plain>
-            <Typography.Text type="secondary">Attributes</Typography.Text>
+            <Typography.Text type="secondary">{t('sku.attributes')}</Typography.Text>
           </Divider>
           {attributesEditor(editAttrs, addEditAttr, removeEditAttr, updateEditAttr)}
         </Form>

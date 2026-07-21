@@ -1,5 +1,6 @@
 // Inventory dashboard page with summary cards, low stock alerts, and warehouse breakdown.
-// Replaces the P3-02 placeholder with real data from GET /api/v1/inventory/dashboard.
+// Uses GET /api/v1/inventory/dashboard for real data.
+// All UI text is translated via react-i18next.
 
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -26,6 +27,7 @@ import {
   ShopOutlined,
   FallOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import type { ColumnsType } from 'antd/es/table'
 import client from '@/api/client'
 import type {
@@ -56,6 +58,7 @@ function fmt(n: number, decimals = 0): string {
 
 export default function InventoryPage() {
   const { message } = App.useApp()
+  const { t } = useTranslation()
 
   const [loading, setLoading] = useState(false)
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null)
@@ -76,11 +79,11 @@ export default function InventoryPage() {
       const { data } = await client.get<DashboardResponse>('/inventory/dashboard', { params })
       setDashboard(data)
     } catch {
-      message.error('Failed to load inventory dashboard')
+      message.error(t('inventory.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [message])
+  }, [message, t])
 
   useEffect(() => {
     fetchDashboard(warehouseId, lowStockThreshold)
@@ -90,7 +93,7 @@ export default function InventoryPage() {
 
   const lowStockColumns: ColumnsType<Inventory> = [
     {
-      title: 'Batch',
+      title: t('inventory.batch'),
       dataIndex: 'batch_no',
       key: 'batch_no',
       width: 130,
@@ -98,7 +101,7 @@ export default function InventoryPage() {
         b ? <Typography.Text code>{b}</Typography.Text> : <Typography.Text type="secondary">—</Typography.Text>,
     },
     {
-      title: 'SKU',
+      title: t('inventory.sku'),
       dataIndex: 'sku_id',
       key: 'sku_id',
       width: 200,
@@ -106,7 +109,7 @@ export default function InventoryPage() {
       render: (id: string) => <Typography.Text code style={{ fontSize: 12 }}>{id}</Typography.Text>,
     },
     {
-      title: 'On Hand',
+      title: t('inventory.onHand'),
       dataIndex: 'qty',
       key: 'qty',
       width: 100,
@@ -114,7 +117,7 @@ export default function InventoryPage() {
       render: (v: number) => fmt(v),
     },
     {
-      title: 'Reserved',
+      title: t('inventory.reserved'),
       dataIndex: 'reserved_qty',
       key: 'reserved_qty',
       width: 100,
@@ -123,7 +126,7 @@ export default function InventoryPage() {
       render: (v: number) => fmt(v),
     },
     {
-      title: 'Available',
+      title: t('inventory.available'),
       dataIndex: 'available_qty',
       key: 'available_qty',
       width: 100,
@@ -135,7 +138,7 @@ export default function InventoryPage() {
       ),
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 110,
@@ -149,7 +152,7 @@ export default function InventoryPage() {
 
   const warehouseColumns: ColumnsType<WarehouseBreakdown> = [
     {
-      title: 'Warehouse',
+      title: t('warehouse.title'),
       key: 'warehouse',
       render: (_: unknown, record: WarehouseBreakdown) => (
         <Space>
@@ -161,7 +164,7 @@ export default function InventoryPage() {
       ),
     },
     {
-      title: 'Records',
+      title: t('inventory.records'),
       dataIndex: 'record_count',
       key: 'record_count',
       width: 90,
@@ -170,7 +173,7 @@ export default function InventoryPage() {
       render: (v: number) => fmt(v),
     },
     {
-      title: 'On Hand',
+      title: t('inventory.onHand'),
       dataIndex: 'total_qty',
       key: 'total_qty',
       width: 110,
@@ -178,7 +181,7 @@ export default function InventoryPage() {
       render: (v: number) => fmt(v),
     },
     {
-      title: 'Reserved',
+      title: t('inventory.reserved'),
       dataIndex: 'reserved_qty',
       key: 'reserved_qty',
       width: 110,
@@ -187,7 +190,7 @@ export default function InventoryPage() {
       render: (v: number) => fmt(v),
     },
     {
-      title: 'Available',
+      title: t('inventory.available'),
       dataIndex: 'available_qty',
       key: 'available_qty',
       width: 110,
@@ -207,32 +210,32 @@ export default function InventoryPage() {
   return (
     <div>
       <div className="page-header">
-        <Typography.Title level={2}>Inventory Dashboard</Typography.Title>
-        <Typography.Text type="secondary">Real-time inventory overview and insights.</Typography.Text>
+        <Typography.Title level={2}>{t('inventory.title')}</Typography.Title>
+        <Typography.Text type="secondary">{t('inventory.subtitle')}</Typography.Text>
       </div>
 
       {/* ── Filters bar ────────────────────────────────────────────────── */}
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap>
-          <Typography.Text strong>Warehouse:</Typography.Text>
+          <Typography.Text strong>{t('inventory.warehouseFilter')}</Typography.Text>
           <Select
-            placeholder="All warehouses"
+            placeholder={t('inventory.allWarehouses')}
             allowClear
             style={{ width: 200 }}
             value={warehouseId || undefined}
             onChange={(v) => setWarehouseId(v ?? '')}
             options={[
-              { label: 'All Warehouses', value: '' },
+              { label: t('inventory.allWarehouses'), value: '' },
             ]}
           />
-          <Typography.Text strong>Low stock threshold:</Typography.Text>
+          <Typography.Text strong>{t('inventory.lowStockThreshold')}</Typography.Text>
           <InputNumber
             min={1}
             max={1000}
             value={lowStockThreshold}
             onChange={(v) => setLowStockThreshold(v ?? 10)}
-            addonAfter="units"
+            addonAfter={t('location.units')}
             style={{ width: 150 }}
           />
         </Space>
@@ -244,7 +247,7 @@ export default function InventoryPage() {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card loading={loading}>
             <Statistic
-              title="Total Records"
+              title={t('inventory.totalRecords')}
               value={stats?.total_records ?? 0}
               prefix={<DatabaseOutlined />}
               formatter={(v) => fmt(Number(v))}
@@ -254,7 +257,7 @@ export default function InventoryPage() {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card loading={loading}>
             <Statistic
-              title="On Hand"
+              title={t('inventory.onHand')}
               value={stats?.total_qty ?? 0}
               prefix={<ShopOutlined />}
               formatter={(v) => fmt(Number(v))}
@@ -264,7 +267,7 @@ export default function InventoryPage() {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card loading={loading}>
             <Statistic
-              title="Reserved"
+              title={t('inventory.reserved')}
               value={stats?.total_reserved_qty ?? 0}
               prefix={<ClockCircleOutlined />}
               formatter={(v) => fmt(Number(v))}
@@ -274,7 +277,7 @@ export default function InventoryPage() {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card loading={loading}>
             <Statistic
-              title="Available"
+              title={t('inventory.available')}
               value={stats?.total_available_qty ?? 0}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: (stats?.total_available_qty ?? 0) > 0 ? '#3f8600' : '#cf1322' }}
@@ -285,10 +288,10 @@ export default function InventoryPage() {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card loading={loading}>
             <Statistic
-              title="Available"
+              title={t('inventory.availableRecords')}
               value={stats?.available_count ?? 0}
               prefix={<CheckCircleOutlined />}
-              suffix={<Typography.Text type="secondary">records</Typography.Text>}
+              suffix={<Typography.Text type="secondary">{t('inventory.records')}</Typography.Text>}
               valueStyle={{ color: '#3f8600' }}
               formatter={(v) => fmt(Number(v))}
             />
@@ -297,7 +300,7 @@ export default function InventoryPage() {
         <Col xs={24} sm={12} md={8} lg={4}>
           <Card loading={loading}>
             <Statistic
-              title="Low Stock"
+              title={t('inventory.lowStock')}
               value={stats?.low_stock_count ?? 0}
               prefix={<WarningOutlined />}
               valueStyle={{ color: (stats?.low_stock_count ?? 0) > 0 ? '#faad14' : '#3f8600' }}
@@ -313,7 +316,7 @@ export default function InventoryPage() {
         <Col xs={12} sm={6}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Quarantine"
+              title={t('inventory.quarantine')}
               value={stats?.quarantine_count ?? 0}
               prefix={<ExclamationCircleOutlined />}
               valueStyle={{ color: (stats?.quarantine_count ?? 0) > 0 ? '#faad14' : undefined }}
@@ -324,7 +327,7 @@ export default function InventoryPage() {
         <Col xs={12} sm={6}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Damaged"
+              title={t('inventory.damaged')}
               value={stats?.damaged_count ?? 0}
               prefix={<StopOutlined />}
               valueStyle={{ color: (stats?.damaged_count ?? 0) > 0 ? '#ff4d4f' : undefined }}
@@ -335,7 +338,7 @@ export default function InventoryPage() {
         <Col xs={12} sm={6}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Expired"
+              title={t('inventory.expired')}
               value={stats?.expired_count ?? 0}
               prefix={<ClockCircleOutlined />}
               valueStyle={{ color: (stats?.expired_count ?? 0) > 0 ? '#8c8c8c' : undefined }}
@@ -346,7 +349,7 @@ export default function InventoryPage() {
         <Col xs={12} sm={6}>
           <Card size="small" loading={loading}>
             <Statistic
-              title="Low Stock"
+              title={t('inventory.lowStock')}
               value={stats?.low_stock_count ?? 0}
               prefix={<FallOutlined />}
               valueStyle={{ color: (stats?.low_stock_count ?? 0) > 0 ? '#faad14' : undefined }}
@@ -362,7 +365,7 @@ export default function InventoryPage() {
         title={
           <Space>
             <WarningOutlined style={{ color: '#faad14' }} />
-            <span>Low Stock Items (available ≤ {lowStockThreshold})</span>
+            <span>{t('inventory.lowStockItems', { threshold: lowStockThreshold })}</span>
           </Space>
         }
         style={{ marginBottom: 24 }}
@@ -378,7 +381,7 @@ export default function InventoryPage() {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No low stock items. All inventory levels are healthy."
+                description={t('inventory.noLowStock')}
               />
             ),
           }}
@@ -391,7 +394,7 @@ export default function InventoryPage() {
         title={
           <Space>
             <ShopOutlined />
-            <span>Inventory by Warehouse</span>
+            <span>{t('inventory.inventoryByWarehouse')}</span>
           </Space>
         }
         loading={loading}
@@ -406,7 +409,7 @@ export default function InventoryPage() {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No warehouse data available."
+                description={t('inventory.noWarehouseData')}
               />
             ),
           }}
@@ -419,7 +422,7 @@ export default function InventoryPage() {
             return (
               <Table.Summary.Row>
                 <Table.Summary.Cell index={0}>
-                  <Typography.Text strong>Total</Typography.Text>
+                  <Typography.Text strong>{t('common.total')}</Typography.Text>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={1} align="right">
                   <Typography.Text strong>{fmt(totalRecords)}</Typography.Text>

@@ -1,9 +1,11 @@
-// 404 page for PDA — mobile-friendly not-found screen.
+// 404 page for PDA — mobile-friendly not-found screen with i18n.
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 export default function NotFoundPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   return (
     <div
@@ -19,10 +21,10 @@ export default function NotFoundPage() {
     >
       <div style={{ fontSize: 72, marginBottom: 16 }}>📦</div>
       <h1 style={{ fontSize: 48, fontWeight: 800, color: '#1677ff', marginBottom: 8 }}>
-        404
+        {t('notFound.title')}
       </h1>
       <p style={{ fontSize: 16, color: '#8c8c8c', marginBottom: 24 }}>
-        Page not found
+        {t('notFound.message')}
       </p>
       <button
         onClick={() => navigate('/tasks', { replace: true })}
@@ -37,7 +39,7 @@ export default function NotFoundPage() {
           cursor: 'pointer',
         }}
       >
-        Go to Tasks
+        {t('notFound.goToTasks')}
       </button>
     </div>
   )

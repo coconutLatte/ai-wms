@@ -1,8 +1,9 @@
-// PDA Login page — mobile-first login form with JWT integration.
+// PDA Login page — mobile-first login form with JWT integration and i18n.
 // Authenticates warehouse operators via POST /api/v1/auth/login.
 
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import client from '@/api/client'
 import type { LoginRequest, LoginResponse } from '@/api/types'
@@ -10,6 +11,7 @@ import type { LoginRequest, LoginResponse } from '@/api/types'
 export default function LoginPage() {
   const navigate = useNavigate()
   const { setTokens } = useAuth()
+  const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,7 +22,7 @@ export default function LoginPage() {
     setError('')
 
     if (!username.trim() || !password.trim()) {
-      setError('Please enter both username and password')
+      setError(t('auth.pleaseEnterBoth'))
       return
     }
 
@@ -36,7 +38,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }
       const detail = axiosErr?.response?.data?.detail
-      setError(detail || 'Login failed. Please check your credentials.')
+      setError(detail || t('auth.loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -45,8 +47,8 @@ export default function LoginPage() {
   return (
     <div className="pda-login-container">
       <div className="pda-login-card">
-        <div className="pda-login-title">AI-WMS</div>
-        <div className="pda-login-subtitle">Warehouse Operations PDA</div>
+        <div className="pda-login-title">{t('app.title')}</div>
+        <div className="pda-login-subtitle">{t('app.subtitle')}</div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
@@ -60,14 +62,14 @@ export default function LoginPage() {
                 marginBottom: 6,
               }}
             >
-              Username
+              {t('auth.username')}
             </label>
             <input
               id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your operator ID"
+              placeholder={t('auth.usernamePlaceholder')}
               autoComplete="username"
               autoFocus
               disabled={loading}
@@ -100,14 +102,14 @@ export default function LoginPage() {
                 marginBottom: 6,
               }}
             >
-              Password
+              {t('auth.password')}
             </label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder={t('auth.passwordPlaceholder')}
               autoComplete="current-password"
               disabled={loading}
               style={{
@@ -160,7 +162,7 @@ export default function LoginPage() {
               transition: 'background 0.2s',
             }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? t('auth.signingIn') : t('auth.signIn')}
           </button>
         </form>
       </div>

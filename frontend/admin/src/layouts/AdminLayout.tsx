@@ -1,5 +1,6 @@
 // Main admin layout: collapsible sidebar + header + content area.
 // Used as the shell for all authenticated admin pages.
+// Includes language switcher and user menu in the header.
 
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
@@ -16,26 +17,28 @@ import {
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 
 const { Header, Sider, Content } = Layout
 
-// ── Sidebar menu items ─────────────────────────────────────────────
+// ── Sidebar menu items (keys used for i18n lookup) ──────────────────
 
 interface MenuItem {
   key: string
   icon: React.ReactNode
-  label: string
+  labelKey: string
   path: string
 }
 
-const menuItems: MenuItem[] = [
-  { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard', path: '/dashboard' },
-  { key: 'warehouses', icon: <ShopOutlined />, label: 'Warehouses', path: '/warehouses' },
-  { key: 'skus', icon: <BarcodeOutlined />, label: 'SKUs', path: '/skus' },
-  { key: 'inventory', icon: <DatabaseOutlined />, label: 'Inventory', path: '/inventory' },
-  { key: 'orders', icon: <FileTextOutlined />, label: 'Orders', path: '/orders' },
-  { key: 'tasks', icon: <CarryOutOutlined />, label: 'Tasks', path: '/tasks' },
+const menuKeys: MenuItem[] = [
+  { key: 'dashboard', icon: <DashboardOutlined />, labelKey: 'nav.dashboard', path: '/dashboard' },
+  { key: 'warehouses', icon: <ShopOutlined />, labelKey: 'nav.warehouses', path: '/warehouses' },
+  { key: 'skus', icon: <BarcodeOutlined />, labelKey: 'nav.skus', path: '/skus' },
+  { key: 'inventory', icon: <DatabaseOutlined />, labelKey: 'nav.inventory', path: '/inventory' },
+  { key: 'orders', icon: <FileTextOutlined />, labelKey: 'nav.orders', path: '/orders' },
+  { key: 'tasks', icon: <CarryOutOutlined />, labelKey: 'nav.tasks', path: '/tasks' },
 ]
 
 export default function AdminLayout() {
@@ -44,14 +47,15 @@ export default function AdminLayout() {
   const location = useLocation()
   const { clearTokens } = useAuth()
   const { token: themeToken } = theme.useToken()
+  const { t } = useTranslation()
 
   // Determine selected menu item from current path
-  const selectedKey = menuItems.find(
+  const selectedKey = menuKeys.find(
     (item) => location.pathname.startsWith(item.path),
   )?.key ?? 'dashboard'
 
   const handleMenuClick = (info: { key: string }) => {
-    const item = menuItems.find((m) => m.key === info.key)
+    const item = menuKeys.find((m) => m.key === info.key)
     if (item) navigate(item.path)
   }
 
@@ -61,9 +65,9 @@ export default function AdminLayout() {
   }
 
   const userMenuItems = [
-    { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
+    { key: 'profile', icon: <UserOutlined />, label: t('nav.profile') },
     { type: 'divider' as const },
-    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
+    { key: 'logout', icon: <LogoutOutlined />, label: t('nav.logout'), danger: true },
   ]
 
   const handleUserMenuClick = (info: { key: string }) => {
@@ -101,10 +105,10 @@ export default function AdminLayout() {
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
-          items={menuItems.map((item) => ({
+          items={menuKeys.map((item) => ({
             key: item.key,
             icon: item.icon,
-            label: item.label,
+            label: t(item.labelKey),
           }))}
           style={{ border: 'none' }}
         />
@@ -118,15 +122,19 @@ export default function AdminLayout() {
             onClick={() => setCollapsed(!collapsed)}
           />
 
-          <Dropdown
-            menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
-            placement="bottomRight"
-          >
-            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Avatar icon={<UserOutlined />} style={{ backgroundColor: themeToken.colorPrimary }} />
-              <Typography.Text>Admin</Typography.Text>
-            </div>
-          </Dropdown>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <LanguageSwitcher />
+
+            <Dropdown
+              menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
+              placement="bottomRight"
+            >
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Avatar icon={<UserOutlined />} style={{ backgroundColor: themeToken.colorPrimary }} />
+                <Typography.Text>Admin</Typography.Text>
+              </div>
+            </Dropdown>
+          </div>
         </Header>
 
         <Content>

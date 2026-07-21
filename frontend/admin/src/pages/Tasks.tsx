@@ -1,20 +1,22 @@
-// Tasks placeholder page.
-// P3-05 will implement the full task monitoring UI.
+// Tasks placeholder page with i18n.
 
 import { Typography, Empty } from 'antd'
 import { CarryOutOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 
 export default function TasksPage() {
+  const { t } = useTranslation()
+
   return (
     <div>
       <div className="page-header">
-        <Typography.Title level={2}>Tasks</Typography.Title>
+        <Typography.Title level={2}>{t('task.title')}</Typography.Title>
       </div>
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
           <Typography.Text type="secondary">
-            Task monitoring UI will be implemented in P3-05.
+            {t('task.placeholder')}
           </Typography.Text>
         }
       >

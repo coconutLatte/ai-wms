@@ -1,9 +1,11 @@
 // Application entry point.
+// Imports i18n setup before rendering — must be first to initialize translations.
 // In GitHub Pages (production without backend), MSW intercepts API calls with mock data.
 // In dev mode (localhost), Vite proxy forwards /api to the real backend.
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './i18n'
 import App from './App'
 import './styles/global.css'
 

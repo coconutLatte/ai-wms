@@ -1,9 +1,10 @@
 // Scanner page — barcode scanning hub for warehouse operators.
 // Provides quick access to scan-and-act workflows.
-// P3-10+ will implement full scanning integrations for each flow.
+// All UI text is translated via react-i18next.
 
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import BarcodeScanner from '@/components/BarcodeScanner'
 
 // ── Scan action cards ─────────────────────────────────────────────────
@@ -11,49 +12,48 @@ import BarcodeScanner from '@/components/BarcodeScanner'
 interface ScanAction {
   key: string
   icon: string
-  label: string
-  description: string
+  labelKey: string
+  descriptionKey: string
 }
-
-const SCAN_ACTIONS: ScanAction[] = [
-  {
-    key: 'receiving',
-    icon: '📥',
-    label: 'Receive ASN',
-    description: 'Scan inbound shipment barcode to start receiving',
-  },
-  {
-    key: 'putaway',
-    icon: '📦',
-    label: 'Putaway',
-    description: 'Scan item to find target location',
-  },
-  {
-    key: 'picking',
-    icon: '🛒',
-    label: 'Pick Order',
-    description: 'Scan order barcode to start picking',
-  },
-  {
-    key: 'locate',
-    icon: '📍',
-    label: 'Locate',
-    description: 'Scan location or item barcode to view details',
-  },
-]
 
 export default function ScanPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [scanLog, setScanLog] = useState<string[]>([])
+
+  const SCAN_ACTIONS: ScanAction[] = [
+    {
+      key: 'receiving',
+      icon: '\u{1F4E5}',
+      labelKey: 'scan.receiveAsn',
+      descriptionKey: 'scan.receiveAsnDesc',
+    },
+    {
+      key: 'putaway',
+      icon: '\u{1F4E6}',
+      labelKey: 'scan.putaway',
+      descriptionKey: 'scan.putawayDesc',
+    },
+    {
+      key: 'picking',
+      icon: '\u{1F6D2}',
+      labelKey: 'scan.pickOrder',
+      descriptionKey: 'scan.pickOrderDesc',
+    },
+    {
+      key: 'locate',
+      icon: '\u{1F4CD}',
+      labelKey: 'scan.locate',
+      descriptionKey: 'scan.locateDesc',
+    },
+  ]
 
   const handleScan = useCallback((barcode: string) => {
     setScanLog((prev) => [barcode, ...prev].slice(0, 20))
-    // P3-10+: route to appropriate flow based on barcode prefix or context
   }, [])
 
   const handleActionClick = useCallback(
-    (action: ScanAction) => {
-      // P3-10+: navigate to specific workflow wizards
+    (_action: ScanAction) => {
       navigate(`/tasks`)
     },
     [navigate],
@@ -91,10 +91,10 @@ export default function ScanPage() {
           >
             <div style={{ fontSize: 28, marginBottom: 8 }}>{action.icon}</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#262626', marginBottom: 4 }}>
-              {action.label}
+              {t(action.labelKey)}
             </div>
             <div style={{ fontSize: 12, color: '#8c8c8c', lineHeight: 1.4 }}>
-              {action.description}
+              {t(action.descriptionKey)}
             </div>
           </div>
         ))}
@@ -110,9 +110,9 @@ export default function ScanPage() {
             marginBottom: 10,
           }}
         >
-          Quick Scan
+          {t('scan.quickScan')}
         </h3>
-        <BarcodeScanner onScan={handleScan} placeholder="Scan or type barcode..." />
+        <BarcodeScanner onScan={handleScan} placeholder={t('scan.scanPlaceholder')} />
       </div>
 
       {/* Scan history */}
@@ -126,7 +126,7 @@ export default function ScanPage() {
               marginBottom: 10,
             }}
           >
-            Recent Scans ({scanLog.length})
+            {t('scan.recentScans', { count: scanLog.length })}
           </h3>
           <div
             style={{

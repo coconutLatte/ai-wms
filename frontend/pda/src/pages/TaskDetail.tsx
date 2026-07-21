@@ -1,63 +1,26 @@
 // Task detail page — view and act on a single task.
 // Shows task properties and provides action buttons for status transitions.
 // Fetches task data from GET /api/v1/tasks/{id}.
+// All UI text is translated via react-i18next.
 
-import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import client from '@/api/client'
 import type { Task, TaskStatus } from '@/api/types'
 
-// ── Display helpers ───────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  pending: 'Pending',
-  assigned: 'Assigned',
-  in_progress: 'In Progress',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-  paused: 'Paused',
-  exception: 'Exception',
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  receiving: 'Receiving',
-  putaway: 'Putaway',
-  picking: 'Picking',
-  cycle_count: 'Cycle Count',
-  replenishment: 'Replenishment',
-  pick: 'Picking',
-  replenish: 'Replenish',
-  transfer: 'Transfer',
-  load: 'Load',
-  unload: 'Unload',
-}
-
-const TYPE_ICONS: Record<string, string> = {
-  receiving: '\u{1F4E5}',
-  putaway: '\u{1F4E6}',
-  picking: '\u{1F6D2}',
-  cycle_count: '\u{1F522}',
-  replenishment: '\u{1F504}',
-  pick: '\u{1F6D2}',
-  replenish: '\u{1F504}',
-  transfer: '\u{2194}\u{FE0F}',
-  load: '\u{2B06}\u{FE0F}',
-  unload: '\u{2B07}\u{FE0F}',
-}
-
 // ── Available actions per current status ──────────────────────────────
 
-function getAvailableActions(status: TaskStatus): { label: string; nextStatus: TaskStatus }[] {
+function getAvailableActions(status: TaskStatus): { labelKey: string; nextStatus: TaskStatus }[] {
   switch (status) {
     case 'assigned':
-      return [{ label: 'Start Task', nextStatus: 'in_progress' }]
+      return [{ labelKey: 'task.startTask', nextStatus: 'in_progress' }]
     case 'in_progress':
-      return [{ label: 'Complete Task', nextStatus: 'completed' }]
+      return [{ labelKey: 'task.completeTask', nextStatus: 'completed' }]
     case 'pending':
-      return [{ label: 'Accept & Start', nextStatus: 'in_progress' }]
+      return [{ labelKey: 'task.acceptAndStart', nextStatus: 'in_progress' }]
     case 'paused':
-      return [{ label: 'Resume', nextStatus: 'in_progress' }]
+      return [{ labelKey: 'task.resume', nextStatus: 'in_progress' }]
     default:
       return []
   }
@@ -67,6 +30,45 @@ export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
+
+  // ── Localized maps ──────────────────────────────────────────────────
+
+  const STATUS_LABELS: Record<TaskStatus, string> = {
+    pending: t('task.statusPending'),
+    assigned: t('task.statusAssigned'),
+    in_progress: t('task.statusInProgress'),
+    completed: t('task.statusCompleted'),
+    cancelled: t('task.statusCancelled'),
+    paused: t('task.statusPaused'),
+    exception: t('task.statusException'),
+  }
+
+  const TYPE_LABELS: Record<string, string> = {
+    receiving: t('task.typeReceiving'),
+    putaway: t('task.typePutaway'),
+    picking: t('task.typePicking'),
+    cycle_count: t('task.typeCycleCount'),
+    replenishment: t('task.typeReplenishment'),
+    pick: t('task.typePicking'),
+    replenish: t('task.typeReplenishment'),
+    transfer: t('task.typeTransfer'),
+    load: t('task.typeLoad'),
+    unload: t('task.typeUnload'),
+  }
+
+  const TYPE_ICONS: Record<string, string> = {
+    receiving: '\u{1F4E5}',
+    putaway: '\u{1F4E6}',
+    picking: '\u{1F6D2}',
+    cycle_count: '\u{1F522}',
+    replenishment: '\u{1F504}',
+    pick: '\u{1F6D2}',
+    replenish: '\u{1F504}',
+    transfer: '\u{2194}\u{FE0F}',
+    load: '\u{2B06}\u{FE0F}',
+    unload: '\u{2B07}\u{FE0F}',
+  }
 
   // ── Fetch task ──────────────────────────────────────────────────────
 
@@ -101,7 +103,7 @@ export default function TaskDetailPage() {
     return (
       <div className="pda-empty">
         <span className="empty-icon">{'⏳'}</span>
-        <p className="empty-text">Loading task...</p>
+        <p className="empty-text">{t('task.loadingTask')}</p>
       </div>
     )
   }
@@ -111,8 +113,8 @@ export default function TaskDetailPage() {
   if (isError || !task) {
     return (
       <div className="pda-empty">
-        <span className="empty-icon">{'🔍'}</span>
-        <p className="empty-text">Task not found</p>
+        <span className="empty-icon">{'\u{1F50D}'}</span>
+        <p className="empty-text">{t('task.taskNotFound')}</p>
         <button
           onClick={() => navigate('/tasks')}
           style={{
@@ -126,7 +128,7 @@ export default function TaskDetailPage() {
             cursor: 'pointer',
           }}
         >
-          Back to Tasks
+          {t('task.backToTasks')}
         </button>
       </div>
     )
@@ -154,7 +156,7 @@ export default function TaskDetailPage() {
           cursor: 'pointer',
         }}
       >
-        ← Back to Tasks
+        {t('task.backToTasks')}
       </button>
 
       {/* Task card */}
@@ -183,18 +185,18 @@ export default function TaskDetailPage() {
 
         {/* Detail rows */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <DetailRow label="Type" value={TYPE_LABELS[task.task_type] || task.task_type} />
-          <DetailRow label="Priority" value={task.priority} />
-          <DetailRow label="Warehouse" value={task.warehouse_id} />
-          <DetailRow label="Assigned To" value={task.assigned_to || '—'} />
-          <DetailRow label="SKU" value={task.sku_id} />
-          <DetailRow label="Expected Qty" value={`${task.expected_qty} ${task.uom}`} />
-          <DetailRow label="Actual Qty" value={`${task.actual_qty} ${task.uom}`} />
-          {task.batch_no && <DetailRow label="Batch" value={task.batch_no} />}
-          {task.instructions && <DetailRow label="Instructions" value={task.instructions} />}
-          <DetailRow label="Created" value={new Date(task.created_at).toLocaleString()} />
-          {task.started_at && <DetailRow label="Started" value={new Date(task.started_at).toLocaleString()} />}
-          {task.completed_at && <DetailRow label="Completed" value={new Date(task.completed_at).toLocaleString()} />}
+          <DetailRow label={t('task.type')} value={TYPE_LABELS[task.task_type] || task.task_type} />
+          <DetailRow label={t('task.priority')} value={task.priority} />
+          <DetailRow label={t('task.warehouse')} value={task.warehouse_id} />
+          <DetailRow label={t('task.assignedTo')} value={task.assigned_to || '—'} />
+          <DetailRow label={t('task.sku')} value={task.sku_id} />
+          <DetailRow label={t('task.expectedQty')} value={`${task.expected_qty} ${task.uom}`} />
+          <DetailRow label={t('task.actualQty')} value={`${task.actual_qty} ${task.uom}`} />
+          {task.batch_no && <DetailRow label={t('task.batch')} value={task.batch_no} />}
+          {task.instructions && <DetailRow label={t('task.instructions')} value={task.instructions} />}
+          <DetailRow label={t('task.created')} value={new Date(task.created_at).toLocaleString()} />
+          {task.started_at && <DetailRow label={t('task.started')} value={new Date(task.started_at).toLocaleString()} />}
+          {task.completed_at && <DetailRow label={t('task.completed')} value={new Date(task.completed_at).toLocaleString()} />}
         </div>
       </div>
 
@@ -211,7 +213,7 @@ export default function TaskDetailPage() {
             borderRadius: 6,
           }}
         >
-          {(statusMutation.error as Error)?.message || 'Failed to update task status'}
+          {(statusMutation.error as Error)?.message || t('task.statusUpdateFailed')}
         </div>
       )}
 
@@ -236,7 +238,7 @@ export default function TaskDetailPage() {
                 transition: 'background 0.2s',
               }}
             >
-              {isSubmitting ? 'Processing...' : action.label}
+              {isSubmitting ? t('task.processing') : t(action.labelKey)}
             </button>
           ))}
         </div>
@@ -254,7 +256,7 @@ export default function TaskDetailPage() {
             fontSize: 14,
           }}
         >
-          {currentStatus === 'completed' ? '✓ This task has been completed' : '✗ This task has been cancelled'}
+          {currentStatus === 'completed' ? t('task.taskCompleted') : t('task.taskCancelled')}
         </div>
       )}
     </div>

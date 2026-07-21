@@ -1,12 +1,14 @@
 // Profile page — operator info and session management.
-// P3-09 will integrate with GET /api/v1/auth/me.
+// All UI text is translated via react-i18next.
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
   const { clearTokens } = useAuth()
+  const { t } = useTranslation()
 
   const handleLogout = () => {
     clearTokens()
@@ -44,10 +46,10 @@ export default function ProfilePage() {
           👤
         </div>
         <h2 style={{ fontSize: 18, fontWeight: 600, color: '#262626', marginBottom: 4 }}>
-          Operator
+          {t('profile.operator')}
         </h2>
         <p style={{ fontSize: 13, color: '#8c8c8c' }}>
-          Warehouse Operations
+          {t('profile.warehouseOps')}
         </p>
       </div>
 
@@ -61,10 +63,10 @@ export default function ProfilePage() {
           marginBottom: 16,
         }}
       >
-        <ProfileRow label="Operator ID" value="op-001" />
-        <ProfileRow label="Warehouse" value="Demo Warehouse" />
-        <ProfileRow label="Role" value="Operator" />
-        <ProfileRow label="Status" value="Active" isLast />
+        <ProfileRow label={t('profile.operatorId')} value="op-001" />
+        <ProfileRow label={t('profile.warehouse')} value="Demo Warehouse" />
+        <ProfileRow label={t('profile.role')} value="Operator" />
+        <ProfileRow label={t('profile.status')} value={t('profile.active')} isLast />
       </div>
 
       {/* Session info */}
@@ -77,8 +79,8 @@ export default function ProfilePage() {
           marginBottom: 16,
         }}
       >
-        <ProfileRow label="App Version" value="0.1.0" />
-        <ProfileRow label="Session Started" value={new Date().toLocaleString()} isLast />
+        <ProfileRow label={t('profile.appVersion')} value="0.1.0" />
+        <ProfileRow label={t('profile.sessionStarted')} value={new Date().toLocaleString()} isLast />
       </div>
 
       {/* Logout button */}
@@ -97,7 +99,7 @@ export default function ProfilePage() {
           marginBottom: 16,
         }}
       >
-        Sign Out
+        {t('profile.signOut')}
       </button>
     </div>
   )

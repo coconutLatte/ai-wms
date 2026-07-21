@@ -1,8 +1,12 @@
 // Root application component with routing.
 // Sets up React Router with the admin layout shell and all page routes.
+// Integrates i18next for multilingual support (zh-CN default) and Ant Design locale.
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, App as AntApp } from 'antd'
+import { useTranslation } from 'react-i18next'
+import zhCN from 'antd/locale/zh_CN'
+import enUS from 'antd/locale/en_US'
 import AdminLayout from '@/layouts/AdminLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/Login'
@@ -24,9 +28,13 @@ const themeConfig = {
   },
 }
 
-export default function App() {
+function AppRoutes() {
+  const { i18n } = useTranslation()
+
+  const antdLocale = i18n.language === 'en' ? enUS : zhCN
+
   return (
-    <ConfigProvider theme={themeConfig}>
+    <ConfigProvider theme={themeConfig} locale={antdLocale}>
       <AntApp>
         <BrowserRouter basename="/ai-wms">
           <Routes>
@@ -53,4 +61,8 @@ export default function App() {
       </AntApp>
     </ConfigProvider>
   )
+}
+
+export default function App() {
+  return <AppRoutes />
 }
