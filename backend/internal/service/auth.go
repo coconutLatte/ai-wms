@@ -51,9 +51,10 @@ type TokenClaims struct {
 
 // ── AuthService ────────────────────────────────────────────────────────────────────────────
 
-// AuthService handles authentication (login, token refresh, password hashing).
+// AuthService handles authentication (login, token refresh, logout, password hashing).
 type AuthService struct {
 	userRepo      repository.UserRepository
+	tokenBLRepo   repository.TokenBlacklistRepository
 	jwtSecret     []byte
 	accessTTL     time.Duration
 	refreshTTL    time.Duration
@@ -66,6 +67,18 @@ func NewAuthService(userRepo repository.UserRepository, jwtSecret string, access
 		jwtSecret:  []byte(jwtSecret),
 		accessTTL:  accessTTL,
 		refreshTTL: refreshTTL,
+	}
+}
+
+// NewAuthServiceWithBlacklist creates a new AuthService with token blacklist support.
+// Use this constructor when logout/blacklist functionality is required.
+func NewAuthServiceWithBlacklist(userRepo repository.UserRepository, tokenBLRepo repository.TokenBlacklistRepository, jwtSecret string, accessTTL, refreshTTL time.Duration) *AuthService {
+	return &AuthService{
+		userRepo:    userRepo,
+		tokenBLRepo: tokenBLRepo,
+		jwtSecret:   []byte(jwtSecret),
+		accessTTL:   accessTTL,
+		refreshTTL:  refreshTTL,
 	}
 }
 
@@ -107,7 +120,8 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*TokenPair, 
 }
 
 // RefreshToken validates a refresh token and issues a new token pair.
-// The old refresh token is consumed (rotation for security).
+// The old refresh token is consumed (rotation for security). Tokens that have
+// been revoked (via logout) are rejected.
 func (s *AuthService) RefreshToken(ctx context.Context, input RefreshInput) (*TokenPair, error) {
 	// Parse and validate the refresh token.
 	claims, err := s.parseToken(input.RefreshToken)
@@ -118,6 +132,15 @@ func (s *AuthService) RefreshToken(ctx context.Context, input RefreshInput) (*To
 	// Ensure it is a refresh token (not an access token).
 	if claims.TokenType != "refresh" {
 		return nil, wrapAuthError("token is not a refresh token")
+	}
+
+	// Check if this token has been revoked (logout / forced expiry).
+	if s.tokenBLRepo != nil {
+		if blacklisted, err := s.tokenBLRepo.IsBlacklisted(ctx, claims.ID); err != nil {
+			return nil, fmt.Errorf("check token blacklist: %w", err)
+		} else if blacklisted {
+			return nil, wrapAuthError("refresh token has been revoked")
+		}
 	}
 
 	// Parse the user ID from the claims.
@@ -142,6 +165,43 @@ func (s *AuthService) RefreshToken(ctx context.Context, input RefreshInput) (*To
 	}
 
 	return pair, nil
+}
+
+// Logout revokes a refresh token by adding its JTI to the blacklist.
+// After logout, the refresh token cannot be used to obtain new access tokens.
+// Access tokens remain valid until their natural expiry (typically 15 minutes).
+func (s *AuthService) Logout(ctx context.Context, input RefreshInput) error {
+	if s.tokenBLRepo == nil {
+		// No blacklist configured — logout is effectively a no-op.
+		return nil
+	}
+
+	// Parse the refresh token to extract its JTI and expiry.
+	claims, err := s.parseToken(input.RefreshToken)
+	if err != nil {
+		// Invalid/expired refresh token — nothing to revoke, logout is still "successful"
+		// to avoid leaking information.
+		return nil
+	}
+
+	if claims.TokenType != "refresh" {
+		return nil
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return nil
+	}
+
+	// Store the JTI with the token's original expiry time.
+	// Entries older than expires_at can be safely cleaned up.
+	entry := domain.NewTokenBlacklistEntry(claims.ID, userID, claims.ExpiresAt.Time)
+
+	if err := s.tokenBLRepo.Add(ctx, entry); err != nil {
+		return fmt.Errorf("add to token blacklist: %w", err)
+	}
+
+	return nil
 }
 
 // HashPassword hashes a plain-text password using bcrypt with the default cost.

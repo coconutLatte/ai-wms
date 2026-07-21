@@ -6,10 +6,11 @@ import (
 )
 
 // RegisterAuthRoutes registers authentication API routes on the given mux.
-// Auth routes handle login, token refresh, and current user info.
+// Auth routes handle login, token refresh, logout, and current user info.
 func RegisterAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 	mux.HandleFunc("POST /api/v1/auth/login", h.Login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", h.Refresh)
+	mux.HandleFunc("POST /api/v1/auth/logout", h.Logout)
 	mux.HandleFunc("GET /api/v1/auth/me", h.Me)
 }
 

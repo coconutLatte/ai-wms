@@ -57,6 +57,7 @@ func main() {
 	orderRepo := postgres.NewOrderRepo(db)
 	taskRepo := postgres.NewTaskRepo(db)
 	userRepo := postgres.NewUserRepo(db)
+	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 
 	// Initialize transaction manager for atomic multi-step operations.
 	txManager := postgres.NewTxManager(db)
@@ -67,7 +68,7 @@ func main() {
 	inventorySvc := service.NewInventoryServiceWithTx(inventoryRepo, txManager)
 	orderSvc := service.NewOrderService(orderRepo)
 	taskSvc := service.NewTaskService(taskRepo)
-	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
+	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	auditLogSvc := service.NewAuditLogService(userRepo)
 	userSvc := service.NewUserService(userRepo)
 

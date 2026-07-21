@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -90,6 +91,47 @@ func (r *stubUserRepo) ListAuditLogs(ctx context.Context, filter repository.Audi
 	return nil, nil
 }
 func (r *stubUserRepo) CountAuditLogs(ctx context.Context, filter repository.AuditLogFilter) (int, error) {
+	return 0, nil
+}
+
+// ── TokenBlacklist ───────────────────────────────────────────
+
+func (r *stubUserRepo) Add(ctx context.Context, entry *domain.TokenBlacklistEntry) error {
+	return nil
+}
+func (r *stubUserRepo) IsBlacklisted(ctx context.Context, jti string) (bool, error) {
+	return false, nil
+}
+func (r *stubUserRepo) DeleteExpired(ctx context.Context) (int64, error) {
+	return 0, nil
+}
+
+// stubBlacklistRepo implements repository.TokenBlacklistRepository with an
+// in-memory set to support tests for logout and blacklist-checked refresh.
+type stubBlacklistRepo struct {
+	sync.RWMutex
+	blacklisted map[string]struct{}
+}
+
+func newStubBlacklistRepo() *stubBlacklistRepo {
+	return &stubBlacklistRepo{blacklisted: make(map[string]struct{})}
+}
+
+func (r *stubBlacklistRepo) Add(ctx context.Context, entry *domain.TokenBlacklistEntry) error {
+	r.Lock()
+	defer r.Unlock()
+	r.blacklisted[entry.JTI] = struct{}{}
+	return nil
+}
+
+func (r *stubBlacklistRepo) IsBlacklisted(ctx context.Context, jti string) (bool, error) {
+	r.RLock()
+	defer r.RUnlock()
+	_, ok := r.blacklisted[jti]
+	return ok, nil
+}
+
+func (r *stubBlacklistRepo) DeleteExpired(ctx context.Context) (int64, error) {
 	return 0, nil
 }
 
@@ -443,5 +485,202 @@ func TestAuthService_AccessTokenExpiry(t *testing.T) {
 	_, err = svc.parseToken(pair.AccessToken)
 	if err == nil {
 		t.Error("expected expired token error, got nil")
+	}
+}
+
+// ── Logout Tests ──────────────────────────────────────────────────
+
+func TestAuthService_Logout_RevokesToken(t *testing.T) {
+	hash, err := HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &domain.User{
+		ID:           uuid.New(),
+		Username:     "testuser",
+		Email:        "test@example.com",
+		PasswordHash: hash,
+		Status:       domain.UserStatusActive,
+		RoleIDs:      []uuid.UUID{uuid.New()},
+	}
+
+	repo := newStubUserRepo()
+	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: user.RoleIDs[0], Name: "admin"})
+
+	blRepo := newStubBlacklistRepo()
+	svc := NewAuthServiceWithBlacklist(repo, blRepo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
+
+	// Login to get a refresh token.
+	pair, _, err := svc.Login(context.Background(), LoginInput{
+		Username: "testuser",
+		Password: "correct-password",
+	})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Logout — should add refresh token JTI to blacklist.
+	err = svc.Logout(context.Background(), RefreshInput{
+		RefreshToken: pair.RefreshToken,
+	})
+	if err != nil {
+		t.Fatalf("logout failed: %v", err)
+	}
+
+	// Trying to refresh with the revoked token should fail.
+	_, err = svc.RefreshToken(context.Background(), RefreshInput{
+		RefreshToken: pair.RefreshToken,
+	})
+	if err == nil {
+		t.Fatal("expected error when refreshing a revoked token, got nil")
+	}
+}
+
+func TestAuthService_Logout_InvalidToken_Succeeds(t *testing.T) {
+	repo := newStubUserRepo()
+	blRepo := newStubBlacklistRepo()
+	svc := NewAuthServiceWithBlacklist(repo, blRepo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
+
+	// Logout with an invalid token should succeed (nothing to revoke).
+	err := svc.Logout(context.Background(), RefreshInput{
+		RefreshToken: "not-a-valid-jwt",
+	})
+	if err != nil {
+		t.Fatalf("logout with invalid token should succeed (no-op), got: %v", err)
+	}
+}
+
+func TestAuthService_Logout_AccessTokenTreatedAsRefresh_NoOp(t *testing.T) {
+	hash, err := HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &domain.User{
+		ID:           uuid.New(),
+		Username:     "testuser",
+		Email:        "test@example.com",
+		PasswordHash: hash,
+		Status:       domain.UserStatusActive,
+		RoleIDs:      []uuid.UUID{uuid.New()},
+	}
+
+	repo := newStubUserRepo()
+	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: user.RoleIDs[0], Name: "admin"})
+
+	blRepo := newStubBlacklistRepo()
+	svc := NewAuthServiceWithBlacklist(repo, blRepo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
+
+	pair, _, err := svc.Login(context.Background(), LoginInput{
+		Username: "testuser",
+		Password: "correct-password",
+	})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Logout with access token (not refresh token) — should no-op.
+	err = svc.Logout(context.Background(), RefreshInput{
+		RefreshToken: pair.AccessToken,
+	})
+	if err != nil {
+		t.Fatalf("logout with access token should no-op, got: %v", err)
+	}
+
+	// Refresh should still work since access token wasn't revoked.
+	_, err = svc.RefreshToken(context.Background(), RefreshInput{
+		RefreshToken: pair.RefreshToken,
+	})
+	if err != nil {
+		t.Fatalf("refresh should still work after access token logout, got: %v", err)
+	}
+}
+
+func TestAuthService_RefreshToken_RejectsRevokedToken(t *testing.T) {
+	hash, err := HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &domain.User{
+		ID:           uuid.New(),
+		Username:     "testuser",
+		Email:        "test@example.com",
+		PasswordHash: hash,
+		Status:       domain.UserStatusActive,
+		RoleIDs:      []uuid.UUID{uuid.New()},
+	}
+
+	repo := newStubUserRepo()
+	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: user.RoleIDs[0], Name: "admin"})
+
+	blRepo := newStubBlacklistRepo()
+	svc := NewAuthServiceWithBlacklist(repo, blRepo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
+
+	pair, _, err := svc.Login(context.Background(), LoginInput{
+		Username: "testuser",
+		Password: "correct-password",
+	})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Revoke the refresh token.
+	err = svc.Logout(context.Background(), RefreshInput{
+		RefreshToken: pair.RefreshToken,
+	})
+	if err != nil {
+		t.Fatalf("logout failed: %v", err)
+	}
+
+	// Attempt to refresh with revoked token.
+	_, err = svc.RefreshToken(context.Background(), RefreshInput{
+		RefreshToken: pair.RefreshToken,
+	})
+	if err == nil {
+		t.Fatal("expected error for revoked refresh token, got nil")
+	}
+}
+
+func TestAuthService_Logout_WithoutBlacklist_NoOp(t *testing.T) {
+	hash, err := HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := &domain.User{
+		ID:           uuid.New(),
+		Username:     "testuser",
+		Email:        "test@example.com",
+		PasswordHash: hash,
+		Status:       domain.UserStatusActive,
+		RoleIDs:      []uuid.UUID{uuid.New()},
+	}
+
+	repo := newStubUserRepo()
+	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: user.RoleIDs[0], Name: "admin"})
+
+	// Create service WITHOUT blacklist support.
+	svc := NewAuthService(repo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
+
+	pair, _, err := svc.Login(context.Background(), LoginInput{
+		Username: "testuser",
+		Password: "correct-password",
+	})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Logout should not error even without blacklist.
+	err = svc.Logout(context.Background(), RefreshInput{
+		RefreshToken: pair.RefreshToken,
+	})
+	if err != nil {
+		t.Fatalf("logout without blacklist should no-op, got: %v", err)
 	}
 }

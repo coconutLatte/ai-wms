@@ -91,3 +91,33 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		"message": "authenticated",
 	})
 }
+
+// Logout handles POST /api/v1/auth/logout.
+// Accepts { "refresh_token": "..." }, revokes the refresh token so it
+// can no longer be used to obtain new access tokens.
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var input service.RefreshInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	if input.RefreshToken == "" {
+		WriteError(w, r, pkgerrors.NewInvalidInput("refresh_token is required"))
+		return
+	}
+
+	if err := h.svc.Logout(r.Context(), input); err != nil {
+		h.logger.Error("logout failed",
+			slog.String("error", err.Error()),
+		)
+		WriteError(w, r, err)
+		return
+	}
+
+	h.logger.Info("user logged out successfully")
+
+	WriteJSON(w, http.StatusOK, map[string]string{
+		"message": "logged out successfully",
+	})
+}

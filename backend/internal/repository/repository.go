@@ -217,6 +217,18 @@ type UserFilter struct {
 	Offset int
 }
 
+// TokenBlacklistRepository manages revoked token persistence.
+type TokenBlacklistRepository interface {
+	// Add adds a JTI to the blacklist. Returns an error if the JTI already exists.
+	Add(ctx context.Context, entry *domain.TokenBlacklistEntry) error
+
+	// IsBlacklisted checks whether a JTI has been revoked.
+	IsBlacklisted(ctx context.Context, jti string) (bool, error)
+
+	// DeleteExpired removes entries whose expires_at has passed.
+	DeleteExpired(ctx context.Context) (int64, error)
+}
+
 // AuditLogFilter defines query parameters for audit log search.
 type AuditLogFilter struct {
 	UserID   uuid.UUID
