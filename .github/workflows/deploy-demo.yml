@@ -1,0 +1,47 @@
+name: Build Demo & Update docs/
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Don't run for commits that only update docs/ (avoids infinite loops)
+    if: "!contains(github.event.head_commit.message, '[demo-deploy]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/admin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/admin
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend/admin
+        run: npm run build
+
+      - name: Copy build to docs/
+        run: |
+          rm -rf docs/
+          cp -r frontend/admin/dist docs/
+          # Ensure 404.html for SPA routing on GitHub Pages
+          cp docs/index.html docs/404.html
+
+      - name: Commit & push
+        run: |
+          git config user.name "AI Evolution Bot"
+          git config user.email "690324981@qq.com"
+          git add docs/
+          git diff --staged --quiet || git commit -m "chore: update demo [demo-deploy]"
+          git push

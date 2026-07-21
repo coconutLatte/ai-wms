@@ -288,7 +288,7 @@ export default function WarehousesPage() {
       closeModal()
       fetchWarehouses(warehousePage)
     } catch {
-      if (modal.type !== 'none') message.error('Failed to update warehouse')
+      message.error('Failed to update warehouse')
     } finally {
       setModalLoading(false)
     }
@@ -522,7 +522,7 @@ export default function WarehousesPage() {
     } else if (view.type === 'locations') {
       items.push({
         title: (
-          <Button type="link" onClick={navigateToZones} style={{ padding: 0 }}>
+          <Button type="link" onClick={() => navigateToZones(view.warehouse)} style={{ padding: 0 }}>
             <ShopOutlined /> {view.warehouse.name}
           </Button>
         ),
@@ -842,8 +842,8 @@ export default function WarehousesPage() {
               prev?.capacity !== cur?.capacity
             }
           >
-            {({ getFieldValue }) => {
-              const capacity = getFieldValue('capacity') ?? {}
+            {({ getFieldValue: _gfv }) => {
+              void _gfv('capacity') // trigger re-render when capacity changes
               return (
                 <Space style={{ display: 'flex' }} align="start">
                   <Form.Item

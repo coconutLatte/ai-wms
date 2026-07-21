@@ -28,7 +28,7 @@ export default function App() {
   return (
     <ConfigProvider theme={themeConfig}>
       <AntApp>
-        <BrowserRouter>
+        <BrowserRouter basename="/ai-wms">
           <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />

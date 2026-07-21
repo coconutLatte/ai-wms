@@ -216,7 +216,7 @@ export default function SKUsPage() {
       closeModal()
       fetchSKUs(page)
     } catch {
-      if (modal.type !== 'none') message.error('Failed to update SKU')
+      message.error('Failed to update SKU')
     } finally {
       setModalLoading(false)
     }
