@@ -74,5 +74,6 @@
 | P3-10 | P2 | GitHub Pages: deploy PDA demo alongside admin | completed | 2026-07-21 | Build PDA to docs/pda/, cross-links admin ↔ PDA in headers |
 | P3-11 | P2 | Redis client bootstrap | pending | — | Blocks rate limiting, caching, session store |
 | P3-12 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |
+| P3-13 | P1 | WMS standard benchmark / test scenarios | pending | — | Core flow tests: ASN→收货→上架, 波次→分配→拣货→复核, 出库→称重→发货, 盘点→差异→调整; accuracy KPIs (inventory ≥99.5%, pick ≥99.9%); race conditions (concurrent adjust, allocate+pick same SKU) |
 
 <!-- DISCOVER refills when pending < 3. Last trim: 2026-07-21 (9→8, removed completed P3-07). -->
