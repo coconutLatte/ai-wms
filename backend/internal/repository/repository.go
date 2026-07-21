@@ -53,6 +53,7 @@ type InventoryRepository interface {
 	GetInventoryAtLocation(ctx context.Context, skuID, locationID uuid.UUID, batchNo string) (*domain.Inventory, error)
 	QueryInventory(ctx context.Context, filter InventoryFilter) ([]*domain.Inventory, error)
 	UpdateInventoryQty(ctx context.Context, id uuid.UUID, deltaQty, deltaReserved float64) error
+	UpdateInventoryStatus(ctx context.Context, id uuid.UUID, status domain.InventoryStatus) error
 	CountInventory(ctx context.Context, filter InventoryFilter) (int, error)
 
 	// FEFO / FIFO retrieval strategies

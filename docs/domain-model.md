@@ -150,9 +150,15 @@ pending → assigned → in_progress → completed
 
 ### Inventory Status
 ```
-available ←→ quarantine (quality hold)
-available → damaged (inspection failure)
-available → expired (past expiry_date)
+available   → quarantine (quality hold)
+available   → damaged    (inspection failure)
+available   → expired    (past expiry date)
+quarantine  → available  (release from hold)
+quarantine  → damaged    (inspection failure)
+quarantine  → expired    (past expiry date)
+damaged     → available  (re-graded / repaired)
+damaged     → expired    (past expiry date)
+expired     → (terminal)
 ```
 
 ## Business Rules

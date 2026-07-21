@@ -344,3 +344,57 @@ func (s *InventoryService) GetExpiringInventory(ctx context.Context, input Inven
 	}
 	return results, nil
 }
+
+// ── Inventory Status Transitions ───────────────────────────────────────────────────────
+
+// UpdateInventoryStatusInput is the input for updating an inventory record's status.
+type UpdateInventoryStatusInput struct {
+	Status domain.InventoryStatus `json:"status"`
+	Reason string                 `json:"reason,omitempty"` // Human-readable reason
+}
+
+// Validate checks the input for business rule violations.
+func (in *UpdateInventoryStatusInput) Validate() error {
+	if !isValidInventoryStatus(in.Status) {
+		return pkgerrors.NewInvalidInput(fmt.Sprintf("invalid inventory status: %s", in.Status))
+	}
+	return nil
+}
+
+// UpdateInventoryStatus validates the state transition and updates the inventory status.
+func (s *InventoryService) UpdateInventoryStatus(ctx context.Context, id uuid.UUID, input UpdateInventoryStatusInput) (*domain.Inventory, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	inv, err := s.repo.GetInventory(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("inventory service: update status %s: %w", id, err)
+	}
+
+	// Validate the state transition.
+	if !inv.CanTransitionTo(input.Status) {
+		return nil, pkgerrors.NewInvalidStatus(string(inv.Status), string(input.Status))
+	}
+
+	if err := s.repo.UpdateInventoryStatus(ctx, id, input.Status); err != nil {
+		return nil, fmt.Errorf("inventory service: update status %s: %w", id, err)
+	}
+
+	// Re-fetch to get updated state.
+	updated, err := s.repo.GetInventory(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("inventory service: re-fetch after status update %s: %w", id, err)
+	}
+
+	return updated, nil
+}
+
+func isValidInventoryStatus(s domain.InventoryStatus) bool {
+	switch s {
+	case domain.InventoryStatusAvailable, domain.InventoryStatusQuarantine,
+		domain.InventoryStatusDamaged, domain.InventoryStatusExpired:
+		return true
+	}
+	return false
+}

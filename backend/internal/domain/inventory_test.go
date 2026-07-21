@@ -269,6 +269,72 @@ func TestInventoryTxTypeValues(t *testing.T) {
 	}
 }
 
+// ── Inventory Status State Machine Tests ──────────────────────────────────
+
+func TestInventory_IsTerminal(t *testing.T) {
+	tests := []struct {
+		name   string
+		status InventoryStatus
+		want   bool
+	}{
+		{"available not terminal", InventoryStatusAvailable, false},
+		{"quarantine not terminal", InventoryStatusQuarantine, false},
+		{"damaged not terminal", InventoryStatusDamaged, false},
+		{"expired is terminal", InventoryStatusExpired, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inv := &Inventory{Status: tt.status}
+			if got := inv.IsTerminal(); got != tt.want {
+				t.Errorf("IsTerminal() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInventory_CanTransitionTo(t *testing.T) {
+	tests := []struct {
+		name    string
+		current InventoryStatus
+		target  InventoryStatus
+		want    bool
+	}{
+		// Available → ...
+		{"available → quarantine", InventoryStatusAvailable, InventoryStatusQuarantine, true},
+		{"available → damaged", InventoryStatusAvailable, InventoryStatusDamaged, true},
+		{"available → expired", InventoryStatusAvailable, InventoryStatusExpired, true},
+		{"available → available (same)", InventoryStatusAvailable, InventoryStatusAvailable, false},
+
+		// Quarantine → ...
+		{"quarantine → available", InventoryStatusQuarantine, InventoryStatusAvailable, true},
+		{"quarantine → damaged", InventoryStatusQuarantine, InventoryStatusDamaged, true},
+		{"quarantine → expired", InventoryStatusQuarantine, InventoryStatusExpired, true},
+		{"quarantine → quarantine (same)", InventoryStatusQuarantine, InventoryStatusQuarantine, false},
+
+		// Damaged → ...
+		{"damaged → available", InventoryStatusDamaged, InventoryStatusAvailable, true},
+		{"damaged → expired", InventoryStatusDamaged, InventoryStatusExpired, true},
+		{"damaged → quarantine", InventoryStatusDamaged, InventoryStatusQuarantine, false},
+		{"damaged → damaged (same)", InventoryStatusDamaged, InventoryStatusDamaged, false},
+
+		// Expired → (terminal)
+		{"expired → available", InventoryStatusExpired, InventoryStatusAvailable, false},
+		{"expired → quarantine", InventoryStatusExpired, InventoryStatusQuarantine, false},
+		{"expired → damaged", InventoryStatusExpired, InventoryStatusDamaged, false},
+		{"expired → expired (same)", InventoryStatusExpired, InventoryStatusExpired, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inv := &Inventory{Status: tt.current}
+			if got := inv.CanTransitionTo(tt.target); got != tt.want {
+				t.Errorf("CanTransitionTo(%q) = %v, want %v", tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
 // ── SKU Tests ────────────────────────────────────────────────────────────────
 
 func TestSKU_IsActive(t *testing.T) {

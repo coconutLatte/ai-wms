@@ -706,3 +706,298 @@ func TestInventoryService_GetExpiringInventory_InvalidUUID(t *testing.T) {
 		t.Fatal("expected error for invalid sku_id UUID")
 	}
 }
+
+// ── Inventory Status Transition Tests ──────────────────────────────────────────
+
+func TestInventoryService_UpdateInventoryStatus_ValidTransitions(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+
+	// available → quarantine (quality hold)
+	updated, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusQuarantine,
+		Reason: "quality inspection flag",
+	})
+	if err != nil {
+		t.Fatalf("available → quarantine failed: %v", err)
+	}
+	if updated.Status != domain.InventoryStatusQuarantine {
+		t.Errorf("status = %q, want %q", updated.Status, domain.InventoryStatusQuarantine)
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_QuarantineRelease(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 50, Status: domain.InventoryStatusQuarantine,
+	})
+
+	// quarantine → available (release from hold)
+	updated, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusAvailable,
+		Reason: "passed inspection",
+	})
+	if err != nil {
+		t.Fatalf("quarantine → available failed: %v", err)
+	}
+	if updated.Status != domain.InventoryStatusAvailable {
+		t.Errorf("status = %q, want %q", updated.Status, domain.InventoryStatusAvailable)
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_DamageFlow(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 200, Status: domain.InventoryStatusAvailable,
+	})
+
+	// available → damaged
+	updated, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusDamaged,
+		Reason: "forklift impact damage",
+	})
+	if err != nil {
+		t.Fatalf("available → damaged failed: %v", err)
+	}
+	if updated.Status != domain.InventoryStatusDamaged {
+		t.Errorf("status = %q, want %q", updated.Status, domain.InventoryStatusDamaged)
+	}
+
+	// damaged → available (re-graded / repaired)
+	updated, err = svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusAvailable,
+		Reason: "repaired and re-graded",
+	})
+	if err != nil {
+		t.Fatalf("damaged → available failed: %v", err)
+	}
+	if updated.Status != domain.InventoryStatusAvailable {
+		t.Errorf("status = %q, want %q", updated.Status, domain.InventoryStatusAvailable)
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_ExpireFlow(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 30, Status: domain.InventoryStatusQuarantine,
+	})
+
+	// quarantine → expired
+	updated, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusExpired,
+		Reason: "past expiry date",
+	})
+	if err != nil {
+		t.Fatalf("quarantine → expired failed: %v", err)
+	}
+	if updated.Status != domain.InventoryStatusExpired {
+		t.Errorf("status = %q, want %q", updated.Status, domain.InventoryStatusExpired)
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_InvalidTransitions(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+
+	// available → available (same status)
+	_, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusAvailable,
+	})
+	if err == nil {
+		t.Fatal("expected error for available → available (same status)")
+	}
+
+	// damaged → quarantine (invalid: damaged can only go to available or expired)
+	inv2, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 50, Status: domain.InventoryStatusDamaged,
+	})
+	_, err = svc.UpdateInventoryStatus(ctx, inv2.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusQuarantine,
+	})
+	if err == nil {
+		t.Fatal("expected error for damaged → quarantine transition")
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_TerminalState(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 10, Status: domain.InventoryStatusAvailable,
+	})
+
+	// available → expired (terminal)
+	_, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusExpired,
+	})
+	if err != nil {
+		t.Fatalf("available → expired failed: %v", err)
+	}
+
+	// Expired is terminal — cannot transition to anything.
+	for _, target := range []domain.InventoryStatus{
+		domain.InventoryStatusAvailable,
+		domain.InventoryStatusQuarantine,
+		domain.InventoryStatusDamaged,
+	} {
+		_, err = svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+			Status: target,
+		})
+		if err == nil {
+			t.Errorf("expected error for expired → %s transition", target)
+		}
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_NotFound(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	_, err := svc.UpdateInventoryStatus(ctx, uuid.New(), UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusAvailable,
+	})
+	if err == nil {
+		t.Fatal("expected error for non-existent inventory")
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_Validation(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 50, Status: domain.InventoryStatusAvailable,
+	})
+
+	// Invalid status value.
+	_, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: "nonsense",
+	})
+	if err == nil {
+		t.Fatal("expected validation error for invalid status")
+	}
+
+	// Empty status.
+	_, err = svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: "",
+	})
+	if err == nil {
+		t.Fatal("expected validation error for empty status")
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_AllTransitions(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	type transitionTest struct {
+		name    string
+		current domain.InventoryStatus
+		target  domain.InventoryStatus
+		valid   bool
+	}
+
+	tests := []transitionTest{
+		// Available
+		{"available → quarantine", domain.InventoryStatusAvailable, domain.InventoryStatusQuarantine, true},
+		{"available → damaged", domain.InventoryStatusAvailable, domain.InventoryStatusDamaged, true},
+		{"available → expired", domain.InventoryStatusAvailable, domain.InventoryStatusExpired, true},
+
+		// Quarantine
+		{"quarantine → available", domain.InventoryStatusQuarantine, domain.InventoryStatusAvailable, true},
+		{"quarantine → damaged", domain.InventoryStatusQuarantine, domain.InventoryStatusDamaged, true},
+		{"quarantine → expired", domain.InventoryStatusQuarantine, domain.InventoryStatusExpired, true},
+
+		// Damaged
+		{"damaged → available", domain.InventoryStatusDamaged, domain.InventoryStatusAvailable, true},
+		{"damaged → expired", domain.InventoryStatusDamaged, domain.InventoryStatusExpired, true},
+		{"damaged → quarantine", domain.InventoryStatusDamaged, domain.InventoryStatusQuarantine, false},
+
+		// Expired (terminal)
+		{"expired → available", domain.InventoryStatusExpired, domain.InventoryStatusAvailable, false},
+		{"expired → quarantine", domain.InventoryStatusExpired, domain.InventoryStatusQuarantine, false},
+		{"expired → damaged", domain.InventoryStatusExpired, domain.InventoryStatusDamaged, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+				SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+				Qty: 10, Status: tt.current,
+			})
+
+			_, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+				Status: tt.target,
+			})
+			if tt.valid && err != nil {
+				t.Errorf("expected valid transition, got error: %v", err)
+			}
+			if !tt.valid && err == nil {
+				t.Errorf("expected invalid transition, got no error")
+			}
+		})
+	}
+}
+
+func TestInventoryService_UpdateInventoryStatus_PreservesQty(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100, ReservedQty: 20, BatchNo: "LOT-42",
+		Status: domain.InventoryStatusAvailable,
+	})
+
+	// Status change should not affect quantities.
+	updated, err := svc.UpdateInventoryStatus(ctx, inv.ID, UpdateInventoryStatusInput{
+		Status: domain.InventoryStatusQuarantine,
+	})
+	if err != nil {
+		t.Fatalf("status change failed: %v", err)
+	}
+	if updated.Qty != 100 {
+		t.Errorf("qty = %f, want 100", updated.Qty)
+	}
+	if updated.ReservedQty != 20 {
+		t.Errorf("reserved_qty = %f, want 20", updated.ReservedQty)
+	}
+	if updated.BatchNo != "LOT-42" {
+		t.Errorf("batch_no = %q, want LOT-42", updated.BatchNo)
+	}
+	if updated.SKUID != inv.SKUID {
+		t.Errorf("sku_id changed from %s to %s", inv.SKUID, updated.SKUID)
+	}
+}

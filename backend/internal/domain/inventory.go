@@ -171,6 +171,47 @@ func (inv *Inventory) HasEarlierExpiry(other *Inventory) bool {
 	return inv.ExpiryDate.Before(*other.ExpiryDate)
 }
 
+// ── Inventory Status State Machine ──────────────────────────────────────────
+
+// IsTerminal returns true if the inventory is in a terminal (immutable) status.
+func (inv *Inventory) IsTerminal() bool {
+	return inv.Status == InventoryStatusExpired
+}
+
+// CanTransitionTo checks whether the inventory can transition from its current
+// status to the target status. This is the authoritative inventory status state machine.
+//
+// Valid transitions:
+//
+//	available  → quarantine, damaged, expired
+//	quarantine → available, damaged, expired
+//	damaged    → available, expired
+//	expired    → (terminal)
+func (inv *Inventory) CanTransitionTo(target InventoryStatus) bool {
+	if inv.Status == target {
+		return false
+	}
+	if inv.IsTerminal() {
+		return false
+	}
+
+	switch inv.Status {
+	case InventoryStatusAvailable:
+		return target == InventoryStatusQuarantine ||
+			target == InventoryStatusDamaged ||
+			target == InventoryStatusExpired
+	case InventoryStatusQuarantine:
+		return target == InventoryStatusAvailable ||
+			target == InventoryStatusDamaged ||
+			target == InventoryStatusExpired
+	case InventoryStatusDamaged:
+		return target == InventoryStatusAvailable ||
+			target == InventoryStatusExpired
+	default:
+		return false
+	}
+}
+
 // IsActive returns true if the SKU is available for operations.
 func (s *SKU) IsActive() bool {
 	return s.Status == SKUStatusActive

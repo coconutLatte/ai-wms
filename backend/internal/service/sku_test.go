@@ -138,6 +138,15 @@ func (m *mockInventoryRepo) UpdateInventoryQty(ctx context.Context, id uuid.UUID
 	return nil
 }
 
+func (m *mockInventoryRepo) UpdateInventoryStatus(ctx context.Context, id uuid.UUID, status domain.InventoryStatus) error {
+	inv, ok := m.inventories[id]
+	if !ok {
+		return pkgerrors.NewNotFound("inventory", id.String())
+	}
+	inv.Status = status
+	return nil
+}
+
 func (m *mockInventoryRepo) CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error {
 	if tx.ID == uuid.Nil {
 		tx.ID = uuid.New()

@@ -387,6 +387,24 @@ func (r *InventoryRepo) UpdateInventoryQty(ctx context.Context, id uuid.UUID, de
 	return nil
 }
 
+
+// UpdateInventoryStatus updates the status of an inventory record.
+func (r *InventoryRepo) UpdateInventoryStatus(ctx context.Context, id uuid.UUID, status domain.InventoryStatus) error {
+	const query = `
+		UPDATE inventory
+		SET status = $2, updated_at = $3
+		WHERE id = $1`
+
+	rowsAffected, err := r.exec(ctx, query, id, string(status), time.Now())
+	if err != nil {
+		return fmt.Errorf("update inventory status: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("update inventory status %s: not found", id)
+	}
+	return nil
+}
+
 // CountInventory returns the total count of inventory records matching the filter.
 func (r *InventoryRepo) CountInventory(ctx context.Context, filter repository.InventoryFilter) (int, error) {
 	var conditions []string
