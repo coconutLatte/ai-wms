@@ -140,11 +140,7 @@ Hint: ${TASK_NOTE}
    - docs/architecture.md — new services, endpoints, or patterns added
    - docs/domain-model.md — new entities, state machines, or business rules
    - CLAUDE.md — if conventions or project structure changed
-8. **IMPORTANT — Roadmap Self-Evolution**: After implementing, review:
-   - Are there follow-up tasks this implementation enables? Add them.
-   - Are there edge cases or improvements you noticed? Add them as new roadmap entries.
-   - Is a related task now obsolete? Mark it.
-   - Keep total pending ≤ 10. If adding new tasks would exceed 10, remove the lowest-priority ones.
+8. **DO NOT add new tasks** — the roadmap is capped at 10 pending. DISCOVER mode handles refilling when pending drops below 3. Just mark this task completed and move on.
 9. Commit & push: git add -A && git commit -m "feat(${TASK_PRIO}): ${TASK_DESC}
 
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
@@ -160,45 +156,36 @@ groom)
     cat > "$PROMPT_FILE" << ENDPROMPT
 You are grooming the ai-wms project roadmap at /root/workspace/ai-wms.
 
-## Mission: Roadmap Grooming
+## Mission: Roadmap Grooming (Cap: 10 Pending)
 
-This is a meta-evolution round. Do NOT implement features. Instead, review and improve the roadmap itself.
+This is a meta-evolution round. Do NOT implement features. Instead, PRUNE the roadmap to at most 10 pending tasks.
 
 ### Steps
-1. Read docs/roadmap.md to see all tasks and their status
-2. Read CLAUDE.md and docs/architecture.md for project vision
-3. Review the current codebase: what's implemented? What patterns exist?
-4. Run: go vet ./... and go test ./... to find quality gaps
+1. Read docs/roadmap.md — count pending tasks
+2. Read CLAUDE.md for project vision
+3. Review codebase: what is done, what is the logical next step?
+4. Run: go vet ./... && go test ./... to find quality gaps
 
 ### Then update docs/roadmap.md:
 
-**Expand the roadmap:**
-- What Phase 5/6 features are missing? (monitoring, alerting, API docs, deployment, k8s, etc.)
-- What Phase 4 integration details need more granularity?
-- What cross-cutting concerns need tasks? (security hardening, performance tuning, code quality, documentation)
-- What new features would make this a more complete WMS?
+**PRUNE ruthlessly:**
+- Keep only the 10 most impactful tasks. DELETE or mark as "cancelled" everything else.
+- No speculative phases, no "Phase 5+", no future planning beyond the next immediate step
+- Consolidate similar tasks; split only if a task is too large for one round
+- If quality gaps found, add at most 1-2 fix tasks
 
-**Re-prioritize if needed:**
-- Are there dependencies between tasks that aren't reflected?
-- Should any P2/P3 tasks be promoted to P1 based on what's built?
-
-**Clean up:**
-- Mark any truly obsolete tasks as "cancelled" with reason
-- Split overly large tasks into smaller ones
-- Ensure task IDs are unique and sequential within phases
+**Re-sort by priority:**
+- What directly builds on completed work? → Keep
+- What blocks the next user-visible milestone? → Keep
+- What is infrastructure that blocks other tasks? → Keep
+- Everything else → Cancel
 
 **Update GitHub ecosystem files:**
-- Update README.md <!-- EVOLUTION-STATS --> block with current task counts and rounds
-- Verify LICENSE and CONTRIBUTING.md are present and current
-- If new major features were added, update README feature list and architecture diagram
+- README.md + docs/index.html stats blocks with current counts
 
-**Format for new tasks:**
-| P<phase>-<NN> | P<phase> | <description> | pending | — | <hint> |
+**DO NOT: add new tasks beyond the 10 cap.**
 
-Add new phases (P6, P7...) if the existing phases are full or need expansion.
-
-5. Commit & push: git add -A && git commit -m "chore(roadmap): grooming round $CURRENT_ROUND — expanded roadmap
-
+5. Commit & push: git add -A && git commit -m "chore(roadmap): grooming round $CURRENT_ROUND — pruned to 10"
 Co-Authored-By: deepseek-v4-pro <noreply@anthropic.com>"
 ENDPROMPT
     ;;
