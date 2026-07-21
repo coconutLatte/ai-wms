@@ -66,7 +66,7 @@
 | P3-02 | P1 | Role-based authorization middleware | completed | 2026-07-21 | RequireRole middleware checks JWT role_names; admin-only /audit-logs and /users routes protected |
 | P3-03 | P2 | Admin: SKU management pages | completed | 2026-07-21 | Full CRUD: list/search, create/edit modals with UOM and attributes editor |
 | P3-04 | P2 | Admin: Inventory dashboard | completed | 2026-07-21 | Summary cards, low stock, warehouse breakdown; GET /api/v1/inventory/dashboard |
-| P3-05 | P2 | Admin: Order management pages | pending | — | Table with status badges, detail view |
+| P3-05 | P2 | Admin: Order management pages | completed | 2026-07-21 | Table with status badges, detail drawer, status transitions |
 | P3-06 | P1 | Token blacklist / logout | pending | — | Invalidate refresh tokens on logout |
 | P3-07 | P2 | Health check endpoints (/health, /ready) | completed | 2026-07-21 | `/health` exists in both admin + PDA servers; no DB ping readiness check yet |
 | P3-08 | P2 | PDA: Login + task list screen | pending | — | Mobile login, swipe-to-refresh task list |

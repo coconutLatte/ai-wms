@@ -224,25 +224,42 @@ export interface DashboardResponse {
 
 // ── Orders ─────────────────────────────────────────────────────────────────
 
-export interface Order {
+export interface OrderSummary {
   id: string
   order_no: string
-  type: string
-  status: string
+  order_type: string
   warehouse_id: string
-  priority: number
-  lines?: OrderLine[]
+  status: string
+  priority: string
+  external_ref: string
+  external_type: string
+  notes: string
   created_at: string
   updated_at: string
+  completed_at?: string
+  created_by: string
 }
 
 export interface OrderLine {
   id: string
   order_id: string
+  line_no: number
   sku_id: string
-  quantity: number
-  fulfilled_quantity: number
+  ordered_qty: number
+  fulfilled_qty: number
+  uom: string
+  batch_no: string
   status: string
+  notes: string
+}
+
+export interface Order extends OrderSummary {
+  lines: OrderLine[]
+}
+
+export interface UpdateOrderStatusRequest {
+  status: string
+  notes?: string
 }
 
 // ── Tasks ──────────────────────────────────────────────────────────────────
