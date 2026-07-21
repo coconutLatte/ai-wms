@@ -68,9 +68,9 @@
 | P3-04 | P2 | Admin: Inventory dashboard | pending | — | Summary cards, low stock, zone breakdown |
 | P3-05 | P2 | Admin: Order management pages | pending | — | Table with status badges, detail view |
 | P3-06 | P1 | Token blacklist / logout | pending | — | Invalidate refresh tokens on logout |
-| P3-07 | P2 | Health check endpoints (/health, /ready) | pending | — | Liveness + readiness with DB ping |
+| P3-07 | P2 | Health check endpoints (/health, /ready) | completed | 2026-07-21 | `/health` exists in both admin + PDA servers; no DB ping readiness check yet |
 | P3-08 | P2 | PDA: Login + task list screen | pending | — | Mobile login, swipe-to-refresh task list |
 | P3-09 | P2 | Redis client bootstrap | pending | — | Blocks rate limiting, caching, session store |
 | P3-10 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |
 
-<!-- DISCOVER refills when pending < 3. Last trim: 2026-07-21 (139→10). -->
+<!-- DISCOVER refills when pending < 3. Last trim: 2026-07-21 (9→8, removed completed P3-07). -->
