@@ -80,6 +80,18 @@ AI-WMS is a self-evolving Warehouse Management System designed for continuous AI
 - `qty` = sum of all `delta_qty` for that inventory record (eventual consistency via DB trigger or service)
 - Full audit trail
 
+### 6. Security Middleware Stack
+- **RequestID** — Extracts or generates a request ID (X-Request-ID header), stored in context for tracing
+- **Recovery** — Catches panics, logs stack traces, returns 500
+- **Logger** — Structured request logging (method, path, status, duration, request_id)
+- **CORS** — Configurable cross-origin headers including preflight handling
+- **Auth** — JWT Bearer token validation; injects user_id, username, role_ids, and role_names into request context
+- **RequireRole** — RBAC middleware checking role names from JWT claims; returns 403 if unauthorized
+
+Auth flow: `RequestID → Recovery → Logger → CORS → Auth → RequireRole → Handler`
+
+Admin-only routes (`/api/v1/users`, `/api/v1/audit-logs`) are wrapped in `RequireRole("admin")`.
+
 ## API Design
 
 ### REST Endpoints (Admin)

@@ -105,11 +105,22 @@ func main() {
 	api.RegisterInventoryRoutes(protected, inventoryHandler)
 	api.RegisterOrderRoutes(protected, orderHandler)
 	api.RegisterTaskRoutes(protected, taskHandler)
-	api.RegisterAuditLogRoutes(protected, auditLogHandler)
-	api.RegisterUserRoutes(protected, userHandler)
 
-	// Mount protected sub-router under /api/v1/ with auth middleware.
+	// Admin-only routes (require auth + admin role).
+	adminOnly := http.NewServeMux()
+	api.RegisterAuditLogRoutes(adminOnly, auditLogHandler)
+	api.RegisterUserRoutes(adminOnly, userHandler)
+
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
+	adminHandler := authMiddleware(middleware.RequireRole("admin")(adminOnly))
+
+	// Register admin-only paths first (exact prefix patterns take priority).
+	mux.Handle("/api/v1/audit-logs", adminHandler)
+	mux.Handle("/api/v1/audit-logs/", adminHandler)
+	mux.Handle("/api/v1/users", adminHandler)
+	mux.Handle("/api/v1/users/", adminHandler)
+
+	// All other /api/v1/ routes require auth but not admin role.
 	mux.Handle("/api/v1/", authMiddleware(protected))
 
 	// ── Global Middleware Stack ───────────────────────────────────────────────

@@ -63,7 +63,7 @@
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
 | P3-01 | P1 | Admin: ProtectedRoute + Login page | completed | 2026-07-21 | Auth guard + login form with JWT; blocks all admin UI usage |
-| P3-02 | P1 | Role-based authorization middleware | pending | — | Check permissions on API routes; blocks RBAC |
+| P3-02 | P1 | Role-based authorization middleware | completed | 2026-07-21 | RequireRole middleware checks JWT role_names; admin-only /audit-logs and /users routes protected |
 | P3-03 | P2 | Admin: SKU management pages | pending | — | List/create/edit with attribute editor |
 | P3-04 | P2 | Admin: Inventory dashboard | pending | — | Summary cards, low stock, zone breakdown |
 | P3-05 | P2 | Admin: Order management pages | pending | — | Table with status badges, detail view |

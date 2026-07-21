@@ -21,6 +21,8 @@ const (
 	UsernameKey contextKey = "username"
 	// UserRoleIDsKey is the context key for the authenticated user's role ID strings.
 	UserRoleIDsKey contextKey = "user_role_ids"
+	// UserRoleNamesKey is the context key for the authenticated user's role name strings.
+	UserRoleNamesKey contextKey = "user_role_names"
 )
 
 // ── Context Helpers ─────────────────────────────────────────────────────────────────────────
@@ -52,6 +54,15 @@ func GetUserRoleIDs(ctx context.Context) []string {
 	return nil
 }
 
+// GetUserRoleNames extracts the authenticated user's role names from the context.
+// Returns nil if no user is authenticated.
+func GetUserRoleNames(ctx context.Context) []string {
+	if names, ok := ctx.Value(UserRoleNamesKey).([]string); ok {
+		return names
+	}
+	return nil
+}
+
 // ── Token Claims ────────────────────────────────────────────────────────────────────────────
 
 // tokenClaims represents the custom JWT claims for WMS authentication middleware.
@@ -59,6 +70,7 @@ type tokenClaims struct {
 	jwt.RegisteredClaims
 	Username  string   `json:"username"`
 	RoleIDs   []string `json:"role_ids"`
+	RoleNames []string `json:"role_names"`
 	TokenType string   `json:"token_type"`
 }
 
@@ -104,6 +116,7 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, UserIDKey, userID)
 			ctx = context.WithValue(ctx, UsernameKey, claims.Username)
 			ctx = context.WithValue(ctx, UserRoleIDsKey, claims.RoleIDs)
+			ctx = context.WithValue(ctx, UserRoleNamesKey, claims.RoleNames)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -147,6 +160,7 @@ func OptionalAuth(jwtSecret string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, UserIDKey, userID)
 			ctx = context.WithValue(ctx, UsernameKey, claims.Username)
 			ctx = context.WithValue(ctx, UserRoleIDsKey, claims.RoleIDs)
+			ctx = context.WithValue(ctx, UserRoleNamesKey, claims.RoleNames)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

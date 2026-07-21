@@ -16,14 +16,22 @@ import (
 // stubUserRepo is a simple stub for testing AuthService.
 type stubUserRepo struct {
 	users map[string]*domain.User
+	roles map[uuid.UUID]*domain.Role
 }
 
 func newStubUserRepo() *stubUserRepo {
-	return &stubUserRepo{users: make(map[string]*domain.User)}
+	return &stubUserRepo{
+		users: make(map[string]*domain.User),
+		roles: make(map[uuid.UUID]*domain.Role),
+	}
 }
 
 func (r *stubUserRepo) addUser(u *domain.User) {
 	r.users[u.Username] = u
+}
+
+func (r *stubUserRepo) addRole(role *domain.Role) {
+	r.roles[role.ID] = role
 }
 
 // ── User ───────────────────────────────────────────────────
@@ -65,7 +73,11 @@ func (r *stubUserRepo) CountUsers(ctx context.Context, filter repository.UserFil
 
 func (r *stubUserRepo) CreateRole(ctx context.Context, role *domain.Role) error { return nil }
 func (r *stubUserRepo) GetRole(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
-	return nil, nil
+	role, ok := r.roles[id]
+	if !ok {
+		return nil, fmt.Errorf("role %s not found", id)
+	}
+	return role, nil
 }
 func (r *stubUserRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) { return nil, nil }
 func (r *stubUserRepo) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
@@ -101,6 +113,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	repo := newStubUserRepo()
 	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: user.RoleIDs[0], Name: "admin"})
 
 	svc := NewAuthService(repo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
 
@@ -226,6 +239,7 @@ func TestAuthService_RefreshToken_Success(t *testing.T) {
 
 	repo := newStubUserRepo()
 	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: user.RoleIDs[0], Name: "operator"})
 
 	svc := NewAuthService(repo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
 
@@ -359,6 +373,7 @@ func TestAuthService_TokenContainsUserInfo(t *testing.T) {
 
 	repo := newStubUserRepo()
 	repo.addUser(user)
+	repo.addRole(&domain.Role{ID: roleID, Name: "picker"})
 
 	svc := NewAuthService(repo, "test-secret-key-32-bytes-long!", 15*time.Minute, 7*24*time.Hour)
 
@@ -387,6 +402,9 @@ func TestAuthService_TokenContainsUserInfo(t *testing.T) {
 	}
 	if len(claims.RoleIDs) != 1 || claims.RoleIDs[0] != roleID.String() {
 		t.Errorf("expected role_ids [%s], got %v", roleID.String(), claims.RoleIDs)
+	}
+	if len(claims.RoleNames) != 1 || claims.RoleNames[0] != "picker" {
+		t.Errorf("expected role_names [picker], got %v", claims.RoleNames)
 	}
 }
 

@@ -45,6 +45,7 @@ type TokenClaims struct {
 	jwt.RegisteredClaims
 	Username  string   `json:"username"`
 	RoleIDs   []string `json:"role_ids"`
+	RoleNames []string `json:"role_names"`
 	TokenType string   `json:"token_type"` // "access" or "refresh"
 }
 
@@ -92,7 +93,7 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*TokenPair, 
 	}
 
 	// Generate token pair.
-	pair, err := s.generateTokenPair(user)
+	pair, err := s.generateTokenPair(ctx, user)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
@@ -135,7 +136,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, input RefreshInput) (*To
 	}
 
 	// Generate a new token pair (rotation).
-	pair, err := s.generateTokenPair(user)
+	pair, err := s.generateTokenPair(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("generate tokens: %w", err)
 	}
@@ -155,13 +156,19 @@ func HashPassword(password string) (string, error) {
 // ── Internal Helpers ───────────────────────────────────────────────────────────────────────
 
 // generateTokenPair creates a new access + refresh token pair for the given user.
-func (s *AuthService) generateTokenPair(user *domain.User) (*TokenPair, error) {
+func (s *AuthService) generateTokenPair(ctx context.Context, user *domain.User) (*TokenPair, error) {
 	now := time.Now()
 
-	// Build role ID strings for the claims.
+	// Build role ID strings and look up role names for the claims.
 	roleIDs := make([]string, len(user.RoleIDs))
+	roleNames := make([]string, len(user.RoleIDs))
 	for i, id := range user.RoleIDs {
 		roleIDs[i] = id.String()
+		role, err := s.userRepo.GetRole(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("lookup role %s: %w", id, err)
+		}
+		roleNames[i] = role.Name
 	}
 
 	// Generate a unique token ID for the refresh token.
@@ -180,6 +187,7 @@ func (s *AuthService) generateTokenPair(user *domain.User) (*TokenPair, error) {
 		},
 		Username:  user.Username,
 		RoleIDs:   roleIDs,
+		RoleNames: roleNames,
 		TokenType: "access",
 	}
 
@@ -203,6 +211,7 @@ func (s *AuthService) generateTokenPair(user *domain.User) (*TokenPair, error) {
 		},
 		Username:  user.Username,
 		RoleIDs:   roleIDs,
+		RoleNames: roleNames,
 		TokenType: "refresh",
 	}
 

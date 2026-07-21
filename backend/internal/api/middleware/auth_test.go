@@ -14,7 +14,7 @@ import (
 const testSecret = "test-secret-key-for-middleware-tests"
 
 // createTestToken creates a signed JWT for testing.
-func createTestToken(userID, username, tokenType string, roleIDs []string, ttl time.Duration) string {
+func createTestToken(userID, username, tokenType string, roleIDs, roleNames []string, ttl time.Duration) string {
 	now := time.Now()
 	claims := tokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -25,6 +25,7 @@ func createTestToken(userID, username, tokenType string, roleIDs []string, ttl t
 		},
 		Username:  username,
 		RoleIDs:   roleIDs,
+		RoleNames: roleNames,
 		TokenType: tokenType,
 	}
 
@@ -36,7 +37,7 @@ func createTestToken(userID, username, tokenType string, roleIDs []string, ttl t
 func TestAuthMiddleware_ValidToken(t *testing.T) {
 	userID := uuid.New()
 	roleIDs := []string{uuid.New().String(), uuid.New().String()}
-	token := createTestToken(userID.String(), "testuser", "access", roleIDs, 15*time.Minute)
+	token := createTestToken(userID.String(), "testuser", "access", roleIDs, []string{"admin", "operator"}, 15*time.Minute)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -118,7 +119,7 @@ func TestAuthMiddleware_EmptyToken(t *testing.T) {
 
 func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 	// Create a token that's already expired.
-	token := createTestToken(uuid.New().String(), "testuser", "access", nil, -1*time.Hour)
+	token := createTestToken(uuid.New().String(), "testuser", "access", nil, nil, -1*time.Hour)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -136,7 +137,7 @@ func TestAuthMiddleware_ExpiredToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_RefreshTokenRejected(t *testing.T) {
-	token := createTestToken(uuid.New().String(), "testuser", "refresh", nil, 15*time.Minute)
+	token := createTestToken(uuid.New().String(), "testuser", "refresh", nil, nil, 15*time.Minute)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -155,7 +156,7 @@ func TestAuthMiddleware_RefreshTokenRejected(t *testing.T) {
 }
 
 func TestAuthMiddleware_TamperedToken(t *testing.T) {
-	token := createTestToken(uuid.New().String(), "testuser", "access", nil, 15*time.Minute)
+	token := createTestToken(uuid.New().String(), "testuser", "access", nil, nil, 15*time.Minute)
 	// Tamper with the token by changing the last character.
 	tampered := token[:len(token)-1] + "X"
 
@@ -230,7 +231,7 @@ func TestOptionalAuthMiddleware_NoToken(t *testing.T) {
 
 func TestOptionalAuthMiddleware_ValidToken(t *testing.T) {
 	userID := uuid.New()
-	token := createTestToken(userID.String(), "optuser", "access", nil, 15*time.Minute)
+	token := createTestToken(userID.String(), "optuser", "access", nil, nil, 15*time.Minute)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
