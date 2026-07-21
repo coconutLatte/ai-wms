@@ -125,6 +125,15 @@ export default function AdminLayout() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <LanguageSwitcher />
 
+            <Button
+              type="link"
+              href="/ai-wms/pda/"
+              target="_self"
+              style={{ padding: '4px 8px' }}
+            >
+              {t('nav.pda')}
+            </Button>
+
             <Dropdown
               menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
               placement="bottomRight"

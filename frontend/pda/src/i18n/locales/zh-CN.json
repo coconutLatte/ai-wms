@@ -116,5 +116,8 @@
     "logout": "退出登录",
     "close": "关闭",
     "language": "语言"
+  },
+  "nav": {
+    "admin": "🖥 管理端"
   }
 }

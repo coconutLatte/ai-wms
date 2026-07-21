@@ -23,21 +23,32 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/admin/package-lock.json
 
-      - name: Install dependencies
+      - name: Install admin dependencies
         working-directory: frontend/admin
         run: npm ci
 
-      - name: Build
+      - name: Build admin
         working-directory: frontend/admin
         run: npm run build
 
-      - name: Copy build to docs/
+      - name: Install PDA dependencies
+        working-directory: frontend/pda
+        run: npm ci
+
+      - name: Build PDA
+        working-directory: frontend/pda
+        run: npm run build
+
+      - name: Copy builds to docs/
         run: |
           # Only remove demo files — keep documentation (roadmap.md, architecture.md, etc.)
           rm -f docs/index.html docs/404.html docs/mockServiceWorker.js
-          rm -rf docs/assets/
-          # Copy new demo build
+          rm -rf docs/assets/ docs/pda/
+          # Copy admin demo build
           cp -r frontend/admin/dist/* docs/
+          # Copy PDA demo build
+          mkdir -p docs/pda
+          cp -r frontend/pda/dist/* docs/pda/
           # Ensure 404.html for SPA routing on GitHub Pages
           cp docs/index.html docs/404.html
 

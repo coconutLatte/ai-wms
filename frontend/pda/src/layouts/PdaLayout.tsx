@@ -64,6 +64,21 @@ export default function PdaLayout() {
       <div className="pda-header">
         <span className="pda-title">{title}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a
+            href="/ai-wms/"
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: 'none',
+              color: '#fff',
+              padding: '6px 12px',
+              borderRadius: 6,
+              fontSize: 13,
+              cursor: 'pointer',
+              textDecoration: 'none',
+            }}
+          >
+            {t('nav.admin')}
+          </a>
           <LanguageSwitcher />
           <button
             onClick={handleLogout}

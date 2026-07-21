@@ -33,7 +33,8 @@
     "tasks": "Tasks",
     "profile": "Profile",
     "logout": "Logout",
-    "language": "Language"
+    "language": "Language",
+    "pda": "📱 PDA"
   },
   "auth": {
     "login": "Login",

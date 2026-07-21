@@ -4,6 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/ai-wms/pda/',  // GitHub Pages repo path
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
