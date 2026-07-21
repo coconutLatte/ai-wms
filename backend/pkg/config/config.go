@@ -25,9 +25,10 @@ type Config struct {
 	DBMinConns int32
 
 	// Redis
-	RedisHost string
-	RedisPort string
-	RedisDB   int
+	RedisHost     string
+	RedisPort     string
+	RedisPassword string
+	RedisDB       int
 
 	// Application
 	LogLevel    string
@@ -50,9 +51,10 @@ func Load() *Config {
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 		DBMaxConns: int32(getEnvInt("DB_MAX_CONNS", 20)),
 		DBMinConns: int32(getEnvInt("DB_MIN_CONNS", 2)),
-		RedisHost:  getEnv("REDIS_HOST", "localhost"),
-		RedisPort:  getEnv("REDIS_PORT", "6379"),
-		RedisDB:    getEnvInt("REDIS_DB", 0),
+		RedisHost:     getEnv("REDIS_HOST", "localhost"),
+		RedisPort:     getEnv("REDIS_PORT", "6379"),
+		RedisPassword: getEnv("REDIS_PASSWORD", ""),
+		RedisDB:       getEnvInt("REDIS_DB", 0),
 		LogLevel:   getEnv("LOG_LEVEL", "info"),
 		Env:        getEnv("ENV", "development"),
 		JWTSecret:  getEnv("JWT_SECRET", "change-me-in-production-REPLACE-ME"),

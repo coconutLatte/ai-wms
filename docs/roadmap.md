@@ -72,7 +72,7 @@
 | P3-08 | P2 | PDA: Login + task list screen | completed | 2026-07-21 | Real JWT login via POST /api/v1/auth/login, auth middleware on PDA server, protected routes, React Query task fetching |
 | P3-09 | P1 | i18n: Chinese (default) + English for Admin + PDA | completed | 2026-07-21 | react-i18next + i18next-browser-languagedetector, zh-CN default + en, language switcher in Admin header + PDA header, all page text + form labels + Ant Design locale translated |
 | P3-10 | P2 | GitHub Pages: deploy PDA demo alongside admin | completed | 2026-07-21 | Build PDA to docs/pda/, cross-links admin ↔ PDA in headers |
-| P3-11 | P2 | Redis client bootstrap | pending | — | Blocks rate limiting, caching, session store |
+| P3-11 | P2 | Redis client bootstrap | completed | 2026-07-21 | go-redis/v9 client, config-driven bootstrap, wired into admin + PDA entry points |
 | P3-12 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |
 | P3-13 | P1 | WMS standard benchmark / test scenarios | pending | — | Core flow tests: ASN→收货→上架, 波次→分配→拣货→复核, 出库→称重→发货, 盘点→差异→调整; accuracy KPIs (inventory ≥99.5%, pick ≥99.9%); race conditions (concurrent adjust, allocate+pick same SKU) |
 

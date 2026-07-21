@@ -17,6 +17,7 @@ import (
 	"github.com/ai-wms/ai-wms/backend/internal/service"
 	"github.com/ai-wms/ai-wms/backend/pkg/config"
 	"github.com/ai-wms/ai-wms/backend/pkg/logger"
+	"github.com/ai-wms/ai-wms/backend/pkg/redis"
 )
 
 func main() {
@@ -50,6 +51,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	// Initialize Redis connection (non-fatal if unavailable in development).
+	redisClient, err := redis.New(context.Background(), cfg)
+	if err != nil {
+		if cfg.IsProduction() {
+			log.Error("Failed to connect to Redis (required in production)", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		log.Warn("Redis not available — continuing without cache (development mode)",
+			slog.String("error", err.Error()),
+			slog.String("redis_addr", cfg.RedisAddr()),
+		)
+	} else {
+		defer redisClient.Close()
+	}
 
 	// Initialize repositories.
 	taskRepo := postgres.NewTaskRepo(db)
