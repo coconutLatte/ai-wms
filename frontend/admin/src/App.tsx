@@ -4,6 +4,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, App as AntApp } from 'antd'
 import AdminLayout from '@/layouts/AdminLayout'
+import ProtectedRoute from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/Login'
 import DashboardPage from '@/pages/Dashboard'
 import WarehousesPage from '@/pages/Warehouses'
@@ -32,14 +33,16 @@ export default function App() {
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected — admin layout shell */}
-            <Route element={<AdminLayout />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/warehouses" element={<WarehousesPage />} />
-              <Route path="/skus" element={<SKUsPage />} />
-              <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
+            {/* Protected — auth guard + admin layout shell */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/warehouses" element={<WarehousesPage />} />
+                <Route path="/skus" element={<SKUsPage />} />
+                <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
+              </Route>
             </Route>
 
             {/* Default redirect */}
