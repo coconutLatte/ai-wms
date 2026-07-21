@@ -18,7 +18,7 @@ export interface PaginationMeta {
 
 export interface ListResponse<T> {
   data: T[]
-  meta: PaginationMeta
+  pagination: PaginationMeta
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -119,16 +119,49 @@ export interface CreateLocationRequest {
 
 // ── SKU ────────────────────────────────────────────────────────────────────
 
+export interface UOM {
+  base_unit: string
+  pack_unit: string
+  pack_qty: number
+  weight: number
+  volume: number
+  length: number
+  width: number
+  height: number
+}
+
 export interface SKU {
   id: string
   code: string
   name: string
-  category: string
-  unit: string
+  description: string
   barcode: string
-  attributes: Record<string, unknown>
+  uom: UOM
+  attributes: Record<string, string>
+  category: string
+  status: string
   created_at: string
   updated_at: string
+}
+
+export interface CreateSKURequest {
+  code: string
+  name: string
+  description?: string
+  barcode?: string
+  uom: UOM
+  attributes?: Record<string, string>
+  category?: string
+}
+
+export interface UpdateSKURequest {
+  name?: string
+  description?: string
+  barcode?: string
+  uom?: UOM
+  attributes?: Record<string, string>
+  category?: string
+  status?: string
 }
 
 // ── Inventory ──────────────────────────────────────────────────────────────
