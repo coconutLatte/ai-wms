@@ -53,31 +53,41 @@ func main() {
 
 	// Initialize repositories.
 	taskRepo := postgres.NewTaskRepo(db)
-
-	// Initialize transaction manager for future atomic multi-step operations.
-	txManager := postgres.NewTxManager(db)
+	userRepo := postgres.NewUserRepo(db)
+	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 
 	// Initialize services.
 	taskSvc := service.NewTaskService(taskRepo)
-
-	// Suppress unused variable warning — TxManager will be wired into future services.
-	_ = txManager
+	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	// Initialize API handlers.
+	authHandler := api.NewAuthHandler(authSvc, log.Logger)
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
 
-	// Build the middleware chain.
+	// ── Route Setup ──────────────────────────────────────────────────────────
+
 	mux := http.NewServeMux()
+
+	// Health check (no auth required).
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok","service":"pda","version":"0.1.0"}`)
 	})
 
-	// Register PDA API routes (task execution endpoints for warehouse operators).
-	api.RegisterTaskRoutes(mux, taskHandler)
+	// Auth routes (no auth required — login/refresh/logout endpoints).
+	api.RegisterAuthRoutes(mux, authHandler)
 
-	// Apply middleware stack: RequestID → Recovery → Logger → CORS → handler.
+	// Protected routes — wrapped in JWT auth middleware.
+	protected := http.NewServeMux()
+	api.RegisterTaskRoutes(protected, taskHandler)
+
+	authMiddleware := middleware.Auth(cfg.JWTSecret)
+	mux.Handle("/api/v1/", authMiddleware(protected))
+
+	// ── Global Middleware Stack ───────────────────────────────────────────────
+
+	// RequestID → Recovery → Logger → CORS → mux.
 	handler := middleware.RequestID(
 		middleware.Recovery(log.Logger)(
 			middleware.Logger(log.Logger)(

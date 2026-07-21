@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     port: 3001,
     proxy: {
-      '/pda': {
+      '/api': {
         target: 'http://localhost:8081',
         changeOrigin: true,
       },

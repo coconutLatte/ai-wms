@@ -69,7 +69,7 @@
 | P3-05 | P2 | Admin: Order management pages | completed | 2026-07-21 | Table with status badges, detail drawer, status transitions |
 | P3-06 | P1 | Token blacklist / logout | completed | 2026-07-21 | Refresh token revocation DB-backed; logout endpoint; blacklist check on refresh |
 | P3-07 | P2 | Health check endpoints (/health, /ready) | completed | 2026-07-21 | `/health` exists in both admin + PDA servers; no DB ping readiness check yet |
-| P3-08 | P2 | PDA: Login + task list screen | pending | — | Mobile login, swipe-to-refresh task list |
+| P3-08 | P2 | PDA: Login + task list screen | completed | 2026-07-21 | Real JWT login via POST /api/v1/auth/login, auth middleware on PDA server, protected routes, React Query task fetching |
 | P3-09 | P2 | Redis client bootstrap | pending | — | Blocks rate limiting, caching, session store |
 | P3-10 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |
 

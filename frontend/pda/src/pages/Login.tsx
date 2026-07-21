@@ -1,9 +1,11 @@
-// PDA Login page — mobile-first login form.
-// P3-09 will implement the full login form with JWT integration.
+// PDA Login page — mobile-first login form with JWT integration.
+// Authenticates warehouse operators via POST /api/v1/auth/login.
 
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import client from '@/api/client'
+import type { LoginRequest, LoginResponse } from '@/api/types'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -24,17 +26,17 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      // Placeholder — P3-09 will integrate with the actual auth API.
-      // For now, simulate a login to demonstrate the scaffold.
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const { data } = await client.post<LoginResponse>('/api/v1/auth/login', {
+        username: username.trim(),
+        password,
+      } satisfies LoginRequest)
 
-      // In the real implementation, this calls POST /api/v1/auth/login
-      // and stores the tokens via setTokens(access_token, refresh_token).
-      // For the scaffold, we set dummy tokens so navigation works.
-      setTokens('demo-access-token', 'demo-refresh-token')
+      setTokens(data.access_token, data.refresh_token)
       navigate('/tasks', { replace: true })
-    } catch {
-      setError('Login failed. Please try again.')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } }
+      const detail = axiosErr?.response?.data?.detail
+      setError(detail || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -68,6 +70,7 @@ export default function LoginPage() {
               placeholder="Enter your operator ID"
               autoComplete="username"
               autoFocus
+              disabled={loading}
               style={{
                 width: '100%',
                 padding: '12px 14px',
@@ -106,6 +109,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
               autoComplete="current-password"
+              disabled={loading}
               style={{
                 width: '100%',
                 padding: '12px 14px',

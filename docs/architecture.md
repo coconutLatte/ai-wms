@@ -118,16 +118,26 @@ PUT    /api/v1/tasks/:id/complete  — Complete task
 
 ### REST Endpoints (PDA)
 
-```
-GET    /pda/v1/tasks               — My assigned tasks
-PUT    /pda/v1/tasks/:id/start     — Start task
-PUT    /pda/v1/tasks/:id/complete  — Complete task (with scanned barcodes)
-POST   /pda/v1/tasks/:id/exception — Report exception
+The PDA server shares the same `/api/v1/` prefix as the Admin server, running on a separate port (default 8081). Auth endpoints (login, refresh, logout) are public; task endpoints require JWT authentication.
 
-POST   /pda/v1/receiving/scan      — Scan ASN barcode → receive
-POST   /pda/v1/putaway/confirm     — Confirm putaway to location
-POST   /pda/v1/count/submit        — Submit cycle count result
 ```
+POST   /api/v1/auth/login            — Operator login (public)
+POST   /api/v1/auth/refresh          — Token refresh (public)
+POST   /api/v1/auth/logout           — Token revocation (public)
+
+GET    /api/v1/tasks                 — List tasks (filterable by status, assigned_to)
+GET    /api/v1/tasks/:id             — Get task detail
+POST   /api/v1/tasks/:id/assign      — Assign task to worker
+PUT    /api/v1/tasks/:id/status      — Update task status (start, pause, cancel)
+POST   /api/v1/tasks/:id/complete    — Complete task with actual quantities
+```
+
+#### Authentication Flow
+1. Operator sends credentials to `POST /api/v1/auth/login`
+2. Server returns JWT access token (15 min) + refresh token (7 days)
+3. Client stores tokens in localStorage, attaches `Authorization: Bearer <token>` to all subsequent requests
+4. On 401, client auto-refreshes via `POST /api/v1/auth/refresh`
+5. Logout revokes refresh token via `POST /api/v1/auth/logout`
 
 ### gRPC Services (Internal + Integration)
 

@@ -1,7 +1,8 @@
 // Root application component with routing for the PDA mobile app.
-// Sets up React Router with the PDA layout shell and all page routes.
+// Sets up React Router with auth guard, PDA layout shell, and all page routes.
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import ProtectedRoute from '@/components/ProtectedRoute'
 import PdaLayout from '@/layouts/PdaLayout'
 import LoginPage from '@/pages/Login'
 import TasksPage from '@/pages/Tasks'
@@ -14,15 +15,17 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
+        {/* Public — login does not require auth */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected — PDA layout shell with bottom tab bar */}
-        <Route element={<PdaLayout />}>
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
-          <Route path="/scan" element={<ScanPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+        {/* Protected — requires valid JWT, then PDA layout shell with bottom tab bar */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<PdaLayout />}>
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
+            <Route path="/scan" element={<ScanPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
         </Route>
 
         {/* Default redirect */}
