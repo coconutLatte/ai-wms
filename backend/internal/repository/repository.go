@@ -225,6 +225,7 @@ type UserRepository interface {
 	GetRole(ctx context.Context, id uuid.UUID) (*domain.Role, error)
 	ListRoles(ctx context.Context) ([]*domain.Role, error)
 	UpdateRole(ctx context.Context, r *domain.Role) error
+	DeleteRole(ctx context.Context, id uuid.UUID) error
 	CountRoles(ctx context.Context) (int, error)
 
 	// AuditLog

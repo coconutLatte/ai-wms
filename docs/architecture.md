@@ -90,7 +90,7 @@ AI-WMS is a self-evolving Warehouse Management System designed for continuous AI
 
 Auth flow: `RequestID → Recovery → Logger → CORS → Auth → RequireRole → Handler`
 
-Admin-only routes (`/api/v1/users`, `/api/v1/audit-logs`) are wrapped in `RequireRole("admin")`.
+Admin-only routes (`/api/v1/users`, `/api/v1/audit-logs`, `/api/v1/roles`) are wrapped in `RequireRole("admin")`.
 
 ## API Design
 

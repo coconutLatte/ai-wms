@@ -98,6 +98,7 @@ func main() {
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	auditLogSvc := service.NewAuditLogService(userRepo)
 	userSvc := service.NewUserService(userRepo)
+	roleSvc := service.NewRoleService(userRepo)
 
 	// Initialize API handlers.
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
@@ -109,6 +110,7 @@ func main() {
 	authHandler := api.NewAuthHandler(authSvc, log.Logger)
 	auditLogHandler := api.NewAuditLogHandler(auditLogSvc, log.Logger)
 	userHandler := api.NewUserHandler(userSvc, log.Logger)
+	roleHandler := api.NewRoleHandler(roleSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -141,6 +143,7 @@ func main() {
 	adminOnly := http.NewServeMux()
 	api.RegisterAuditLogRoutes(adminOnly, auditLogHandler)
 	api.RegisterUserRoutes(adminOnly, userHandler)
+	api.RegisterRoleRoutes(adminOnly, roleHandler)
 
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
 	adminHandler := authMiddleware(middleware.RequireRole("admin")(adminOnly))
@@ -150,6 +153,8 @@ func main() {
 	mux.Handle("/api/v1/audit-logs/", adminHandler)
 	mux.Handle("/api/v1/users", adminHandler)
 	mux.Handle("/api/v1/users/", adminHandler)
+	mux.Handle("/api/v1/roles", adminHandler)
+	mux.Handle("/api/v1/roles/", adminHandler)
 
 	// All other /api/v1/ routes require auth but not admin role.
 	mux.Handle("/api/v1/", authMiddleware(protected))

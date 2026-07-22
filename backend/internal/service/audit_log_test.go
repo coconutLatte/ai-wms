@@ -59,6 +59,7 @@ func (m *mockAuditLogRepo) GetRole(ctx context.Context, id uuid.UUID) (*domain.R
 }
 func (m *mockAuditLogRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) { return nil, nil }
 func (m *mockAuditLogRepo) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (m *mockAuditLogRepo) DeleteRole(ctx context.Context, id uuid.UUID) error   { return nil }
 func (m *mockAuditLogRepo) CountRoles(ctx context.Context) (int, error)            { return 0, nil }
 
 // ── AuditLog ─────────────────────────────────────────────────

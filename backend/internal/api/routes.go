@@ -96,6 +96,15 @@ func RegisterUserRoutes(mux *http.ServeMux, h *UserHandler) {
 	mux.HandleFunc("PUT /api/v1/users/{id}/status", h.UpdateUserStatus)
 }
 
+// RegisterRoleRoutes registers role API routes on the given mux (Admin only).
+func RegisterRoleRoutes(mux *http.ServeMux, h *RoleHandler) {
+	mux.HandleFunc("POST /api/v1/roles", h.CreateRole)
+	mux.HandleFunc("GET /api/v1/roles", h.ListRoles)
+	mux.HandleFunc("GET /api/v1/roles/{id}", h.GetRole)
+	mux.HandleFunc("PUT /api/v1/roles/{id}", h.UpdateRole)
+	mux.HandleFunc("DELETE /api/v1/roles/{id}", h.DeleteRole)
+}
+
 // RegisterTaskRoutes registers task API routes on the given mux.
 // Tasks are accessible from both Admin (management) and PDA (execution).
 func RegisterTaskRoutes(mux *http.ServeMux, h *TaskHandler) {

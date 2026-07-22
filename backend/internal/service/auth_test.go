@@ -82,6 +82,7 @@ func (r *stubUserRepo) GetRole(ctx context.Context, id uuid.UUID) (*domain.Role,
 }
 func (r *stubUserRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) { return nil, nil }
 func (r *stubUserRepo) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (r *stubUserRepo) DeleteRole(ctx context.Context, id uuid.UUID) error     { return nil }
 func (r *stubUserRepo) CountRoles(ctx context.Context) (int, error)           { return 0, nil }
 
 // ── AuditLog ───────────────────────────────────────────────

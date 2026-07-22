@@ -337,6 +337,20 @@ func (r *UserRepo) CountRoles(ctx context.Context) (int, error) {
 	return count, nil
 	}
 
+// DeleteRole deletes a role by ID.
+func (r *UserRepo) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	const query = `DELETE FROM roles WHERE id = $1`
+
+	tag, err := r.exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete role: %w", err)
+	}
+	if tag == 0 {
+		return fmt.Errorf("delete role %s: not found", id)
+	}
+	return nil
+}
+
 // ── AuditLog ────────────────────────────────────────────────
 
 // CreateAuditLog inserts a new audit log entry.

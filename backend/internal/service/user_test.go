@@ -159,6 +159,7 @@ func (m *mockUserRepo) GetRole(ctx context.Context, id uuid.UUID) (*domain.Role,
 }
 func (m *mockUserRepo) ListRoles(ctx context.Context) ([]*domain.Role, error) { return nil, nil }
 func (m *mockUserRepo) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (m *mockUserRepo) DeleteRole(ctx context.Context, id uuid.UUID) error   { return nil }
 func (m *mockUserRepo) CountRoles(ctx context.Context) (int, error)            { return 0, nil }
 
 // ── AuditLog (stubs) ──────────────────────────────────────────
