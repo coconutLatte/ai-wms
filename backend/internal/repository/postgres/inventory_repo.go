@@ -619,6 +619,58 @@ func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.U
 	return txs, nil
 }
 
+// ListTransactionsByReference returns all inventory transactions for a given
+// reference (e.g., an order line). Used when unreserving inventory to find
+// which inventory records were reserved for a specific order allocation.
+func (r *InventoryRepo) ListTransactionsByReference(ctx context.Context, referenceType string, referenceID uuid.UUID) ([]*domain.InventoryTransaction, error) {
+	const query = `
+			SELECT id, inventory_id, sku_id, location_id,
+			       type, delta_qty, resulting_qty,
+			       reference_type, reference_id,
+			       created_at, created_by
+			FROM inventory_transactions
+			WHERE reference_type = $1 AND reference_id = $2
+			ORDER BY created_at DESC`
+
+	rows, err := r.query(ctx, query, referenceType, referenceID)
+	if err != nil {
+		return nil, fmt.Errorf("list transactions by reference: %w", err)
+	}
+	defer rows.Close()
+
+	var txs []*domain.InventoryTransaction
+	for rows.Next() {
+		tx := &domain.InventoryTransaction{}
+		var refType, createdBy *string
+		var refID *uuid.UUID
+
+		if err := rows.Scan(
+			&tx.ID, &tx.InventoryID, &tx.SKUID, &tx.LocationID,
+			&tx.Type, &tx.DeltaQty, &tx.ResultingQty,
+			&refType, &refID,
+			&tx.CreatedAt, &createdBy,
+		); err != nil {
+			return nil, fmt.Errorf("scan transaction: %w", err)
+		}
+
+		if refType != nil {
+			tx.ReferenceType = *refType
+		}
+		if refID != nil {
+			tx.ReferenceID = *refID
+		}
+		if createdBy != nil {
+			tx.CreatedBy = *createdBy
+		}
+
+		txs = append(txs, tx)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate transactions by reference: %w", err)
+	}
+	return txs, nil
+}
+
 // CountTransactions returns the total number of transactions for an inventory record.
 func (r *InventoryRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) {
 	const query = `SELECT COUNT(*) FROM inventory_transactions WHERE inventory_id = $1`

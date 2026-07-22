@@ -399,6 +399,302 @@ func isValidInventoryStatus(s domain.InventoryStatus) bool {
 	return false
 }
 
+// ── Inventory Reservation ────────────────────────────────────────────────────
+
+// ReserveInventoryInput is the input for reserving inventory for order allocation.
+//
+// The reservation uses the best-fit strategy:
+//   - FEFO (First Expired First Out) for perishable SKUs (those with expiry dates)
+//   - FIFO (First In First Out) for non-perishable SKUs
+//
+// Inventory records are walked in strategy order and reserved from each until the
+// requested quantity is fully satisfied. If insufficient available inventory exists,
+// the call returns an error and no reservation is made.
+//
+// Each reserved quantity increments the inventory record's reserved_qty (atomic with
+// qty via UpdateInventoryQty) and records an InventoryTransaction of type "reserve"
+// with the order line ID as the reference.
+type ReserveInventoryInput struct {
+	SKUID       uuid.UUID `json:"sku_id"`
+	WarehouseID uuid.UUID `json:"warehouse_id"`
+	Qty         float64   `json:"qty"`
+	OrderLineID uuid.UUID `json:"order_line_id"` // Reference ID for audit trail
+}
+
+// Validate checks the input for business rule violations.
+func (in *ReserveInventoryInput) Validate() error {
+	if in.SKUID == uuid.Nil {
+		return pkgerrors.NewInvalidInput("sku_id is required")
+	}
+	if in.WarehouseID == uuid.Nil {
+		return pkgerrors.NewInvalidInput("warehouse_id is required")
+	}
+	if in.Qty <= 0 {
+		return pkgerrors.NewInvalidInput("qty must be positive")
+	}
+	if in.OrderLineID == uuid.Nil {
+		return pkgerrors.NewInvalidInput("order_line_id is required")
+	}
+	return nil
+}
+
+// ReserveInventoryResult holds the outcome of a reservation.
+type ReserveInventoryResult struct {
+	ReservedInventoryIDs []uuid.UUID `json:"reserved_inventory_ids"` // Affected inventory records
+	TotalReserved        float64     `json:"total_reserved"`         // Total quantity reserved
+}
+
+// ReserveInventory reserves inventory for order allocation.
+//
+// Strategy selection:
+//  1. Query FEFO-sorted (expiring) inventory. If any records have expiry dates, use FEFO.
+//  2. Otherwise, fall back to FIFO (oldest received first).
+//
+// The entire operation runs within a database transaction when a TxManager is configured,
+// ensuring the reservation is atomic.
+func (s *InventoryService) ReserveInventory(ctx context.Context, input ReserveInventoryInput) (*ReserveInventoryResult, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	doWrites := func(ctx context.Context) (*ReserveInventoryResult, error) {
+		// Determine strategy: FEFO if any inventory has expiry dates, else FIFO.
+		candidates, _, err := s.pickReserveCandidates(ctx, input.SKUID, input.WarehouseID)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(candidates) == 0 {
+			return nil, pkgerrors.NewInvalidInput(
+				fmt.Sprintf("no available inventory for SKU %s in warehouse %s", input.SKUID, input.WarehouseID),
+			)
+		}
+
+		// Walk candidates, reserving from each until qty is satisfied.
+		remaining := input.Qty
+		var reservedIDs []uuid.UUID
+		totalReserved := 0.0
+
+		for _, inv := range candidates {
+			// Lock the inventory row inside a transaction to prevent race conditions.
+			lockedInv, err := s.repo.GetAndLockInventory(ctx, inv.ID)
+			if err != nil {
+				return nil, fmt.Errorf("lock inventory %s: %w", inv.ID, err)
+			}
+
+			available := lockedInv.Available()
+			if available <= 0 {
+				continue // Already depleted by a concurrent operation.
+			}
+
+			reserveQty := available
+			if reserveQty > remaining {
+				reserveQty = remaining
+			}
+
+			if err := s.repo.UpdateInventoryQty(ctx, lockedInv.ID, 0, reserveQty); err != nil {
+				return nil, fmt.Errorf("reserve qty from inventory %s: %w", lockedInv.ID, err)
+			}
+
+			// Record reserve transaction.
+			// NOTE: For reserve/unreserve transactions, DeltaQty stores the
+			// reserved/unreserved amount rather than an on-hand change (which is 0).
+			// The Type field ("reserve" / "unreserve") disambiguates the meaning.
+			tx := &domain.InventoryTransaction{
+				InventoryID:   lockedInv.ID,
+				SKUID:         lockedInv.SKUID,
+				LocationID:    lockedInv.LocationID,
+				Type:          domain.InventoryTxReserve,
+				DeltaQty:      reserveQty,              // Reserved quantity (not on-hand delta)
+				ResultingQty:  lockedInv.Qty,            // Resulting on-hand qty is unchanged
+				ReferenceType: "order_line",
+				ReferenceID:   input.OrderLineID,
+			}
+			if err := s.repo.CreateTransaction(ctx, tx); err != nil {
+				return nil, fmt.Errorf("create reserve transaction: %w", err)
+			}
+
+			reservedIDs = append(reservedIDs, lockedInv.ID)
+			totalReserved += reserveQty
+			remaining -= reserveQty
+
+			if remaining <= 0 {
+				break
+			}
+		}
+
+		if remaining > 0.005 { // Small epsilon for floating-point tolerance
+			return nil, pkgerrors.NewInvalidInput(
+				fmt.Sprintf("insufficient available inventory: needed %.2f, only %.2f available for SKU %s",
+					input.Qty, input.Qty-remaining, input.SKUID),
+			)
+		}
+
+		return &ReserveInventoryResult{
+			ReservedInventoryIDs: reservedIDs,
+			TotalReserved:        totalReserved,
+		}, nil
+	}
+
+	if s.txManager != nil {
+		var result *ReserveInventoryResult
+		txErr := s.txManager.WithTx(ctx, func(ctx context.Context) error {
+			var innerErr error
+			result, innerErr = doWrites(ctx)
+			return innerErr
+		})
+		if txErr != nil {
+			return nil, fmt.Errorf("inventory service: reserve: %w", txErr)
+		}
+		return result, nil
+	}
+
+	result, err := doWrites(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("inventory service: reserve: %w", err)
+	}
+	return result, nil
+}
+
+// UnreserveInventoryInput is the input for releasing inventory previously reserved
+// for a specific order line.
+type UnreserveInventoryInput struct {
+	OrderLineID uuid.UUID `json:"order_line_id"` // Reference ID used during reservation
+}
+
+// Validate checks the input for business rule violations.
+func (in *UnreserveInventoryInput) Validate() error {
+	if in.OrderLineID == uuid.Nil {
+		return pkgerrors.NewInvalidInput("order_line_id is required")
+	}
+	return nil
+}
+
+// UnreserveInventory releases inventory that was previously reserved for an order line.
+//
+// It finds all reserve transactions for the given order line ID, decrements the
+// reserved_qty on each affected inventory record by the originally reserved amount
+// (stored in the reserve transaction's DeltaQty), and records unreserve transactions.
+//
+// The entire operation runs within a database transaction when a TxManager is configured.
+// Idempotent: if no reserve transactions are found, it returns nil (no-op).
+func (s *InventoryService) UnreserveInventory(ctx context.Context, input UnreserveInventoryInput) error {
+	if err := input.Validate(); err != nil {
+		return err
+	}
+
+	doWrites := func(ctx context.Context) error {
+		// Find all reserve transactions for this order line.
+		reserveTxs, err := s.repo.ListTransactionsByReference(ctx, "order_line", input.OrderLineID)
+		if err != nil {
+			return fmt.Errorf("list reserve transactions: %w", err)
+		}
+
+		// Only process reserve-type transactions.
+		var relevantTxs []*domain.InventoryTransaction
+		for _, tx := range reserveTxs {
+			if tx.Type == domain.InventoryTxReserve {
+				relevantTxs = append(relevantTxs, tx)
+			}
+		}
+
+		if len(relevantTxs) == 0 {
+			return nil // Nothing to unreserve — idempotent.
+		}
+
+		// For each reserve transaction, lock the inventory and release the reserved qty.
+		// The reserve transaction's DeltaQty carries the amount that was reserved.
+		for _, reserveTx := range relevantTxs {
+			lockedInv, err := s.repo.GetAndLockInventory(ctx, reserveTx.InventoryID)
+			if err != nil {
+				return fmt.Errorf("lock inventory %s: %w", reserveTx.InventoryID, err)
+			}
+
+			unreserveQty := reserveTx.DeltaQty
+			if unreserveQty > lockedInv.ReservedQty {
+				// Clamp to current reserved_qty (defensive: shouldn't happen).
+				unreserveQty = lockedInv.ReservedQty
+			}
+			if unreserveQty <= 0 {
+				continue // Already fully unreserved.
+			}
+
+			// Decrement reserved_qty by the originally reserved amount.
+			if err := s.repo.UpdateInventoryQty(ctx, lockedInv.ID, 0, -unreserveQty); err != nil {
+				return fmt.Errorf("unreserve qty from inventory %s: %w", lockedInv.ID, err)
+			}
+
+			// Record unreserve transaction.
+			utx := &domain.InventoryTransaction{
+				InventoryID:   lockedInv.ID,
+				SKUID:         lockedInv.SKUID,
+				LocationID:    lockedInv.LocationID,
+				Type:          domain.InventoryTxUnreserve,
+				DeltaQty:      unreserveQty,         // Amount unreserved
+				ResultingQty:  lockedInv.Qty,        // On-hand qty unchanged
+				ReferenceType: "order_line",
+				ReferenceID:   input.OrderLineID,
+			}
+			if err := s.repo.CreateTransaction(ctx, utx); err != nil {
+				return fmt.Errorf("create unreserve transaction: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	if s.txManager != nil {
+		if err := s.txManager.WithTx(ctx, doWrites); err != nil {
+			return fmt.Errorf("inventory service: unreserve: %w", err)
+		}
+		return nil
+	}
+
+	if err := doWrites(ctx); err != nil {
+		return fmt.Errorf("inventory service: unreserve: %w", err)
+	}
+	return nil
+}
+
+// pickReserveCandidates determines the best retrieval strategy and returns
+// candidate inventory records in priority order.
+//
+// Default: FEFO for perishable goods (those with expiry dates), FIFO otherwise.
+// The bool return is true when FEFO was used.
+func (s *InventoryService) pickReserveCandidates(ctx context.Context, skuID, warehouseID uuid.UUID) ([]*domain.Inventory, bool, error) {
+	filter := repository.InventoryRetrievalFilter{
+		WarehouseID: warehouseID,
+		SKUID:       skuID,
+	}
+
+	// Try FEFO first (expiring inventory).
+	fefoCandidates, err := s.repo.GetExpiringInventory(ctx, filter)
+	if err != nil {
+		return nil, false, fmt.Errorf("get fefo inventory: %w", err)
+	}
+
+	// Check if any FEFO candidates actually have expiry dates.
+	hasExpiry := false
+	for _, inv := range fefoCandidates {
+		if inv.ExpiryDate != nil {
+			hasExpiry = true
+			break
+		}
+	}
+
+	if hasExpiry {
+		return fefoCandidates, true, nil
+	}
+
+	// Fall back to FIFO (oldest first).
+	fifoCandidates, err := s.repo.GetOldestInventory(ctx, filter)
+	if err != nil {
+		return nil, false, fmt.Errorf("get fifo inventory: %w", err)
+	}
+
+	return fifoCandidates, false, nil
+}
+
 // ── Inventory Dashboard ──────────────────────────────────────────────────────
 
 // DashboardInput is the input for the inventory dashboard.

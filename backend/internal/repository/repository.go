@@ -63,6 +63,7 @@ type InventoryRepository interface {
 	// Inventory Transaction
 	CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error
 	ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error)
+		ListTransactionsByReference(ctx context.Context, referenceType string, referenceID uuid.UUID) ([]*domain.InventoryTransaction, error)
 	CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error)
 
 	// Dashboard queries

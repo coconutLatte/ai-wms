@@ -178,6 +178,16 @@ func (m *mockInventoryRepo) ListTransactions(ctx context.Context, inventoryID uu
 	return result, nil
 }
 
+func (m *mockInventoryRepo) ListTransactionsByReference(ctx context.Context, referenceType string, referenceID uuid.UUID) ([]*domain.InventoryTransaction, error) {
+	var result []*domain.InventoryTransaction
+	for _, tx := range m.transactions {
+		if tx.ReferenceType == referenceType && tx.ReferenceID == referenceID {
+			result = append(result, tx)
+		}
+	}
+	return result, nil
+}
+
 func (m *mockInventoryRepo) CountSKUs(ctx context.Context) (int, error) {
 	return len(m.skus), nil
 }

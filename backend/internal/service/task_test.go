@@ -1024,6 +1024,10 @@ func (m *combinedMockRepo) ListTransactions(ctx context.Context, inventoryID uui
 	return nil, nil
 }
 
+func (m *combinedMockRepo) ListTransactionsByReference(ctx context.Context, referenceType string, referenceID uuid.UUID) ([]*domain.InventoryTransaction, error) {
+	return nil, nil
+}
+
 func (m *combinedMockRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) {
 	return 0, nil
 }

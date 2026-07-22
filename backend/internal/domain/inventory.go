@@ -98,6 +98,8 @@ const (
 	InventoryTxTransfer    InventoryTxType = "transfer"    // Location-to-location transfer
 	InventoryTxAdjustment  InventoryTxType = "adjustment"  // Manual adjustment (cycle count)
 	InventoryTxReturn      InventoryTxType = "return"      // Customer return
+	InventoryTxReserve     InventoryTxType = "reserve"     // Inventory reserved for order allocation
+	InventoryTxUnreserve   InventoryTxType = "unreserve"   // Reserved inventory released back
 )
 
 // ── Business Rule Methods ────────────────────────────────────────────────────

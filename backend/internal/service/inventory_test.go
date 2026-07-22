@@ -1001,3 +1001,524 @@ func TestInventoryService_UpdateInventoryStatus_PreservesQty(t *testing.T) {
 		t.Errorf("sku_id changed from %s to %s", inv.SKUID, updated.SKUID)
 	}
 }
+
+// ── ReserveInventory Tests ─────────────────────────────────────────────────────
+
+func TestInventoryService_ReserveInventory_FIFO(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	orderLineID := uuid.New()
+
+	// Create inventory with explicit received_at times to ensure FIFO ordering.
+	inv1, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 50, Status: domain.InventoryStatusAvailable,
+	})
+	inv1.ReceivedAt = time.Now().Add(-2 * time.Hour) // Older → should be used first
+
+	inv2, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+	inv2.ReceivedAt = time.Now().Add(-1 * time.Hour) // Newer
+
+	result, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 30, OrderLineID: orderLineID,
+	})
+	if err != nil {
+		t.Fatalf("ReserveInventory failed: %v", err)
+	}
+	if result.TotalReserved != 30.0 {
+		t.Errorf("total_reserved = %f, want 30.0", result.TotalReserved)
+	}
+
+	got1, _ := svc.GetInventory(ctx, inv1.ID)
+	got2, _ := svc.GetInventory(ctx, inv2.ID)
+	if got1.ReservedQty != 30.0 {
+		t.Errorf("inv1 reserved_qty = %f, want 30.0", got1.ReservedQty)
+	}
+	if got1.AvailableQty != 20.0 {
+		t.Errorf("inv1 available = %f, want 20.0", got1.AvailableQty)
+	}
+	if got2.ReservedQty != 0 {
+		t.Errorf("inv2 reserved_qty = %f, want 0", got2.ReservedQty)
+	}
+
+	txs, _, _ := svc.GetTransactions(ctx, inv1.ID, 0, 0)
+	if len(txs) != 1 {
+		t.Fatalf("expected 1 transaction on inv1, got %d", len(txs))
+	}
+	if txs[0].Type != domain.InventoryTxReserve {
+		t.Errorf("tx type = %q, want %q", txs[0].Type, domain.InventoryTxReserve)
+	}
+}
+
+func TestInventoryService_ReserveInventory_FEFO(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	orderLineID := uuid.New()
+
+	expEarly := time.Now().Add(10 * 24 * time.Hour)
+	expLater := time.Now().Add(60 * 24 * time.Hour)
+
+	inv1, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+	inv1.ExpiryDate = &expLater
+
+	inv2, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+	inv2.ExpiryDate = &expEarly
+
+	result, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 80, OrderLineID: orderLineID,
+	})
+	if err != nil {
+		t.Fatalf("ReserveInventory (FEFO) failed: %v", err)
+	}
+	if result.TotalReserved != 80.0 {
+		t.Errorf("total_reserved = %f, want 80.0", result.TotalReserved)
+	}
+
+	got2, _ := svc.GetInventory(ctx, inv2.ID)
+	got1, _ := svc.GetInventory(ctx, inv1.ID)
+	if got2.ReservedQty != 80.0 {
+		t.Errorf("inv2 (earliest expiry) reserved_qty = %f, want 80.0", got2.ReservedQty)
+	}
+	if got1.ReservedQty != 0 {
+		t.Errorf("inv1 (later expiry) reserved_qty = %f, want 0", got1.ReservedQty)
+	}
+}
+
+func TestInventoryService_ReserveInventory_SpreadAcrossMultiple(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	orderLineID := uuid.New()
+
+	for i := 0; i < 3; i++ {
+		svc.CreateInventory(ctx, CreateInventoryInput{
+			SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+			Qty: 30, Status: domain.InventoryStatusAvailable,
+		})
+	}
+
+	result, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 80, OrderLineID: orderLineID,
+	})
+	if err != nil {
+		t.Fatalf("ReserveInventory failed: %v", err)
+	}
+	if result.TotalReserved != 80.0 {
+		t.Errorf("total_reserved = %f, want 80.0", result.TotalReserved)
+	}
+	if len(result.ReservedInventoryIDs) != 3 {
+		t.Errorf("expected 3 inventory IDs reserved, got %d", len(result.ReservedInventoryIDs))
+	}
+}
+
+func TestInventoryService_ReserveInventory_InsufficientStock(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+
+	svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 10, Status: domain.InventoryStatusAvailable,
+	})
+
+	_, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 50, OrderLineID: uuid.New(),
+	})
+	if err == nil {
+		t.Fatal("expected error for insufficient stock")
+	}
+}
+
+func TestInventoryService_ReserveInventory_NoAvailableStock(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+
+	svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusQuarantine,
+	})
+
+	_, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 10, OrderLineID: uuid.New(),
+	})
+	if err == nil {
+		t.Fatal("expected error for no available stock")
+	}
+}
+
+func TestInventoryService_ReserveInventory_Validation(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	tests := []struct {
+		name  string
+		input ReserveInventoryInput
+	}{
+		{"nil sku_id", ReserveInventoryInput{
+			WarehouseID: uuid.New(), Qty: 10, OrderLineID: uuid.New(),
+		}},
+		{"nil warehouse_id", ReserveInventoryInput{
+			SKUID: uuid.New(), Qty: 10, OrderLineID: uuid.New(),
+		}},
+		{"zero qty", ReserveInventoryInput{
+			SKUID: uuid.New(), WarehouseID: uuid.New(), Qty: 0, OrderLineID: uuid.New(),
+		}},
+		{"negative qty", ReserveInventoryInput{
+			SKUID: uuid.New(), WarehouseID: uuid.New(), Qty: -5, OrderLineID: uuid.New(),
+		}},
+		{"nil order_line_id", ReserveInventoryInput{
+			SKUID: uuid.New(), WarehouseID: uuid.New(), Qty: 10,
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := svc.ReserveInventory(ctx, tt.input)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
+	}
+}
+
+func TestInventoryService_ReserveInventory_AlreadyReserved(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+
+	svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, ReservedQty: 80, Status: domain.InventoryStatusAvailable,
+	})
+
+	_, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 30, OrderLineID: uuid.New(),
+	})
+	if err == nil {
+		t.Fatal("expected error: only 20 available (100 on-hand - 80 reserved)")
+	}
+}
+
+func TestInventoryService_ReserveInventory_PartialWithinLimit(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+
+	svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, ReservedQty: 70, Status: domain.InventoryStatusAvailable,
+	})
+
+	result, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 20, OrderLineID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("ReserveInventory within limit failed: %v", err)
+	}
+	if result.TotalReserved != 20.0 {
+		t.Errorf("total_reserved = %f, want 20.0", result.TotalReserved)
+	}
+}
+
+func TestInventoryService_ReserveInventory_WrongWarehouse(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	wh1 := uuid.New()
+	wh2 := uuid.New()
+
+	svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: wh1,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+
+	_, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: wh2, Qty: 10, OrderLineID: uuid.New(),
+	})
+	if err == nil {
+		t.Fatal("expected error: no inventory in specified warehouse")
+	}
+}
+
+// ── UnreserveInventory Tests ───────────────────────────────────────────────────
+
+func TestInventoryService_UnreserveInventory(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	orderLineID := uuid.New()
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+
+	svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 40, OrderLineID: orderLineID,
+	})
+
+	got, _ := svc.GetInventory(ctx, inv.ID)
+	if got.ReservedQty != 40.0 {
+		t.Fatalf("post-reserve reserved_qty = %f, want 40", got.ReservedQty)
+	}
+
+	err := svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: orderLineID})
+	if err != nil {
+		t.Fatalf("UnreserveInventory failed: %v", err)
+	}
+
+	got, _ = svc.GetInventory(ctx, inv.ID)
+	if got.ReservedQty != 0 {
+		t.Errorf("post-unreserve reserved_qty = %f, want 0", got.ReservedQty)
+	}
+	if got.AvailableQty != 100.0 {
+		t.Errorf("post-unreserve available = %f, want 100", got.AvailableQty)
+	}
+
+	txs, _, _ := svc.GetTransactions(ctx, inv.ID, 0, 0)
+	if len(txs) != 2 {
+		t.Fatalf("expected 2 transactions (reserve + unreserve), got %d", len(txs))
+	}
+	// Check that both transaction types are present (order not guaranteed in mock).
+	hasReserve := false
+	hasUnreserve := false
+	for _, tx := range txs {
+		if tx.Type == domain.InventoryTxReserve {
+			hasReserve = true
+		}
+		if tx.Type == domain.InventoryTxUnreserve {
+			hasUnreserve = true
+		}
+	}
+	if !hasReserve {
+		t.Error("expected a reserve transaction")
+	}
+	if !hasUnreserve {
+		t.Error("expected an unreserve transaction")
+	}
+}
+
+func TestInventoryService_UnreserveInventory_Idempotent(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	err := svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: uuid.New()})
+	if err != nil {
+		t.Fatalf("UnreserveInventory should be idempotent, got error: %v", err)
+	}
+}
+
+func TestInventoryService_UnreserveInventory_DoubleUnreserve(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	orderLineID := uuid.New()
+
+	svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 50, Status: domain.InventoryStatusAvailable,
+	})
+	svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 30, OrderLineID: orderLineID,
+	})
+
+	err := svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: orderLineID})
+	if err != nil {
+		t.Fatalf("first unreserve failed: %v", err)
+	}
+
+	err = svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: orderLineID})
+	if err != nil {
+		t.Fatalf("second unreserve (idempotent) failed: %v", err)
+	}
+}
+
+func TestInventoryService_ReserveUnreserve_RoundTrip(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	orderLineID1 := uuid.New()
+	orderLineID2 := uuid.New()
+
+	// Create a single inventory record with enough qty for the test.
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+
+	// Reserve 60 for order line 1.
+	result1, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 60, OrderLineID: orderLineID1,
+	})
+	if err != nil {
+		t.Fatalf("first reserve failed: %v", err)
+	}
+	if result1.TotalReserved != 60.0 {
+		t.Errorf("total_reserved = %f, want 60.0", result1.TotalReserved)
+	}
+
+	// After reserve: 40 available, 60 reserved.
+	got, _ := svc.GetInventory(ctx, inv.ID)
+	if got.AvailableQty != 40.0 {
+		t.Errorf("after reserve, available = %f, want 40", got.AvailableQty)
+	}
+	if got.ReservedQty != 60.0 {
+		t.Errorf("after reserve, reserved_qty = %f, want 60", got.ReservedQty)
+	}
+
+	// Unreserve order line 1.
+	err = svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: orderLineID1})
+	if err != nil {
+		t.Fatalf("unreserve failed: %v", err)
+	}
+
+	// After unreserve: back to 100 available, 0 reserved.
+	got, _ = svc.GetInventory(ctx, inv.ID)
+	if got.AvailableQty != 100.0 {
+		t.Errorf("after unreserve, available = %f, want 100", got.AvailableQty)
+	}
+	if got.ReservedQty != 0 {
+		t.Errorf("after unreserve, reserved_qty = %f, want 0", got.ReservedQty)
+	}
+
+	// Now reserve 40 for order line 2 → should succeed (all inventory available again).
+	result2, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 40, OrderLineID: orderLineID2,
+	})
+	if err != nil {
+		t.Fatalf("second reserve (after unreserve) failed: %v", err)
+	}
+	if result2.TotalReserved != 40.0 {
+		t.Errorf("total_reserved = %f, want 40.0", result2.TotalReserved)
+	}
+}
+
+func TestInventoryService_UnreserveInventory_Validation(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	err := svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: uuid.Nil})
+	if err == nil {
+		t.Fatal("expected validation error for nil order_line_id")
+	}
+}
+
+func TestInventoryService_ReserveInventory_MultipleOrderLines(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+	olID1 := uuid.New()
+	olID2 := uuid.New()
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, Status: domain.InventoryStatusAvailable,
+	})
+
+	svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 30, OrderLineID: olID1,
+	})
+	svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 40, OrderLineID: olID2,
+	})
+
+	got, _ := svc.GetInventory(ctx, inv.ID)
+	if got.ReservedQty != 70.0 {
+		t.Errorf("reserved_qty = %f, want 70.0", got.ReservedQty)
+	}
+	if got.AvailableQty != 30.0 {
+		t.Errorf("available = %f, want 30.0", got.AvailableQty)
+	}
+
+	err := svc.UnreserveInventory(ctx, UnreserveInventoryInput{OrderLineID: olID1})
+	if err != nil {
+		t.Fatalf("unreserve ol1 failed: %v", err)
+	}
+
+	got, _ = svc.GetInventory(ctx, inv.ID)
+	if got.ReservedQty != 40.0 {
+		t.Errorf("after unreserve, reserved_qty = %f, want 40.0", got.ReservedQty)
+	}
+	if got.AvailableQty != 60.0 {
+		t.Errorf("after unreserve, available = %f, want 60.0", got.AvailableQty)
+	}
+}
+
+func TestInventoryService_ReserveInventory_RespectsAvailableQty(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockInventoryRepo()
+	svc := NewInventoryService(repo)
+
+	skuID := uuid.New()
+	whID := uuid.New()
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
+		Qty: 100, ReservedQty: 90, Status: domain.InventoryStatusAvailable,
+	})
+
+	result, err := svc.ReserveInventory(ctx, ReserveInventoryInput{
+		SKUID: skuID, WarehouseID: whID, Qty: 10, OrderLineID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("reserve exact available failed: %v", err)
+	}
+	if result.TotalReserved != 10.0 {
+		t.Errorf("total_reserved = %f, want 10.0", result.TotalReserved)
+	}
+
+	got, _ := svc.GetInventory(ctx, inv.ID)
+	if got.ReservedQty != 100.0 {
+		t.Errorf("reserved_qty = %f, want 100.0", got.ReservedQty)
+	}
+	if got.AvailableQty != 0 {
+		t.Errorf("available = %f, want 0", got.AvailableQty)
+	}
+}

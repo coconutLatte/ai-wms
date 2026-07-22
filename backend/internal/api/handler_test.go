@@ -82,6 +82,9 @@ func (m *mockInvRepo) CreateTransaction(ctx context.Context, tx *domain.Inventor
 func (m *mockInvRepo) ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error) {
 	return nil, nil
 }
+func (m *mockInvRepo) ListTransactionsByReference(ctx context.Context, referenceType string, referenceID uuid.UUID) ([]*domain.InventoryTransaction, error) {
+	return nil, nil
+}
 func (m *mockInvRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) { return 0, nil }
 func (m *mockInvRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
 	return nil, nil
