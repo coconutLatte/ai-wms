@@ -234,6 +234,16 @@ func (s *OrderService) ListOrders(ctx context.Context, filter repository.OrderFi
 	return orders, total, nil
 }
 
+// CountOrdersByStatus returns the number of orders in each status.
+// Used by the admin dashboard to show order status distribution.
+func (s *OrderService) CountOrdersByStatus(ctx context.Context) (map[domain.OrderStatus]int, error) {
+	counts, err := s.repo.CountOrdersByStatus(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("order service: count by status: %w", err)
+	}
+	return counts, nil
+}
+
 // UpdateOrderStatus validates the state transition and updates the order status.
 // When status transitions to "confirmed", tasks are auto-generated for the order:
 //   - inbound orders  → putaway tasks (one per line)

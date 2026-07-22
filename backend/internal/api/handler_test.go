@@ -117,6 +117,9 @@ func (m *mockOrderRepo) UpdateOrderStatus(ctx context.Context, id uuid.UUID, sta
 	return nil
 }
 func (m *mockOrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilter) (int, error) { return 0, nil }
+func (m *mockOrderRepo) CountOrdersByStatus(ctx context.Context) (map[domain.OrderStatus]int, error) {
+	return nil, nil
+}
 
 func (m *mockOrderRepo) CreateOrderLine(ctx context.Context, line *domain.OrderLine) error { return nil }
 func (m *mockOrderRepo) GetOrderLine(ctx context.Context, id uuid.UUID) (*domain.OrderLine, error) {
@@ -175,6 +178,9 @@ func (m *mockTaskRepoForHandler) CompleteTask(ctx context.Context, id uuid.UUID,
 	return nil
 }
 func (m *mockTaskRepoForHandler) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) { return 0, nil }
+func (m *mockTaskRepoForHandler) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	return nil, nil
+}
 func (m *mockTaskRepoForHandler) CreateWave(ctx context.Context, w *domain.Wave) error                       { return nil }
 func (m *mockTaskRepoForHandler) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error)             { return nil, nil }
 func (m *mockTaskRepoForHandler) ListWaves(ctx context.Context, filter repository.WaveFilter) ([]*domain.Wave, error) {

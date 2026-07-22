@@ -126,6 +126,7 @@ type OrderRepository interface {
 	ListOrders(ctx context.Context, filter OrderFilter) ([]*domain.Order, error)
 	UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error
 	CountOrders(ctx context.Context, filter OrderFilter) (int, error)
+	CountOrdersByStatus(ctx context.Context) (map[domain.OrderStatus]int, error)
 
 	// OrderLine
 	CreateOrderLine(ctx context.Context, line *domain.OrderLine) error
@@ -177,6 +178,7 @@ type TaskRepository interface {
 	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error
 	CompleteTask(ctx context.Context, id uuid.UUID, actualQty float64, toLocationID *uuid.UUID) error
 	CountTasks(ctx context.Context, filter TaskFilter) (int, error)
+	CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error)
 
 	// Wave
 	CreateWave(ctx context.Context, w *domain.Wave) error

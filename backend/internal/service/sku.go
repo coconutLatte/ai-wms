@@ -124,6 +124,15 @@ func (s *SKUService) ListSKUs(ctx context.Context, limit, offset int) ([]*domain
 	return skus, total, nil
 }
 
+// CountSKUs returns the total number of SKUs.
+func (s *SKUService) CountSKUs(ctx context.Context) (int, error) {
+	total, err := s.repo.CountSKUs(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("sku service: count: %w", err)
+	}
+	return total, nil
+}
+
 // UpdateSKU validates and partially updates an existing SKU.
 func (s *SKUService) UpdateSKU(ctx context.Context, id uuid.UUID, input UpdateSKUInput) (*domain.SKU, error) {
 	sku, err := s.repo.GetSKU(ctx, id)

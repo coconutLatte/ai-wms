@@ -222,6 +222,16 @@ export interface DashboardResponse {
   by_warehouse: WarehouseBreakdown[]
 }
 
+// ── Admin Dashboard (comprehensive) ─────────────────────────────────────────
+
+export interface AdminDashboardResponse {
+  warehouse_count: number
+  sku_count: number
+  inventory_stats: DashboardStats | null
+  order_summary: Record<string, number> | null
+  task_summary: Record<string, number> | null
+}
+
 // ── Orders ─────────────────────────────────────────────────────────────────
 
 export interface OrderSummary {

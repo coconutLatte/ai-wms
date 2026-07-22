@@ -111,6 +111,7 @@ func main() {
 	auditLogHandler := api.NewAuditLogHandler(auditLogSvc, log.Logger)
 	userHandler := api.NewUserHandler(userSvc, log.Logger)
 	roleHandler := api.NewRoleHandler(roleSvc, log.Logger)
+	dashboardHandler := api.NewDashboardHandler(warehouseSvc, skuSvc, inventorySvc, orderSvc, taskSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -138,6 +139,7 @@ func main() {
 	api.RegisterASNRoutes(protected, orderHandler)
 	api.RegisterTaskRoutes(protected, taskHandler)
 	api.RegisterWaveRoutes(protected, waveHandler)
+	api.RegisterDashboardRoute(protected, dashboardHandler)
 
 	// Admin-only routes (require auth + admin role).
 	adminOnly := http.NewServeMux()

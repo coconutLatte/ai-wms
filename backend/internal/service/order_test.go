@@ -101,6 +101,14 @@ func (m *mockOrderRepo) CountOrders(ctx context.Context, filter repository.Order
 	return count, nil
 }
 
+func (m *mockOrderRepo) CountOrdersByStatus(ctx context.Context) (map[domain.OrderStatus]int, error) {
+	result := make(map[domain.OrderStatus]int)
+	for _, o := range m.orders {
+		result[o.Status]++
+	}
+	return result, nil
+}
+
 // ── OrderLine ───────────────────────────────────────────────
 
 func (m *mockOrderRepo) GetOrderLine(ctx context.Context, id uuid.UUID) (*domain.OrderLine, error) {
@@ -309,6 +317,9 @@ func (m *mockTaskRepoForOrder) CompleteTask(ctx context.Context, id uuid.UUID, a
 }
 func (m *mockTaskRepoForOrder) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) {
 	return 0, nil
+}
+func (m *mockTaskRepoForOrder) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	return nil, nil
 }
 func (m *mockTaskRepoForOrder) CreateWave(ctx context.Context, w *domain.Wave) error {
 	return nil

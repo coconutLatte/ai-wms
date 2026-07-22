@@ -22,7 +22,8 @@
     "no": "No",
     "back": "Back",
     "close": "Close",
-    "view": "View"
+    "view": "View",
+    "loadFailed": "Load failed"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -54,7 +55,11 @@
     "warehouses": "Warehouses",
     "skus": "SKUs",
     "inventoryRecords": "Inventory Records",
-    "activeOrders": "Active Orders"
+    "activeOrders": "Active Orders",
+    "ordersLabel": "Orders",
+    "tasksLabel": "Tasks",
+    "completedOrders": "Completed Orders",
+    "pendingTasks": "Pending Tasks"
   },
   "warehouse": {
     "title": "Warehouses",

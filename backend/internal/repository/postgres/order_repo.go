@@ -186,6 +186,32 @@ func (r *OrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilt
 	return count, nil
 }
 
+// CountOrdersByStatus returns order counts grouped by status.
+// Used by the admin dashboard to show order status distribution.
+func (r *OrderRepo) CountOrdersByStatus(ctx context.Context) (map[domain.OrderStatus]int, error) {
+	const query = `SELECT status, COUNT(*) FROM orders GROUP BY status`
+
+	rows, err := r.query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("count orders by status: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[domain.OrderStatus]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scan order status count: %w", err)
+		}
+		result[domain.OrderStatus(status)] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate order status counts: %w", err)
+	}
+	return result, nil
+}
+
 // UpdateOrderStatus transitions an order to a new status.
 func (r *OrderRepo) UpdateOrderStatus(ctx context.Context, id uuid.UUID, status domain.OrderStatus) error {
 	updatedAt := time.Now()

@@ -287,6 +287,32 @@ func (r *TaskRepo) CountTasks(ctx context.Context, filter repository.TaskFilter)
 	return count, nil
 }
 
+// CountTasksByStatus returns task counts grouped by status.
+// Used by the admin dashboard to show task status distribution.
+func (r *TaskRepo) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	const query = `SELECT status, COUNT(*) FROM tasks GROUP BY status`
+
+	rows, err := r.query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("count tasks by status: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[domain.TaskStatus]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scan task status count: %w", err)
+		}
+		result[domain.TaskStatus(status)] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate task status counts: %w", err)
+	}
+	return result, nil
+}
+
 // ── Wave ────────────────────────────────────────────────────
 
 // CreateWave inserts a new wave.

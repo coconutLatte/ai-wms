@@ -129,6 +129,14 @@ func (m *mockTaskRepo) CountTasks(ctx context.Context, filter repository.TaskFil
 	return count, nil
 }
 
+func (m *mockTaskRepo) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	result := make(map[domain.TaskStatus]int)
+	for _, t := range m.tasks {
+		result[t.Status]++
+	}
+	return result, nil
+}
+
 // ── Wave (not used by TaskService tests) ────────────────────
 
 func (m *mockTaskRepo) CreateWave(ctx context.Context, w *domain.Wave) error { return nil }
@@ -910,6 +918,14 @@ func (m *combinedMockRepo) CountTasks(ctx context.Context, filter repository.Tas
 		count++
 	}
 	return count, nil
+}
+
+func (m *combinedMockRepo) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	result := make(map[domain.TaskStatus]int)
+	for _, t := range m.tasks {
+		result[t.Status]++
+	}
+	return result, nil
 }
 
 // ── Wave (not used by these tests) ────────────────────────────

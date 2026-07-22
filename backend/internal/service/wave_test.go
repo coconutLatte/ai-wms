@@ -50,6 +50,10 @@ func (m *mockRepoForWave) CountTasks(ctx context.Context, filter repository.Task
 	panic("not implemented")
 }
 
+func (m *mockRepoForWave) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	panic("not implemented")
+}
+
 // ── Wave methods ────────────────────────────────────────────
 
 func (m *mockRepoForWave) CreateWave(ctx context.Context, w *domain.Wave) error {

@@ -114,6 +114,8 @@ PUT    /api/v1/orders/:id/status   — Update order status
 GET    /api/v1/tasks               — List tasks
 POST   /api/v1/tasks/:id/assign    — Assign task
 PUT    /api/v1/tasks/:id/complete  — Complete task
+
+GET    /api/v1/dashboard           — Admin dashboard (aggregated stats)
 ```
 
 ### REST Endpoints (PDA)

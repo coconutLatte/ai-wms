@@ -87,6 +87,15 @@ func (s *WarehouseService) ListWarehouses(ctx context.Context, limit, offset int
 	return warehouses, total, nil
 }
 
+// CountWarehouses returns the total number of warehouses.
+func (s *WarehouseService) CountWarehouses(ctx context.Context) (int, error) {
+	total, err := s.repo.CountWarehouses(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("warehouse service: count: %w", err)
+	}
+	return total, nil
+}
+
 // UpdateWarehouseInput is the input for updating a warehouse.
 type UpdateWarehouseInput struct {
 	Name    *string                 `json:"name,omitempty"`

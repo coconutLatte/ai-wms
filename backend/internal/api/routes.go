@@ -126,3 +126,8 @@ func RegisterWaveRoutes(mux *http.ServeMux, h *WaveHandler) {
 	mux.HandleFunc("POST /api/v1/waves/{id}/orders", h.AddWaveOrders)
 	mux.HandleFunc("DELETE /api/v1/waves/{id}/orders", h.RemoveWaveOrders)
 }
+
+// RegisterDashboardRoute registers the admin dashboard API route.
+func RegisterDashboardRoute(mux *http.ServeMux, h *DashboardHandler) {
+	mux.HandleFunc("GET /api/v1/dashboard", h.GetDashboard)
+}

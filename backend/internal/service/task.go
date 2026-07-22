@@ -177,6 +177,16 @@ func (s *TaskService) ListTasks(ctx context.Context, filter repository.TaskFilte
 	return tasks, total, nil
 }
 
+// CountTasksByStatus returns the number of tasks in each status.
+// Used by the admin dashboard to show task status distribution.
+func (s *TaskService) CountTasksByStatus(ctx context.Context) (map[domain.TaskStatus]int, error) {
+	counts, err := s.repo.CountTasksByStatus(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("task service: count by status: %w", err)
+	}
+	return counts, nil
+}
+
 // AssignTask assigns a pending task to a worker.
 // Only tasks in "pending" status can be assigned.
 func (s *TaskService) AssignTask(ctx context.Context, id uuid.UUID, input AssignTaskInput) (*domain.Task, error) {
