@@ -85,3 +85,14 @@ func RegisterTaskRoutes(mux *http.ServeMux, h *TaskHandler) {
 	mux.HandleFunc("PUT /api/v1/tasks/{id}/status", h.UpdateTaskStatus)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", h.CompleteTask)
 }
+
+// RegisterWaveRoutes registers wave API routes on the given mux.
+func RegisterWaveRoutes(mux *http.ServeMux, h *WaveHandler) {
+	mux.HandleFunc("POST /api/v1/waves", h.CreateWave)
+	mux.HandleFunc("GET /api/v1/waves", h.ListWaves)
+	mux.HandleFunc("GET /api/v1/waves/{id}", h.GetWave)
+	mux.HandleFunc("PUT /api/v1/waves/{id}/status", h.UpdateWaveStatus)
+	mux.HandleFunc("POST /api/v1/waves/{id}/release", h.ReleaseWave)
+	mux.HandleFunc("POST /api/v1/waves/{id}/orders", h.AddWaveOrders)
+	mux.HandleFunc("DELETE /api/v1/waves/{id}/orders", h.RemoveWaveOrders)
+}

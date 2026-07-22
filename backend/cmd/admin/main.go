@@ -94,6 +94,7 @@ func main() {
 	inventorySvc := service.NewInventoryServiceWithTx(inventoryRepo, txManager)
 	orderSvc := service.NewOrderService(orderRepo)
 	taskSvc := service.NewTaskService(taskRepo)
+	waveSvc := service.NewWaveService(taskRepo)
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	auditLogSvc := service.NewAuditLogService(userRepo)
 	userSvc := service.NewUserService(userRepo)
@@ -104,6 +105,7 @@ func main() {
 	inventoryHandler := api.NewInventoryHandler(inventorySvc, log.Logger)
 	orderHandler := api.NewOrderHandler(orderSvc, log.Logger)
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
+	waveHandler := api.NewWaveHandler(waveSvc, log.Logger)
 	authHandler := api.NewAuthHandler(authSvc, log.Logger)
 	auditLogHandler := api.NewAuditLogHandler(auditLogSvc, log.Logger)
 	userHandler := api.NewUserHandler(userSvc, log.Logger)
@@ -132,6 +134,7 @@ func main() {
 	api.RegisterInventoryRoutes(protected, inventoryHandler)
 	api.RegisterOrderRoutes(protected, orderHandler)
 	api.RegisterTaskRoutes(protected, taskHandler)
+	api.RegisterWaveRoutes(protected, waveHandler)
 
 	// Admin-only routes (require auth + admin role).
 	adminOnly := http.NewServeMux()

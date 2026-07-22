@@ -111,6 +111,8 @@ A single warehouse operation assigned to a worker.
 A group of orders batched for efficient picking.
 - **Types**: single_order, batch, zone, carrier
 - Contains a set of Order IDs and generated Task IDs
+- **Status flow**: created → released → in_progress → completed
+- Managed via WaveService with Admin API (POST/GET /waves, PUT /waves/{id}/status, POST /waves/{id}/release, POST/DELETE /waves/{id}/orders)
 
 ### User
 A system user (admin or warehouse operator).
@@ -147,6 +149,13 @@ pending → assigned → in_progress → completed
                               │
                               └──→ in_progress (resolved)
 ```
+
+### Wave Lifecycle
+```
+created → released → in_progress → completed
+```
+- Orders can only be added/removed in `created` status.
+- `completed` is terminal — no further transitions allowed.
 
 ### Inventory Status
 ```

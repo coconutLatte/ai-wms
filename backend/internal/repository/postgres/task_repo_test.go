@@ -983,7 +983,7 @@ func TestTaskRepo_ListWaves(t *testing.T) {
 		}
 	}
 
-	waves, err := taskRepo.ListWaves(ctx, wh.ID)
+	waves, err := taskRepo.ListWaves(ctx, repository.WaveFilter{WarehouseID: wh.ID})
 	if err != nil {
 		t.Fatalf("ListWaves failed: %v", err)
 	}
@@ -992,7 +992,7 @@ func TestTaskRepo_ListWaves(t *testing.T) {
 	}
 
 	// List waves for a different warehouse — should return empty
-	empty, err := taskRepo.ListWaves(ctx, uuid.New())
+	empty, err := taskRepo.ListWaves(ctx, repository.WaveFilter{WarehouseID: uuid.New()})
 	if err != nil {
 		t.Fatalf("ListWaves for unknown warehouse failed: %v", err)
 	}
@@ -1014,7 +1014,7 @@ func TestTaskRepo_ListWaves_Empty(t *testing.T) {
 
 	wh := createTaskTestWarehouse(t, ctx, whRepo)
 
-	waves, err := taskRepo.ListWaves(ctx, wh.ID)
+	waves, err := taskRepo.ListWaves(ctx, repository.WaveFilter{WarehouseID: wh.ID})
 	if err != nil {
 		t.Fatalf("ListWaves failed: %v", err)
 	}
@@ -1204,7 +1204,7 @@ func TestTaskRepo_CountWaves(t *testing.T) {
 	wh := createTaskTestWarehouse(t, ctx, whRepo)
 
 	// Initially zero waves
-	count, err := taskRepo.CountWaves(ctx, wh.ID)
+	count, err := taskRepo.CountWaves(ctx, repository.WaveFilter{WarehouseID: wh.ID})
 	if err != nil {
 		t.Fatalf("CountWaves failed: %v", err)
 	}
@@ -1224,7 +1224,7 @@ func TestTaskRepo_CountWaves(t *testing.T) {
 		}
 	}
 
-	count, err = taskRepo.CountWaves(ctx, wh.ID)
+	count, err = taskRepo.CountWaves(ctx, repository.WaveFilter{WarehouseID: wh.ID})
 	if err != nil {
 		t.Fatalf("CountWaves failed: %v", err)
 	}
@@ -1233,7 +1233,7 @@ func TestTaskRepo_CountWaves(t *testing.T) {
 	}
 
 	// Different warehouse should return 0
-	count, err = taskRepo.CountWaves(ctx, uuid.New())
+	count, err = taskRepo.CountWaves(ctx, repository.WaveFilter{WarehouseID: uuid.New()})
 	if err != nil {
 		t.Fatalf("CountWaves for unknown warehouse failed: %v", err)
 	}

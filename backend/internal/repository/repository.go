@@ -169,9 +169,11 @@ type TaskRepository interface {
 	// Wave
 	CreateWave(ctx context.Context, w *domain.Wave) error
 	GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error)
-	ListWaves(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Wave, error)
+	ListWaves(ctx context.Context, filter WaveFilter) ([]*domain.Wave, error)
 	UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error
-	CountWaves(ctx context.Context, warehouseID uuid.UUID) (int, error)
+	AddWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error
+	RemoveWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error
+	CountWaves(ctx context.Context, filter WaveFilter) (int, error)
 }
 
 // TaskFilter defines query parameters for task search.
@@ -180,6 +182,15 @@ type TaskFilter struct {
 	TaskType    domain.TaskType
 	Status      domain.TaskStatus
 	AssignedTo  string
+	Limit       int
+	Offset      int
+}
+
+// WaveFilter defines query parameters for wave search.
+type WaveFilter struct {
+	WarehouseID uuid.UUID
+	Status      domain.WaveStatus
+	WaveType    domain.WaveType
 	Limit       int
 	Offset      int
 }

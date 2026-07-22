@@ -310,15 +310,50 @@ func (r *TaskRepo) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, err
 	return w, nil
 }
 
-// ListWaves returns all waves in a warehouse, optionally filtered.
-func (r *TaskRepo) ListWaves(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Wave, error) {
-	const query = `
+// ListWaves returns waves matching the specified filter.
+func (r *TaskRepo) ListWaves(ctx context.Context, filter repository.WaveFilter) ([]*domain.Wave, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+	if filter.WaveType != "" {
+		conditions = append(conditions, fmt.Sprintf("wave_type = $%d", argIdx))
+		args = append(args, filter.WaveType)
+		argIdx++
+	}
+
+	query := `
 		SELECT id, wave_no, warehouse_id, wave_type, status,
 		       order_ids, task_ids, total_orders, total_lines, total_qty,
 		       created_at, released_at, completed_at
-		FROM waves WHERE warehouse_id = $1 ORDER BY created_at DESC`
+		FROM waves`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY created_at DESC"
 
-	rows, err := r.query(ctx, query, warehouseID)
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, filter.Offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list waves: %w", err)
 	}
@@ -365,16 +400,89 @@ func (r *TaskRepo) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
-// CountWaves returns the total count of waves for a given warehouse.
-func (r *TaskRepo) CountWaves(ctx context.Context, warehouseID uuid.UUID) (int, error) {
-	const query = `SELECT COUNT(*) FROM waves WHERE warehouse_id = $1`
+// CountWaves returns the total count of waves matching the filter.
+func (r *TaskRepo) CountWaves(ctx context.Context, filter repository.WaveFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+	if filter.WaveType != "" {
+		conditions = append(conditions, fmt.Sprintf("wave_type = $%d", argIdx))
+		args = append(args, filter.WaveType)
+		argIdx++
+	}
+
+	query := `SELECT COUNT(*) FROM waves`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
 
 	var count int
-	err := r.queryRow(ctx, query, warehouseID).Scan(&count)
+	err := r.queryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count waves: %w", err)
 	}
 	return count, nil
+}
+
+// AddWaveOrders appends order IDs to a wave and recalculates totals.
+// Only allowed when wave status is "created".
+func (r *TaskRepo) AddWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	const query = `
+		UPDATE waves
+		SET order_ids = ARRAY(
+			SELECT DISTINCT UNNEST(order_ids || $2::uuid[])
+		),
+		total_orders = (
+			SELECT COUNT(DISTINCT oid) FROM UNNEST(order_ids || $2::uuid[]) AS oid
+		)
+		WHERE id = $1 AND status = 'created'`
+
+	tag, err := r.exec(ctx, query, id, orderIDs)
+	if err != nil {
+		return fmt.Errorf("add wave orders: %w", err)
+	}
+	if tag == 0 {
+		return fmt.Errorf("add wave orders %s: wave not found or not in created status", id)
+	}
+	return nil
+}
+
+// RemoveWaveOrders removes order IDs from a wave and recalculates totals.
+// Only allowed when wave status is "created".
+func (r *TaskRepo) RemoveWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	const query = `
+		UPDATE waves
+		SET order_ids = ARRAY(
+			SELECT oid FROM UNNEST(order_ids) AS oid
+			WHERE oid <> ALL($2::uuid[])
+		),
+		total_orders = (
+			SELECT COUNT(*) FROM (
+				SELECT oid FROM UNNEST(order_ids) AS oid
+				WHERE oid <> ALL($2::uuid[])
+			) t
+		)
+		WHERE id = $1 AND status = 'created'`
+
+	tag, err := r.exec(ctx, query, id, orderIDs)
+	if err != nil {
+		return fmt.Errorf("remove wave orders: %w", err)
+	}
+	if tag == 0 {
+		return fmt.Errorf("remove wave orders %s: wave not found or not in created status", id)
+	}
+	return nil
 }
 
 // ── Helpers ────────────────────────────────────────────────

@@ -124,16 +124,22 @@ func (m *mockTaskRepo) CreateWave(ctx context.Context, w *domain.Wave) error { r
 func (m *mockTaskRepo) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error) {
 	return nil, nil
 }
-func (m *mockTaskRepo) ListWaves(ctx context.Context, warehouseID uuid.UUID) ([]*domain.Wave, error) {
+func (m *mockTaskRepo) ListWaves(ctx context.Context, filter repository.WaveFilter) ([]*domain.Wave, error) {
 	return nil, nil
 }
 func (m *mockTaskRepo) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error {
 	return nil
 }
-func (m *mockTaskRepo) CountWaves(ctx context.Context, warehouseID uuid.UUID) (int, error) {
+func (m *mockTaskRepo) AddWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepo) RemoveWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepo) CountWaves(ctx context.Context, filter repository.WaveFilter) (int, error) {
 	count := 0
 	for _, w := range m.waves {
-		if w.WarehouseID == warehouseID {
+		if w.WarehouseID == filter.WarehouseID {
 			count++
 		}
 	}
