@@ -7,6 +7,7 @@ import (
 
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
 	"github.com/ai-wms/ai-wms/backend/internal/service"
+	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
 )
 
 // SKUHandler handles HTTP requests for SKU resources.
@@ -111,7 +112,14 @@ func (h *SKUHandler) GetSKU(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListSKUs handles GET /api/v1/skus
+// When the "code" query parameter is provided, delegates to GetSKUByCode.
 func (h *SKUHandler) ListSKUs(w http.ResponseWriter, r *http.Request) {
+	// If a SKU code is specified, do a single-SKU lookup by code.
+	if code := QueryParam(r, "code", ""); code != "" {
+		h.GetSKUByCode(w, r)
+		return
+	}
+
 	page, pageSize := PaginationParams(r)
 	offset := paginationOffset(page, pageSize)
 
@@ -147,6 +155,23 @@ func (h *SKUHandler) UpdateSKU(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sku, err := h.svc.UpdateSKU(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toSKUResponse(sku))
+}
+
+// GetSKUByCode handles GET /api/v1/skus?code=X
+func (h *SKUHandler) GetSKUByCode(w http.ResponseWriter, r *http.Request) {
+	code := QueryParam(r, "code", "")
+	if code == "" {
+		WriteError(w, r, pkgerrors.NewInvalidInput("code query parameter is required"))
+		return
+	}
+
+	sku, err := h.svc.GetSKUByCode(r.Context(), code)
 	if err != nil {
 		WriteError(w, r, err)
 		return

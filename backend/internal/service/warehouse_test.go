@@ -518,3 +518,40 @@ func TestWarehouseService_UpdateLocationStatus_FullLifecycle(t *testing.T) {
 		t.Errorf("status = %q, want empty", got.Status)
 	}
 }
+
+// ── Location By Barcode Tests ─────────────────────────────────────────────────
+
+func TestWarehouseService_GetLocationByBarcode(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockWarehouseRepo()
+	svc := NewWarehouseService(repo)
+
+	wh, _ := svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "Test WH"})
+	zone, _ := svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
+	loc, _ := svc.CreateLocation(ctx, zone.ID, CreateLocationInput{
+		Code:         "A-01-01-01",
+		Barcode:      "LOC-BC-001",
+		LocationType: domain.LocationTypeShelf,
+	})
+
+	got, err := svc.GetLocationByBarcode(ctx, "LOC-BC-001")
+	if err != nil {
+		t.Fatalf("GetLocationByBarcode failed: %v", err)
+	}
+	if got.ID != loc.ID {
+		t.Errorf("id = %q, want %q", got.ID, loc.ID)
+	}
+	if got.Barcode != "LOC-BC-001" {
+		t.Errorf("barcode = %q, want %q", got.Barcode, "LOC-BC-001")
+	}
+}
+
+func TestWarehouseService_GetLocationByBarcode_NotFound(t *testing.T) {
+	ctx := context.Background()
+	svc := NewWarehouseService(newMockWarehouseRepo())
+
+	_, err := svc.GetLocationByBarcode(ctx, "NONEXISTENT")
+	if err == nil {
+		t.Fatal("expected error for unknown barcode")
+	}
+}

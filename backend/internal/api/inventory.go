@@ -266,6 +266,31 @@ func (h *InventoryHandler) GetExpiringInventory(w http.ResponseWriter, r *http.R
 	})
 }
 
+// ── Inventory Status Handler ──────────────────────────────────────────────────────────
+
+// UpdateInventoryStatus handles PATCH /api/v1/inventory/{id}/status
+func (h *InventoryHandler) UpdateInventoryStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateInventoryStatusInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	inv, err := h.svc.UpdateInventoryStatus(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toInventoryResponse(inv))
+}
+
 // ── Dashboard Response Types ────────────────────────────────────────────────────────────
 
 // dashboardStatsResponse mirrors repository.InventoryDashboardStats for the JSON API.

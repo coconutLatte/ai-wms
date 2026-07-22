@@ -261,6 +261,29 @@ func (h *OrderHandler) AddOrderLine(w http.ResponseWriter, r *http.Request) {
 	WriteCreated(w, toOrderLineResponse(line))
 }
 
+// UpdateOrderLineStatus handles PUT /api/v1/orders/{id}/lines/{lineId}/status
+func (h *OrderHandler) UpdateOrderLineStatus(w http.ResponseWriter, r *http.Request) {
+	lineID, err := PathUUID(r, "lineId")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateOrderLineStatusInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	line, err := h.svc.UpdateOrderLineStatus(r.Context(), lineID, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toOrderLineResponse(line))
+}
+
 // ── ASN Response Types ──────────────────────────────────────────────────────────────
 
 // asnResponse is the JSON shape returned for ASN endpoints.

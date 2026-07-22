@@ -8,6 +8,7 @@ import (
 
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
 	"github.com/ai-wms/ai-wms/backend/internal/service"
+	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
 )
 
 // WarehouseHandler handles HTTP requests for warehouse, zone, and location resources.
@@ -342,4 +343,21 @@ func (h *WarehouseHandler) UpdateLocationStatus(w http.ResponseWriter, r *http.R
 	}
 
 	WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// GetLocationByBarcode handles GET /api/v1/locations?barcode=X
+func (h *WarehouseHandler) GetLocationByBarcode(w http.ResponseWriter, r *http.Request) {
+	barcode := QueryParam(r, "barcode", "")
+	if barcode == "" {
+		WriteError(w, r, pkgerrors.NewInvalidInput("barcode query parameter is required"))
+		return
+	}
+
+	loc, err := h.svc.GetLocationByBarcode(r.Context(), barcode)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toLocationResponse(loc))
 }

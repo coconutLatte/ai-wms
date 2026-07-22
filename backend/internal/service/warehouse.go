@@ -327,6 +327,15 @@ func (s *WarehouseService) UpdateLocationStatus(ctx context.Context, id uuid.UUI
 	return nil
 }
 
+// GetLocationByBarcode retrieves a location by its barcode.
+func (s *WarehouseService) GetLocationByBarcode(ctx context.Context, barcode string) (*domain.Location, error) {
+	loc, err := s.repo.GetLocationByBarcode(ctx, barcode)
+	if err != nil {
+		return nil, fmt.Errorf("warehouse service: get location by barcode %s: %w", barcode, err)
+	}
+	return loc, nil
+}
+
 func isValidLocationStatus(s domain.LocationStatus) bool {
 	switch s {
 	case domain.LocationStatusEmpty, domain.LocationStatusOccupied,

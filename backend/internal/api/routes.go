@@ -33,6 +33,9 @@ func RegisterWarehouseRoutes(mux *http.ServeMux, h *WarehouseHandler) {
 	mux.HandleFunc("GET /api/v1/zones/{id}/locations", h.ListLocations)
 	mux.HandleFunc("GET /api/v1/locations/{id}", h.GetLocation)
 	mux.HandleFunc("PATCH /api/v1/locations/{id}/status", h.UpdateLocationStatus)
+
+	// Location lookup by barcode
+	mux.HandleFunc("GET /api/v1/locations", h.GetLocationByBarcode)
 }
 
 // RegisterSKURoutes registers SKU API routes on the given mux.
@@ -54,6 +57,9 @@ func RegisterInventoryRoutes(mux *http.ServeMux, h *InventoryHandler) {
 	mux.HandleFunc("GET /api/v1/inventory/fifo", h.GetOldestInventory)
 	mux.HandleFunc("GET /api/v1/inventory/fefo", h.GetExpiringInventory)
 	mux.HandleFunc("GET /api/v1/inventory/dashboard", h.GetDashboard)
+
+	// Inventory status transition
+	mux.HandleFunc("PATCH /api/v1/inventory/{id}/status", h.UpdateInventoryStatus)
 }
 
 // RegisterOrderRoutes registers order API routes on the given mux.
@@ -63,6 +69,9 @@ func RegisterOrderRoutes(mux *http.ServeMux, h *OrderHandler) {
 	mux.HandleFunc("GET /api/v1/orders/{id}", h.GetOrder)
 	mux.HandleFunc("PUT /api/v1/orders/{id}/status", h.UpdateOrderStatus)
 	mux.HandleFunc("POST /api/v1/orders/{id}/lines", h.AddOrderLine)
+
+	// Order line status transition
+	mux.HandleFunc("PUT /api/v1/orders/{id}/lines/{lineId}/status", h.UpdateOrderLineStatus)
 }
 
 // RegisterASNRoutes registers ASN API routes on the given mux.
