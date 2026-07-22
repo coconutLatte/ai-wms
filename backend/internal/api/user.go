@@ -23,7 +23,7 @@ func NewUserHandler(svc *service.UserService, log *slog.Logger) *UserHandler {
 
 // ── Response Types ───────────────────────────────────────────────────────────
 
-// userResponse is the JSON shape returned for user list endpoints.
+// userResponse is the JSON shape returned for user endpoints.
 // Password hash is never serialized.
 type userResponse struct {
 	ID          string   `json:"id"`
@@ -92,4 +92,100 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		Data:       resp,
 		Pagination: NewPaginationMeta(total, page, pageSize),
 	})
+}
+
+// CreateUser handles POST /api/v1/users
+func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var input service.CreateUserInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	user, err := h.svc.CreateUser(r.Context(), input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	h.log.Info("user created",
+		slog.String("user_id", user.ID.String()),
+		slog.String("username", user.Username),
+	)
+
+	WriteCreated(w, toUserResponse(user))
+}
+
+// GetUser handles GET /api/v1/users/{id}
+func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	user, err := h.svc.GetUser(r.Context(), id)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toUserResponse(user))
+}
+
+// UpdateUser handles PUT /api/v1/users/{id}
+func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateUserInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	user, err := h.svc.UpdateUser(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	h.log.Info("user updated",
+		slog.String("user_id", user.ID.String()),
+		slog.String("username", user.Username),
+	)
+
+	WriteJSON(w, http.StatusOK, toUserResponse(user))
+}
+
+// UpdateUserStatus handles PUT /api/v1/users/{id}/status
+func (h *UserHandler) UpdateUserStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateUserStatusInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	user, err := h.svc.UpdateUserStatus(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	h.log.Info("user status updated",
+		slog.String("user_id", user.ID.String()),
+		slog.String("username", user.Username),
+		slog.String("new_status", string(user.Status)),
+	)
+
+	WriteJSON(w, http.StatusOK, toUserResponse(user))
 }

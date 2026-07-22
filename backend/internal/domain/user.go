@@ -57,6 +57,29 @@ func (p Permission) Can(resource, action string) bool {
 	return false
 }
 
+// ── User State Machine ────────────────────────────────────────────────────
+
+// CanTransitionTo checks whether the user account can transition from its
+// current status to the target status. All transitions between valid statuses
+// are allowed except self-transitions (no-op).
+//
+// Valid transitions:
+//
+//	active   → inactive, locked
+//	inactive → active, locked
+//	locked   → active, inactive
+func (u *User) CanTransitionTo(target UserStatus) bool {
+	if u.Status == target {
+		return false
+	}
+	// All cross-status transitions are valid for users.
+	switch target {
+	case UserStatusActive, UserStatusInactive, UserStatusLocked:
+		return true
+	}
+	return false
+}
+
 // AuditLog records an audited operation for compliance and traceability.
 type AuditLog struct {
 	ID         uuid.UUID `json:"id"`
