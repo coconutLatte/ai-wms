@@ -15,12 +15,23 @@ import (
 
 // TaskService orchestrates business logic for warehouse tasks.
 type TaskService struct {
-	repo repository.TaskRepository
+	repo          repository.TaskRepository
+	inventoryRepo repository.InventoryRepository
+	txManager     repository.TxManager
 }
 
-// NewTaskService creates a new TaskService.
+// NewTaskService creates a new TaskService without inventory effects.
+// Use NewTaskServiceWithTx when inventory effects and transaction support are needed.
 func NewTaskService(repo repository.TaskRepository) *TaskService {
 	return &TaskService{repo: repo}
+}
+
+// NewTaskServiceWithTx creates a new TaskService with inventory support.
+// When inventoryRepo and txManager are provided, completing tasks triggers
+// inventory effects (putaway creates/increments inventory, pick decrements it)
+// within an atomic database transaction.
+func NewTaskServiceWithTx(repo repository.TaskRepository, inventoryRepo repository.InventoryRepository, txManager repository.TxManager) *TaskService {
+	return &TaskService{repo: repo, inventoryRepo: inventoryRepo, txManager: txManager}
 }
 
 // ── Input Types ──────────────────────────────────────────────────────────────────────────
@@ -224,6 +235,14 @@ func (s *TaskService) UpdateTaskStatus(ctx context.Context, id uuid.UUID, input 
 
 // CompleteTask marks a task as completed with the actual quantity performed.
 // Only tasks in "in_progress" status can be completed.
+//
+// When inventory support is configured (via NewTaskServiceWithTx), completing a task
+// also applies inventory effects within an atomic transaction:
+//   - Putaway / Transfer / Return: creates or increments inventory at the to_location.
+//     Records an InventoryTransaction of type "putaway".
+//   - Pick: decrements inventory at the from_location.
+//     Records an InventoryTransaction of type "pick".
+//     Fails if the deduction would result in negative quantity.
 func (s *TaskService) CompleteTask(ctx context.Context, id uuid.UUID, input CompleteTaskInput) (*domain.Task, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -239,8 +258,36 @@ func (s *TaskService) CompleteTask(ctx context.Context, id uuid.UUID, input Comp
 			fmt.Sprintf("can only complete in-progress tasks (current: %s)", task.Status))
 	}
 
-	if err := s.repo.CompleteTask(ctx, id, input.ActualQty, input.ToLocationID); err != nil {
-		return nil, fmt.Errorf("task service: complete %s: %w", id, err)
+	// If no inventory support, just complete the task directly.
+	if s.inventoryRepo == nil || s.txManager == nil {
+		if err := s.repo.CompleteTask(ctx, id, input.ActualQty, input.ToLocationID); err != nil {
+			return nil, fmt.Errorf("task service: complete %s: %w", id, err)
+		}
+
+		updated, err := s.repo.GetTask(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("task service: re-fetch after complete %s: %w", id, err)
+		}
+		return updated, nil
+	}
+
+	// With inventory support: perform task completion + inventory effects atomically.
+	doWrites := func(ctx context.Context) error {
+		// 1. Complete the task.
+		if err := s.repo.CompleteTask(ctx, id, input.ActualQty, input.ToLocationID); err != nil {
+			return fmt.Errorf("complete task: %w", err)
+		}
+
+		// 2. Apply inventory effects based on task type.
+		if err := s.applyInventoryEffect(ctx, task, input.ActualQty, input.ToLocationID); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if err := s.txManager.WithTx(ctx, doWrites); err != nil {
+		return nil, fmt.Errorf("task service: complete: %w", err)
 	}
 
 	updated, err := s.repo.GetTask(ctx, id)
@@ -248,6 +295,163 @@ func (s *TaskService) CompleteTask(ctx context.Context, id uuid.UUID, input Comp
 		return nil, fmt.Errorf("task service: re-fetch after complete %s: %w", id, err)
 	}
 	return updated, nil
+}
+
+// applyInventoryEffect determines and applies the correct inventory change for the task type.
+func (s *TaskService) applyInventoryEffect(ctx context.Context, task *domain.Task, actualQty float64, toLocationID *uuid.UUID) error {
+	switch task.TaskType {
+	case domain.TaskTypePutaway, domain.TaskTypeTransfer:
+		return s.applyPutawayEffect(ctx, task, actualQty, toLocationID)
+	case domain.TaskTypePick:
+		return s.applyPickEffect(ctx, task, actualQty)
+	case domain.TaskTypeReplenish:
+		// Replenish: moves inventory from reserve to pick location.
+		// Decrement from from_location, increment at to_location.
+		if task.FromLocation != nil {
+			if err := s.deductInventory(ctx, task, *task.FromLocation, actualQty, domain.InventoryTxTransfer); err != nil {
+				return err
+			}
+		}
+		targetLoc := task.ToLocation
+		if toLocationID != nil {
+			targetLoc = toLocationID
+		}
+		if targetLoc != nil {
+			return s.addInventory(ctx, task, *targetLoc, actualQty, domain.InventoryTxTransfer)
+		}
+		return nil
+	default:
+		// cycle_count, load, unload: no automatic inventory effect.
+		return nil
+	}
+}
+
+// applyPutawayEffect creates or increments inventory at the target location.
+func (s *TaskService) applyPutawayEffect(ctx context.Context, task *domain.Task, actualQty float64, toLocationID *uuid.UUID) error {
+	if actualQty <= 0 {
+		return nil // Nothing to add.
+	}
+	targetLoc := task.ToLocation
+	if toLocationID != nil {
+		targetLoc = toLocationID
+	}
+	if targetLoc == nil {
+		return pkgerrors.NewInvalidInput("to_location_id is required for putaway tasks")
+	}
+	return s.addInventory(ctx, task, *targetLoc, actualQty, domain.InventoryTxPutaway)
+}
+
+// applyPickEffect decrements inventory at the source (from) location.
+func (s *TaskService) applyPickEffect(ctx context.Context, task *domain.Task, actualQty float64) error {
+	if actualQty <= 0 {
+		return nil // Nothing to deduct.
+	}
+	fromLoc := task.FromLocation
+	if fromLoc == nil {
+		return pkgerrors.NewInvalidInput("from_location_id is required for pick tasks")
+	}
+	return s.deductInventory(ctx, task, *fromLoc, actualQty, domain.InventoryTxPick)
+}
+
+// addInventory finds existing inventory at the given location for the task's SKU+batch,
+// increments its quantity, or creates a new inventory record if none exists.
+func (s *TaskService) addInventory(ctx context.Context, task *domain.Task, locationID uuid.UUID, qty float64, txType domain.InventoryTxType) error {
+	// Try to find existing inventory at this location for this SKU and batch.
+	inv, err := s.inventoryRepo.GetInventoryAtLocation(ctx, task.SKUID, locationID, task.BatchNo)
+	if err != nil {
+		// Not found — create new inventory record.
+		newInv := &domain.Inventory{
+			SKUID:       task.SKUID,
+			LocationID:  locationID,
+			WarehouseID: task.WarehouseID,
+			BatchNo:     task.BatchNo,
+			Qty:         qty,
+			ReservedQty: 0,
+			Status:      domain.InventoryStatusAvailable,
+		}
+		if err := s.inventoryRepo.CreateInventory(ctx, newInv); err != nil {
+			return fmt.Errorf("create inventory: %w", err)
+		}
+
+		// Record transaction.
+		tx := &domain.InventoryTransaction{
+			InventoryID:   newInv.ID,
+			SKUID:         task.SKUID,
+			LocationID:    locationID,
+			Type:          txType,
+			DeltaQty:      qty,
+			ResultingQty:  qty,
+			ReferenceType: "task",
+			ReferenceID:   task.ID,
+		}
+		if err := s.inventoryRepo.CreateTransaction(ctx, tx); err != nil {
+			return fmt.Errorf("create inventory transaction: %w", err)
+		}
+		return nil
+	}
+
+	// Existing inventory found — increment quantity.
+	newQty := inv.Qty + qty
+	if err := s.inventoryRepo.UpdateInventoryQty(ctx, inv.ID, qty, 0); err != nil {
+		return fmt.Errorf("update inventory qty: %w", err)
+	}
+
+	// Record transaction.
+	tx := &domain.InventoryTransaction{
+		InventoryID:   inv.ID,
+		SKUID:         task.SKUID,
+		LocationID:    locationID,
+		Type:          txType,
+		DeltaQty:      qty,
+		ResultingQty:  newQty,
+		ReferenceType: "task",
+		ReferenceID:   task.ID,
+	}
+	if err := s.inventoryRepo.CreateTransaction(ctx, tx); err != nil {
+		return fmt.Errorf("create inventory transaction: %w", err)
+	}
+
+	return nil
+}
+
+// deductInventory decrements inventory at the given location for the task's SKU+batch.
+// Fails if the deduction would result in negative quantity.
+func (s *TaskService) deductInventory(ctx context.Context, task *domain.Task, locationID uuid.UUID, qty float64, txType domain.InventoryTxType) error {
+	// Find existing inventory at this location for this SKU and batch.
+	inv, err := s.inventoryRepo.GetInventoryAtLocation(ctx, task.SKUID, locationID, task.BatchNo)
+	if err != nil {
+		return fmt.Errorf("inventory not found at location for SKU %s: %w", task.SKUID, err)
+	}
+
+	// Check negative qty constraint against domain model.
+	if !inv.CanDeduct(qty) {
+		return pkgerrors.NewInvalidInput(
+			fmt.Sprintf("insufficient inventory: location has %.2f available (qty=%.2f, reserved=%.2f), need to deduct %.2f",
+				inv.Available(), inv.Qty, inv.ReservedQty, qty),
+		)
+	}
+
+	newQty := inv.ResultingQty(-qty)
+	if err := s.inventoryRepo.UpdateInventoryQty(ctx, inv.ID, -qty, 0); err != nil {
+		return fmt.Errorf("update inventory qty: %w", err)
+	}
+
+	// Record transaction.
+	tx := &domain.InventoryTransaction{
+		InventoryID:   inv.ID,
+		SKUID:         task.SKUID,
+		LocationID:    locationID,
+		Type:          txType,
+		DeltaQty:      -qty,
+		ResultingQty:  newQty,
+		ReferenceType: "task",
+		ReferenceID:   task.ID,
+	}
+	if err := s.inventoryRepo.CreateTransaction(ctx, tx); err != nil {
+		return fmt.Errorf("create inventory transaction: %w", err)
+	}
+
+	return nil
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────────────

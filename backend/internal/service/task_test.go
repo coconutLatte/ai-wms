@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -784,5 +785,716 @@ func TestTaskService_CompleteTask_ZeroQty(t *testing.T) {
 	}
 	if updated.ActualQty != 0 {
 		t.Errorf("actual_qty = %f, want 0", updated.ActualQty)
+	}
+}
+
+// ── Inventory-Aware Task Completion Tests ───────────────────────────────────────
+
+// combinedMockRepo implements both TaskRepository and InventoryRepository for testing
+// task-completion inventory effects.
+type combinedMockRepo struct {
+	tasks       map[uuid.UUID]*domain.Task
+	waves       map[uuid.UUID]*domain.Wave
+	inventory   map[uuid.UUID]*domain.Inventory
+	transactions []*domain.InventoryTransaction
+	skus        map[uuid.UUID]*domain.SKU
+}
+
+func newCombinedMockRepo() *combinedMockRepo {
+	return &combinedMockRepo{
+		tasks:     make(map[uuid.UUID]*domain.Task),
+		waves:     make(map[uuid.UUID]*domain.Wave),
+		inventory: make(map[uuid.UUID]*domain.Inventory),
+		skus:      make(map[uuid.UUID]*domain.SKU),
+	}
+}
+
+// ── TaskRepository implementation ────────────────────────────
+
+func (m *combinedMockRepo) CreateTask(ctx context.Context, t *domain.Task) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	m.tasks[t.ID] = t
+	return nil
+}
+
+func (m *combinedMockRepo) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, error) {
+	t, ok := m.tasks[id]
+	if !ok {
+		return nil, pkgerrors.NewNotFound("task", id.String())
+	}
+	return t, nil
+}
+
+func (m *combinedMockRepo) GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error) {
+	var result []*domain.Task
+	for _, t := range m.tasks {
+		if t.OrderID != nil && *t.OrderID == orderID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
+func (m *combinedMockRepo) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
+	var result []*domain.Task
+	for _, t := range m.tasks {
+		if filter.WarehouseID != uuid.Nil && t.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.TaskType != "" && t.TaskType != filter.TaskType {
+			continue
+		}
+		if filter.Status != "" && t.Status != filter.Status {
+			continue
+		}
+		if filter.AssignedTo != "" && t.AssignedTo != filter.AssignedTo {
+			continue
+		}
+		result = append(result, t)
+	}
+	return result, nil
+}
+
+func (m *combinedMockRepo) AssignTask(ctx context.Context, id uuid.UUID, assignedTo string) error {
+	t, ok := m.tasks[id]
+	if !ok {
+		return pkgerrors.NewNotFound("task", id.String())
+	}
+	if t.Status != domain.TaskStatusPending {
+		return pkgerrors.NewInvalidInput("can only assign pending tasks")
+	}
+	t.Status = domain.TaskStatusAssigned
+	t.AssignedTo = assignedTo
+	return nil
+}
+
+func (m *combinedMockRepo) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error {
+	t, ok := m.tasks[id]
+	if !ok {
+		return pkgerrors.NewNotFound("task", id.String())
+	}
+	t.Status = status
+	return nil
+}
+
+func (m *combinedMockRepo) CompleteTask(ctx context.Context, id uuid.UUID, actualQty float64, toLocationID *uuid.UUID) error {
+	t, ok := m.tasks[id]
+	if !ok {
+		return pkgerrors.NewNotFound("task", id.String())
+	}
+	t.Status = domain.TaskStatusCompleted
+	t.ActualQty = actualQty
+	if toLocationID != nil {
+		t.ToLocation = toLocationID
+	}
+	return nil
+}
+
+func (m *combinedMockRepo) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) {
+	count := 0
+	for _, t := range m.tasks {
+		if filter.WarehouseID != uuid.Nil && t.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.TaskType != "" && t.TaskType != filter.TaskType {
+			continue
+		}
+		if filter.Status != "" && t.Status != filter.Status {
+			continue
+		}
+		if filter.AssignedTo != "" && t.AssignedTo != filter.AssignedTo {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+// ── Wave (not used by these tests) ────────────────────────────
+
+func (m *combinedMockRepo) CreateWave(ctx context.Context, w *domain.Wave) error { return nil }
+func (m *combinedMockRepo) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error) {
+	return nil, nil
+}
+func (m *combinedMockRepo) ListWaves(ctx context.Context, filter repository.WaveFilter) ([]*domain.Wave, error) {
+	return nil, nil
+}
+func (m *combinedMockRepo) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error {
+	return nil
+}
+func (m *combinedMockRepo) AddWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *combinedMockRepo) RemoveWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *combinedMockRepo) CountWaves(ctx context.Context, filter repository.WaveFilter) (int, error) {
+	return 0, nil
+}
+
+// ── InventoryRepository implementation ────────────────────────
+
+func (m *combinedMockRepo) CreateSKU(ctx context.Context, s *domain.SKU) error { return nil }
+func (m *combinedMockRepo) GetSKU(ctx context.Context, id uuid.UUID) (*domain.SKU, error) {
+	return nil, nil
+}
+func (m *combinedMockRepo) GetSKUByBarcode(ctx context.Context, barcode string) (*domain.SKU, error) {
+	return nil, nil
+}
+func (m *combinedMockRepo) GetSKUByCode(ctx context.Context, code string) (*domain.SKU, error) {
+	return nil, nil
+}
+func (m *combinedMockRepo) ListSKUs(ctx context.Context, limit, offset int) ([]*domain.SKU, error) {
+	return nil, nil
+}
+func (m *combinedMockRepo) UpdateSKU(ctx context.Context, s *domain.SKU) error { return nil }
+func (m *combinedMockRepo) CountSKUs(ctx context.Context) (int, error)  { return 0, nil }
+
+func (m *combinedMockRepo) CreateInventory(ctx context.Context, inv *domain.Inventory) error {
+	if inv.ID == uuid.Nil {
+		inv.ID = uuid.New()
+	}
+	m.inventory[inv.ID] = inv
+	return nil
+}
+
+func (m *combinedMockRepo) GetInventory(ctx context.Context, id uuid.UUID) (*domain.Inventory, error) {
+	inv, ok := m.inventory[id]
+	if !ok {
+		return nil, pkgerrors.NewNotFound("inventory", id.String())
+	}
+	return inv, nil
+}
+
+func (m *combinedMockRepo) GetAndLockInventory(ctx context.Context, id uuid.UUID) (*domain.Inventory, error) {
+	return m.GetInventory(ctx, id)
+}
+
+func (m *combinedMockRepo) GetInventoryAtLocation(ctx context.Context, skuID, locationID uuid.UUID, batchNo string) (*domain.Inventory, error) {
+	for _, inv := range m.inventory {
+		if inv.SKUID == skuID && inv.LocationID == locationID && inv.BatchNo == batchNo {
+			return inv, nil
+		}
+	}
+	return nil, pkgerrors.NewNotFound("inventory", fmt.Sprintf("sku=%s,loc=%s", skuID, locationID))
+}
+
+func (m *combinedMockRepo) QueryInventory(ctx context.Context, filter repository.InventoryFilter) ([]*domain.Inventory, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) UpdateInventoryQty(ctx context.Context, id uuid.UUID, deltaQty, deltaReserved float64) error {
+	inv, ok := m.inventory[id]
+	if !ok {
+		return pkgerrors.NewNotFound("inventory", id.String())
+	}
+	inv.Qty += deltaQty
+	inv.ReservedQty += deltaReserved
+	inv.AvailableQty = inv.Qty - inv.ReservedQty
+	return nil
+}
+
+func (m *combinedMockRepo) UpdateInventoryStatus(ctx context.Context, id uuid.UUID, status domain.InventoryStatus) error {
+	return nil
+}
+
+func (m *combinedMockRepo) CountInventory(ctx context.Context, filter repository.InventoryFilter) (int, error) {
+	return len(m.inventory), nil
+}
+
+func (m *combinedMockRepo) GetOldestInventory(ctx context.Context, filter repository.InventoryRetrievalFilter) ([]*domain.Inventory, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) GetExpiringInventory(ctx context.Context, filter repository.InventoryRetrievalFilter) ([]*domain.Inventory, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) CreateTransaction(ctx context.Context, tx *domain.InventoryTransaction) error {
+	if tx.ID == uuid.Nil {
+		tx.ID = uuid.New()
+	}
+	m.transactions = append(m.transactions, tx)
+	return nil
+}
+
+func (m *combinedMockRepo) ListTransactions(ctx context.Context, inventoryID uuid.UUID, limit, offset int) ([]*domain.InventoryTransaction, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+func (m *combinedMockRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) GetLowStockInventory(ctx context.Context, threshold float64, warehouseID uuid.UUID, limit int) ([]*domain.Inventory, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) GetInventoryByWarehouse(ctx context.Context) ([]*repository.InventoryByWarehouseRow, error) {
+	return nil, nil
+}
+
+// ── Simple in-memory TxManager ────────────────────────────────
+
+type simpleTxManager struct{}
+
+func (m *simpleTxManager) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	// In tests, just run the function directly (no real DB transaction needed).
+	return fn(ctx)
+}
+
+// ── Inventory Effect Tests ────────────────────────────────────────────
+
+func TestTaskService_CompleteTask_PutawayCreatesInventory(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	toLoc := uuid.New()
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:     domain.TaskTypePutaway,
+		WarehouseID:  whID,
+		SKUID:        skuID,
+		ExpectedQty:  100,
+		ToLocation:   &toLoc,
+		BatchNo:      "BATCH-001",
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	updated, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 95})
+	if err != nil {
+		t.Fatalf("CompleteTask failed: %v", err)
+	}
+	if updated.Status != domain.TaskStatusCompleted {
+		t.Errorf("status = %q, want completed", updated.Status)
+	}
+
+	// Check inventory was created.
+	if len(repo.inventory) != 1 {
+		t.Fatalf("expected 1 inventory record, got %d", len(repo.inventory))
+	}
+
+	var inv *domain.Inventory
+	for _, v := range repo.inventory {
+		inv = v
+		break
+	}
+
+	if inv.SKUID != skuID {
+		t.Errorf("inv sku_id = %s, want %s", inv.SKUID, skuID)
+	}
+	if inv.LocationID != toLoc {
+		t.Errorf("inv location_id = %s, want %s", inv.LocationID, toLoc)
+	}
+	if inv.Qty != 95 {
+		t.Errorf("inv qty = %f, want 95", inv.Qty)
+	}
+	if inv.BatchNo != "BATCH-001" {
+		t.Errorf("inv batch_no = %q, want BATCH-001", inv.BatchNo)
+	}
+	if inv.Status != domain.InventoryStatusAvailable {
+		t.Errorf("inv status = %q, want available", inv.Status)
+	}
+
+	// Check transaction was recorded.
+	if len(repo.transactions) != 1 {
+		t.Fatalf("expected 1 transaction, got %d", len(repo.transactions))
+	}
+	tx := repo.transactions[0]
+	if tx.Type != domain.InventoryTxPutaway {
+		t.Errorf("tx type = %q, want putaway", tx.Type)
+	}
+	if tx.DeltaQty != 95 {
+		t.Errorf("tx delta_qty = %f, want 95", tx.DeltaQty)
+	}
+	if tx.ReferenceType != "task" {
+		t.Errorf("tx reference_type = %q, want task", tx.ReferenceType)
+	}
+	if tx.ReferenceID != task.ID {
+		t.Errorf("tx reference_id = %s, want %s", tx.ReferenceID, task.ID)
+	}
+}
+
+func TestTaskService_CompleteTask_PutawayIncrementsExistingInventory(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	toLoc := uuid.New()
+
+	// Pre-populate inventory at the target location.
+	existing := &domain.Inventory{
+		ID:          uuid.New(),
+		SKUID:       skuID,
+		LocationID:  toLoc,
+		WarehouseID: whID,
+		BatchNo:     "BATCH-001",
+		Qty:         50,
+		ReservedQty: 0,
+		Status:      domain.InventoryStatusAvailable,
+	}
+	existing.AvailableQty = existing.Qty - existing.ReservedQty
+	repo.inventory[existing.ID] = existing
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:    domain.TaskTypePutaway,
+		WarehouseID: whID,
+		SKUID:       skuID,
+		ExpectedQty: 100,
+		ToLocation:  &toLoc,
+		BatchNo:     "BATCH-001",
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 30})
+	if err != nil {
+		t.Fatalf("CompleteTask failed: %v", err)
+	}
+
+	// Check existing inventory was incremented (not duplicated).
+	if len(repo.inventory) != 1 {
+		t.Fatalf("expected 1 inventory record, got %d", len(repo.inventory))
+	}
+	if existing.Qty != 80 {
+		t.Errorf("inv qty = %f, want 80 (50 + 30)", existing.Qty)
+	}
+
+	// Check transaction.
+	if len(repo.transactions) != 1 {
+		t.Fatalf("expected 1 transaction, got %d", len(repo.transactions))
+	}
+	tx := repo.transactions[0]
+	if tx.DeltaQty != 30 {
+		t.Errorf("tx delta_qty = %f, want 30", tx.DeltaQty)
+	}
+	if tx.ResultingQty != 80 {
+		t.Errorf("tx resulting_qty = %f, want 80", tx.ResultingQty)
+	}
+}
+
+func TestTaskService_CompleteTask_PutawayRequiresToLocation(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:    domain.TaskTypePutaway,
+		WarehouseID: uuid.New(),
+		SKUID:       uuid.New(),
+		ExpectedQty: 100,
+		// No ToLocation set.
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 50})
+	if err == nil {
+		t.Fatal("expected error for putaway without to_location_id")
+	}
+}
+
+func TestTaskService_CompleteTask_PickDecrementsInventory(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	fromLoc := uuid.New()
+
+	// Pre-populate inventory at the pick location.
+	existing := &domain.Inventory{
+		ID:          uuid.New(),
+		SKUID:       skuID,
+		LocationID:  fromLoc,
+		WarehouseID: whID,
+		BatchNo:     "BATCH-002",
+		Qty:         100,
+		ReservedQty: 0,
+		Status:      domain.InventoryStatusAvailable,
+	}
+	existing.AvailableQty = existing.Qty - existing.ReservedQty
+	repo.inventory[existing.ID] = existing
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:     domain.TaskTypePick,
+		WarehouseID:  whID,
+		SKUID:        skuID,
+		ExpectedQty:  30,
+		FromLocation: &fromLoc,
+		BatchNo:      "BATCH-002",
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 30})
+	if err != nil {
+		t.Fatalf("CompleteTask failed: %v", err)
+	}
+
+	// Check inventory was decremented.
+	if existing.Qty != 70 {
+		t.Errorf("inv qty = %f, want 70 (100 - 30)", existing.Qty)
+	}
+
+	// Check transaction was recorded.
+	if len(repo.transactions) != 1 {
+		t.Fatalf("expected 1 transaction, got %d", len(repo.transactions))
+	}
+	tx := repo.transactions[0]
+	if tx.Type != domain.InventoryTxPick {
+		t.Errorf("tx type = %q, want pick", tx.Type)
+	}
+	if tx.DeltaQty != -30 {
+		t.Errorf("tx delta_qty = %f, want -30", tx.DeltaQty)
+	}
+	if tx.ResultingQty != 70 {
+		t.Errorf("tx resulting_qty = %f, want 70", tx.ResultingQty)
+	}
+	if tx.ReferenceType != "task" {
+		t.Errorf("tx reference_type = %q, want task", tx.ReferenceType)
+	}
+}
+
+func TestTaskService_CompleteTask_PickInsufficientInventory(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	fromLoc := uuid.New()
+
+	// Pre-populate inventory with only 10 units.
+	existing := &domain.Inventory{
+		ID:          uuid.New(),
+		SKUID:       skuID,
+		LocationID:  fromLoc,
+		WarehouseID: whID,
+		BatchNo:     "",
+		Qty:         10,
+		ReservedQty: 5, // Only 5 available.
+		Status:      domain.InventoryStatusAvailable,
+	}
+	existing.AvailableQty = existing.Qty - existing.ReservedQty
+	repo.inventory[existing.ID] = existing
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:     domain.TaskTypePick,
+		WarehouseID:  whID,
+		SKUID:        skuID,
+		ExpectedQty:  20,
+		FromLocation: &fromLoc,
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 20})
+	if err == nil {
+		t.Fatal("expected error for insufficient inventory")
+	}
+
+	// Inventory should not have changed.
+	if existing.Qty != 10 {
+		t.Errorf("inv qty = %f, want 10 (unchanged)", existing.Qty)
+	}
+	// No transaction should have been recorded.
+	if len(repo.transactions) != 0 {
+		t.Errorf("expected 0 transactions, got %d", len(repo.transactions))
+	}
+}
+
+func TestTaskService_CompleteTask_PickRequiresFromLocation(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:    domain.TaskTypePick,
+		WarehouseID: uuid.New(),
+		SKUID:       uuid.New(),
+		ExpectedQty: 50,
+		// No FromLocation set.
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 50})
+	if err == nil {
+		t.Fatal("expected error for pick without from_location_id")
+	}
+}
+
+func TestTaskService_CompleteTask_CycleCountNoInventoryEffect(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:    domain.TaskTypeCycleCount,
+		WarehouseID: uuid.New(),
+		SKUID:       uuid.New(),
+		ExpectedQty: 50,
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 48})
+	if err != nil {
+		t.Fatalf("CompleteTask failed: %v", err)
+	}
+
+	// No inventory records should have been created.
+	if len(repo.inventory) != 0 {
+		t.Errorf("expected 0 inventory records, got %d", len(repo.inventory))
+	}
+	// No transactions should have been recorded.
+	if len(repo.transactions) != 0 {
+		t.Errorf("expected 0 transactions, got %d", len(repo.transactions))
+	}
+}
+
+func TestTaskService_CompleteTask_ReplenishMovesInventory(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	fromLoc := uuid.New()
+	toLoc := uuid.New()
+
+	// Pre-populate inventory at the from location (reserve area).
+	fromInv := &domain.Inventory{
+		ID:          uuid.New(),
+		SKUID:       skuID,
+		LocationID:  fromLoc,
+		WarehouseID: whID,
+		Qty:         200,
+		ReservedQty: 0,
+		Status:      domain.InventoryStatusAvailable,
+	}
+	fromInv.AvailableQty = fromInv.Qty - fromInv.ReservedQty
+	repo.inventory[fromInv.ID] = fromInv
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:     domain.TaskTypeReplenish,
+		WarehouseID:  whID,
+		SKUID:        skuID,
+		ExpectedQty:  50,
+		FromLocation: &fromLoc,
+		ToLocation:   &toLoc,
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 50})
+	if err != nil {
+		t.Fatalf("CompleteTask failed: %v", err)
+	}
+
+	// From location should be decremented.
+	if fromInv.Qty != 150 {
+		t.Errorf("from inv qty = %f, want 150 (200 - 50)", fromInv.Qty)
+	}
+
+	// To location should have a new inventory record.
+	if len(repo.inventory) != 2 {
+		t.Fatalf("expected 2 inventory records, got %d", len(repo.inventory))
+	}
+
+	// Two transactions: one deduction (transfer out), one addition (transfer in).
+	if len(repo.transactions) != 2 {
+		t.Fatalf("expected 2 transactions, got %d", len(repo.transactions))
+	}
+}
+
+func TestTaskService_CompleteTask_ZeroQtyNoInventoryEffect(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	toLoc := uuid.New()
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:    domain.TaskTypePutaway,
+		WarehouseID: whID,
+		SKUID:       skuID,
+		ExpectedQty: 100,
+		ToLocation:  &toLoc,
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 0})
+	if err != nil {
+		t.Fatalf("CompleteTask with zero qty failed: %v", err)
+	}
+
+	// No inventory records should be created for zero qty.
+	if len(repo.inventory) != 0 {
+		t.Errorf("expected 0 inventory records, got %d", len(repo.inventory))
+	}
+	// No transactions.
+	if len(repo.transactions) != 0 {
+		t.Errorf("expected 0 transactions, got %d", len(repo.transactions))
+	}
+}
+
+func TestTaskService_CompleteTask_OverridesToLocationOnCompletion(t *testing.T) {
+	ctx := context.Background()
+	repo := newCombinedMockRepo()
+	svc := NewTaskServiceWithTx(repo, repo, &simpleTxManager{})
+
+	whID := uuid.New()
+	skuID := uuid.New()
+	originalToLoc := uuid.New()
+	overrideToLoc := uuid.New()
+
+	task, _ := svc.CreateTask(ctx, CreateTaskInput{
+		TaskType:    domain.TaskTypePutaway,
+		WarehouseID: whID,
+		SKUID:       skuID,
+		ExpectedQty: 100,
+		ToLocation:  &originalToLoc,
+	})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+
+	// Complete with a different to_location.
+	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{
+		ActualQty:    50,
+		ToLocationID: &overrideToLoc,
+	})
+	if err != nil {
+		t.Fatalf("CompleteTask failed: %v", err)
+	}
+
+	// Inventory should be at the override location.
+	if len(repo.inventory) != 1 {
+		t.Fatalf("expected 1 inventory record, got %d", len(repo.inventory))
+	}
+	var inv *domain.Inventory
+	for _, v := range repo.inventory {
+		inv = v
+		break
+	}
+	if inv.LocationID != overrideToLoc {
+		t.Errorf("inv location_id = %s, want override %s", inv.LocationID, overrideToLoc)
 	}
 }

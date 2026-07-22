@@ -79,11 +79,15 @@ func main() {
 
 	// Initialize repositories.
 	taskRepo := postgres.NewTaskRepo(db)
+	inventoryRepo := postgres.NewInventoryRepo(db)
 	userRepo := postgres.NewUserRepo(db)
 	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 
+	// Initialize transaction manager for atomic multi-step operations.
+	txManager := postgres.NewTxManager(db)
+
 	// Initialize services.
-	taskSvc := service.NewTaskService(taskRepo)
+	taskSvc := service.NewTaskServiceWithTx(taskRepo, inventoryRepo, txManager)
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	// Initialize API handlers.
