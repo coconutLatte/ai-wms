@@ -19,6 +19,11 @@ import {
   Col,
   Statistic,
   Popconfirm,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Divider,
 } from 'antd'
 import {
   FileTextOutlined,
@@ -30,6 +35,8 @@ import {
   CloseCircleOutlined,
   ExclamationCircleOutlined,
   EditOutlined,
+  PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import type { ColumnsType } from 'antd/es/table'
@@ -40,6 +47,8 @@ import type {
   OrderLine,
   ListResponse,
   UpdateOrderStatusRequest,
+  CreateOrderRequest,
+  CreateOrderLineRequest,
 } from '@/api/types'
 
 // ── Status / Type / Priority tag colors ────────────────────────────────────
@@ -140,6 +149,14 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [drawerLoading, setDrawerLoading] = useState(false)
 
+  // ── Create order modal ────────────────────────────────────────────────────
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [createForm] = Form.useForm<CreateOrderRequest>()
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createLines, setCreateLines] = useState<CreateOrderLineRequest[]>([
+    { sku_id: '', ordered_qty: 1, uom: 'EA', batch_no: '', notes: '' },
+  ])
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchOrders = useCallback(
@@ -226,6 +243,74 @@ export default function OrdersPage() {
       fetchOrders(page, filterType, filterStatus)
     } catch {
       message.error(t('order.statusUpdateFailed'))
+    }
+  }
+
+  // ── Create order helpers ──────────────────────────────────────────────────
+
+  const openCreateModal = () => {
+    createForm.resetFields()
+    createForm.setFieldsValue({ priority: 'normal' })
+    setCreateLines([{ sku_id: '', ordered_qty: 1, uom: 'EA', batch_no: '', notes: '' }])
+    setCreateModalOpen(true)
+  }
+
+  const closeCreateModal = () => {
+    setCreateModalOpen(false)
+  }
+
+  const addLine = () => {
+    setCreateLines([...createLines, { sku_id: '', ordered_qty: 1, uom: 'EA', batch_no: '', notes: '' }])
+  }
+
+  const removeLine = (idx: number) => {
+    if (createLines.length <= 1) return
+    setCreateLines(createLines.filter((_, i) => i !== idx))
+  }
+
+  const updateLine = (idx: number, field: keyof CreateOrderLineRequest, value: string | number) => {
+    const next = [...createLines]
+    next[idx] = { ...next[idx], [field]: value }
+    setCreateLines(next)
+  }
+
+  const handleCreateOrder = async () => {
+    try {
+      const values = await createForm.validateFields()
+
+      // Validate lines
+      const validLines = createLines.filter((l) => l.sku_id.trim() && l.ordered_qty > 0)
+      if (validLines.length === 0) {
+        message.error(t('order.pleaseAddAtLeastOneLine'))
+        return
+      }
+      for (const line of validLines) {
+        if (!line.sku_id.trim()) {
+          message.error(t('order.pleaseAddAtLeastOneLine'))
+          return
+        }
+      }
+
+      const payload: CreateOrderRequest = {
+        ...values,
+        lines: validLines.map((l) => ({
+          sku_id: l.sku_id.trim(),
+          ordered_qty: l.ordered_qty,
+          uom: l.uom || 'EA',
+          batch_no: l.batch_no || undefined,
+          notes: l.notes || undefined,
+        })),
+      }
+
+      setCreateLoading(true)
+      await client.post('/orders', payload)
+      message.success(t('order.createSuccess'))
+      closeCreateModal()
+      fetchOrders(page, filterType, filterStatus)
+    } catch {
+      if (createModalOpen) message.error(t('order.createFailed'))
+    } finally {
+      setCreateLoading(false)
     }
   }
 
@@ -533,6 +618,9 @@ export default function OrdersPage() {
                 { label: t('order.cancelled'), value: 'cancelled' },
               ]}
             />
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+              {t('order.newOrder')}
+            </Button>
             <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
               {t('order.refresh')}
             </Button>
@@ -730,6 +818,189 @@ export default function OrdersPage() {
           <Empty description={t('order.noOrderSelected')} />
         )}
       </Drawer>
+
+      {/* ── Create Order Modal ────────────────────────────────────────────────── */}
+
+      <Modal
+        title={t('order.createOrderTitle')}
+        open={createModalOpen}
+        onCancel={closeCreateModal}
+        onOk={handleCreateOrder}
+        confirmLoading={createLoading}
+        destroyOnClose
+        width={720}
+        okText={t('order.createOrder')}
+        cancelText={t('common.cancel')}
+      >
+        <Form form={createForm} layout="vertical" style={{ marginTop: 16 }}>
+          {/* ── Order header fields ──────────────────────────────────────────── */}
+          <Row gutter={16}>
+            <Col xs={12}>
+              <Form.Item
+                name="order_type"
+                label={t('order.orderType')}
+                rules={[{ required: true, message: t('order.pleaseSelectOrderType') }]}
+              >
+                <Select placeholder={t('order.filterType')}>
+                  <Select.Option value="inbound">{t('order.inbound')}</Select.Option>
+                  <Select.Option value="outbound">{t('order.outbound')}</Select.Option>
+                  <Select.Option value="transfer">{t('order.transfer')}</Select.Option>
+                  <Select.Option value="return">{t('order.return')}</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item
+                name="warehouse_id"
+                label={t('order.warehouseId')}
+                rules={[{ required: true, message: t('order.pleaseEnterWarehouse') }]}
+              >
+                <Input placeholder={t('order.warehousePlaceholder')} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={12}>
+              <Form.Item
+                name="priority"
+                label={t('order.priority')}
+                initialValue="normal"
+              >
+                <Select>
+                  <Select.Option value="low">{t('order.low')}</Select.Option>
+                  <Select.Option value="normal">{t('order.normal')}</Select.Option>
+                  <Select.Option value="high">{t('order.high')}</Select.Option>
+                  <Select.Option value="urgent">{t('order.urgent')}</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item
+                name="created_by"
+                label={t('order.createdBy')}
+                rules={[{ required: true, message: t('order.pleaseEnterCreatedBy') }]}
+              >
+                <Input placeholder={t('order.createdByPlaceholder')} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={12}>
+              <Form.Item name="external_ref" label={t('order.externalRef')}>
+                <Input placeholder={t('order.externalRefPlaceholder')} />
+              </Form.Item>
+            </Col>
+            <Col xs={12}>
+              <Form.Item name="external_type" label={t('order.externalType')}>
+                <Input placeholder={t('order.externalTypePlaceholder')} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="notes" label={t('order.notes')}>
+            <Input placeholder={t('order.notesPlaceholder')} />
+          </Form.Item>
+
+          {/* ── Order lines editor ────────────────────────────────────────────── */}
+          <Divider orientation="left" plain>
+            <Typography.Text type="secondary">{t('order.lineEditorTitle')} ({createLines.length})</Typography.Text>
+          </Divider>
+
+          {createLines.map((line, idx) => (
+            <Card
+              key={idx}
+              size="small"
+              style={{ marginBottom: 12 }}
+              title={`${t('order.lineNo')} ${idx + 1}`}
+              extra={
+                createLines.length > 1 && (
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeLine(idx)}
+                  >
+                    {t('order.removeLine')}
+                  </Button>
+                )
+              }
+            >
+              <Row gutter={12}>
+                <Col xs={12}>
+                  <Form.Item
+                    label={t('order.skuId')}
+                    required
+                    style={{ marginBottom: 8 }}
+                  >
+                    <Input
+                      placeholder={t('order.skuPlaceholder')}
+                      value={line.sku_id}
+                      onChange={(e) => updateLine(idx, 'sku_id', e.target.value)}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={6}>
+                  <Form.Item
+                    label={t('order.qty')}
+                    required
+                    style={{ marginBottom: 8 }}
+                  >
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      min={1}
+                      placeholder={t('order.qtyPlaceholder')}
+                      value={line.ordered_qty}
+                      onChange={(v) => updateLine(idx, 'ordered_qty', v ?? 1)}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={6}>
+                  <Form.Item label={t('order.uom')} style={{ marginBottom: 8 }}>
+                    <Input
+                      placeholder={t('order.uomPlaceholder')}
+                      value={line.uom}
+                      onChange={(e) => updateLine(idx, 'uom', e.target.value)}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={12}>
+                <Col xs={12}>
+                  <Form.Item label={t('inventory.batch')} style={{ marginBottom: 0 }}>
+                    <Input
+                      placeholder={t('order.batchPlaceholder')}
+                      value={line.batch_no}
+                      onChange={(e) => updateLine(idx, 'batch_no', e.target.value)}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={12}>
+                  <Form.Item label={t('order.notes')} style={{ marginBottom: 0 }}>
+                    <Input
+                      placeholder={t('order.lineNotesPlaceholder')}
+                      value={line.notes}
+                      onChange={(e) => updateLine(idx, 'notes', e.target.value)}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Card>
+          ))}
+
+          <Button
+            type="dashed"
+            onClick={addLine}
+            block
+            icon={<PlusOutlined />}
+            style={{ marginTop: 4 }}
+          >
+            {t('order.addLine')}
+          </Button>
+        </Form>
+      </Modal>
     </div>
   )
 }

@@ -262,6 +262,26 @@ export interface UpdateOrderStatusRequest {
   notes?: string
 }
 
+export interface CreateOrderLineRequest {
+  sku_id: string
+  ordered_qty: number
+  uom?: string
+  batch_no?: string
+  notes?: string
+}
+
+export interface CreateOrderRequest {
+  order_no?: string
+  order_type: string
+  warehouse_id: string
+  priority?: string
+  external_ref?: string
+  external_type?: string
+  lines: CreateOrderLineRequest[]
+  notes?: string
+  created_by: string
+}
+
 // ── Tasks ──────────────────────────────────────────────────────────────────
 
 export interface Task {
