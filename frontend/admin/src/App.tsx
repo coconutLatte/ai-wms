@@ -16,6 +16,8 @@ import SKUsPage from '@/pages/Skus'
 import InventoryPage from '@/pages/Inventory'
 import OrdersPage from '@/pages/Orders'
 import TasksPage from '@/pages/Tasks'
+import UsersPage from '@/pages/Users'
+import RolesPage from '@/pages/Roles'
 import NotFoundPage from '@/pages/NotFound'
 
 // ── Ant Design theme ────────────────────────────────────────────────
@@ -50,6 +52,8 @@ function AppRoutes() {
                 <Route path="/inventory" element={<InventoryPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/roles" element={<RolesPage />} />
               </Route>
             </Route>
 

@@ -332,3 +332,62 @@ export interface CompleteTaskRequest {
   from_location_id?: string
   to_location_id?: string
 }
+
+// ── Users ────────────────────────────────────────────────────────────────────
+
+export interface User {
+  id: string
+  username: string
+  email: string
+  display_name: string
+  role_ids: string[]
+  status: string
+  last_login?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateUserRequest {
+  username: string
+  email: string
+  password: string
+  display_name?: string
+  role_ids?: string[]
+}
+
+export interface UpdateUserRequest {
+  email?: string
+  display_name?: string
+  role_ids?: string[]
+}
+
+export interface UpdateUserStatusRequest {
+  status: string
+}
+
+// ── Roles ────────────────────────────────────────────────────────────────────
+
+export interface Permission {
+  resource: string
+  actions: string[]
+}
+
+export interface Role {
+  id: string
+  name: string
+  description: string
+  permissions: Permission[]
+  created_at: string
+}
+
+export interface CreateRoleRequest {
+  name: string
+  description?: string
+  permissions?: Permission[]
+}
+
+export interface UpdateRoleRequest {
+  name?: string
+  description?: string
+  permissions?: Permission[]
+}
