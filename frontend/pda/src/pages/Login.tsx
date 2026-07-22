@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const { data } = await client.post<LoginResponse>('/api/v1/auth/login', {
+      const { data } = await client.post<LoginResponse>('/auth/login', {
         username: username.trim(),
         password,
       } satisfies LoginRequest)

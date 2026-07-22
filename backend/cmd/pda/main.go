@@ -80,6 +80,7 @@ func main() {
 	// Initialize repositories.
 	taskRepo := postgres.NewTaskRepo(db)
 	inventoryRepo := postgres.NewInventoryRepo(db)
+	warehouseRepo := postgres.NewWarehouseRepo(db)
 	userRepo := postgres.NewUserRepo(db)
 	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 
@@ -88,11 +89,15 @@ func main() {
 
 	// Initialize services.
 	taskSvc := service.NewTaskServiceWithTx(taskRepo, inventoryRepo, txManager)
+	warehouseSvc := service.NewWarehouseService(warehouseRepo)
+	skuSvc := service.NewSKUService(inventoryRepo)
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	// Initialize API handlers.
 	authHandler := api.NewAuthHandler(authSvc, log.Logger)
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
+	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
+	skuHandler := api.NewSKUHandler(skuSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -111,6 +116,10 @@ func main() {
 	// Protected routes — wrapped in JWT auth middleware.
 	protected := http.NewServeMux()
 	api.RegisterTaskRoutes(protected, taskHandler)
+
+	// Barcode lookup routes for the PDA scanner (location barcode → putaway, SKU barcode → inventory).
+	api.RegisterWarehouseRoutes(protected, warehouseHandler)
+	api.RegisterSKURoutes(protected, skuHandler)
 
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
 	mux.Handle("/api/v1/", authMiddleware(protected))
