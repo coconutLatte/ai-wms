@@ -261,11 +261,94 @@ func (m *mockOrderRepo) UpdateASNLineReceivedQty(ctx context.Context, id uuid.UU
 	return pkgerrors.NewNotFound("asn line", id.String())
 }
 
+// mockTaskRepoForOrder implements repository.TaskRepository for OrderService testing.
+type mockTaskRepoForOrder struct {
+	tasks map[uuid.UUID]*domain.Task
+}
+
+func newMockTaskRepoForOrder() *mockTaskRepoForOrder {
+	return &mockTaskRepoForOrder{
+		tasks: make(map[uuid.UUID]*domain.Task),
+	}
+}
+
+func (m *mockTaskRepoForOrder) CreateTask(ctx context.Context, t *domain.Task) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	m.tasks[t.ID] = t
+	return nil
+}
+func (m *mockTaskRepoForOrder) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, error) {
+	t, ok := m.tasks[id]
+	if !ok {
+		return nil, pkgerrors.NewNotFound("task", id.String())
+	}
+	return t, nil
+}
+func (m *mockTaskRepoForOrder) GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error) {
+	var result []*domain.Task
+	for _, t := range m.tasks {
+		if t.OrderID != nil && *t.OrderID == orderID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+func (m *mockTaskRepoForOrder) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
+	return nil, nil
+}
+func (m *mockTaskRepoForOrder) AssignTask(ctx context.Context, id uuid.UUID, assignedTo string) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) CompleteTask(ctx context.Context, id uuid.UUID, actualQty float64, toLocationID *uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) {
+	return 0, nil
+}
+func (m *mockTaskRepoForOrder) CreateWave(ctx context.Context, w *domain.Wave) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error) {
+	return nil, nil
+}
+func (m *mockTaskRepoForOrder) ListWaves(ctx context.Context, filter repository.WaveFilter) ([]*domain.Wave, error) {
+	return nil, nil
+}
+func (m *mockTaskRepoForOrder) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) AddWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) RemoveWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepoForOrder) CountWaves(ctx context.Context, filter repository.WaveFilter) (int, error) {
+	return 0, nil
+}
+
+// newMockOrderService creates an OrderService backed by mock repositories.
+func newMockOrderService() (*OrderService, *mockOrderRepo, *mockTaskRepoForOrder) {
+	orderRepo := newMockOrderRepo()
+	taskRepo := newMockTaskRepoForOrder()
+	return NewOrderService(orderRepo, taskRepo), orderRepo, taskRepo
+}
+
+// newMockOrderServiceWithRepos creates an OrderService with pre-existing repos.
+func newMockOrderServiceWithRepos(orderRepo *mockOrderRepo, taskRepo *mockTaskRepoForOrder) *OrderService {
+	return NewOrderService(orderRepo, taskRepo)
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 func TestOrderService_CreateOrder_Inbound(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	skuID := uuid.New()
 	whID := uuid.New()
@@ -306,7 +389,7 @@ func TestOrderService_CreateOrder_Inbound(t *testing.T) {
 
 func TestOrderService_CreateOrder_OutboundWithPriority(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, err := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -346,7 +429,7 @@ func TestOrderService_CreateOrder_OutboundWithPriority(t *testing.T) {
 
 func TestOrderService_CreateOrder_CustomOrderNo(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, err := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderNo:     "CUSTOM-ORDER-001",
@@ -367,7 +450,7 @@ func TestOrderService_CreateOrder_CustomOrderNo(t *testing.T) {
 
 func TestOrderService_CreateOrder_ValidationErrors(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	tests := []struct {
 		name  string
@@ -448,7 +531,7 @@ func TestOrderService_CreateOrder_ValidationErrors(t *testing.T) {
 
 func TestOrderService_GetOrder(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	created, err := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -477,7 +560,7 @@ func TestOrderService_GetOrder(t *testing.T) {
 
 func TestOrderService_GetOrder_NotFound(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	_, err := svc.GetOrder(ctx, uuid.New())
 	if err == nil {
@@ -487,7 +570,7 @@ func TestOrderService_GetOrder_NotFound(t *testing.T) {
 
 func TestOrderService_GetOrderByNo(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	created, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderNo:     "MY-ORDER-42",
@@ -512,7 +595,7 @@ func TestOrderService_GetOrderByNo(t *testing.T) {
 func TestOrderService_ListOrders(t *testing.T) {
 	ctx := context.Background()
 	repo := newMockOrderRepo()
-	svc := NewOrderService(repo)
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 	wh1 := uuid.New()
 	wh2 := uuid.New()
@@ -567,7 +650,7 @@ func TestOrderService_ListOrders(t *testing.T) {
 
 func TestOrderService_UpdateOrderStatus_ValidTransitions(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, err := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -609,7 +692,7 @@ func TestOrderService_UpdateOrderStatus_ValidTransitions(t *testing.T) {
 
 func TestOrderService_UpdateOrderStatus_CancelFromAny(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeInbound,
@@ -627,7 +710,7 @@ func TestOrderService_UpdateOrderStatus_CancelFromAny(t *testing.T) {
 
 func TestOrderService_UpdateOrderStatus_InvalidTransitions(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -658,7 +741,7 @@ func TestOrderService_UpdateOrderStatus_InvalidTransitions(t *testing.T) {
 
 func TestOrderService_UpdateOrderStatus_TerminalStates(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	// Create and cancel an order.
 	order1, _ := svc.CreateOrder(ctx, CreateOrderInput{
@@ -695,7 +778,7 @@ func TestOrderService_UpdateOrderStatus_TerminalStates(t *testing.T) {
 
 func TestOrderService_AddOrderLine(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -736,7 +819,7 @@ func TestOrderService_AddOrderLine(t *testing.T) {
 
 func TestOrderService_AddOrderLine_NotDraft(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeInbound,
@@ -759,7 +842,7 @@ func TestOrderService_AddOrderLine_NotDraft(t *testing.T) {
 
 func TestOrderService_AddOrderLine_Validation(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -789,7 +872,7 @@ func TestOrderService_AddOrderLine_Validation(t *testing.T) {
 
 func TestOrderService_OrderTypeVariants(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	whID := uuid.New()
 	skuID := uuid.New()
@@ -825,7 +908,7 @@ func TestOrderService_OrderTypeVariants(t *testing.T) {
 
 func TestOrderService_PartialStatus(t *testing.T) {
 	ctx := context.Background()
-	svc := NewOrderService(newMockOrderRepo())
+	svc, _, _ := newMockOrderService()
 
 	order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
@@ -862,7 +945,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateOrderLineStatus_ValidTransitions(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 			OrderType:   domain.OrderTypeOutbound,
@@ -894,7 +977,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateOrderLineStatus_PartialFlow(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 			OrderType:   domain.OrderTypeOutbound,
@@ -926,7 +1009,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateOrderLineStatus_CancelFromAny(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 			OrderType:   domain.OrderTypeOutbound,
@@ -967,7 +1050,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateOrderLineStatus_InvalidTransitions(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 			OrderType:   domain.OrderTypeOutbound,
@@ -994,7 +1077,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateOrderLineStatus_TerminalStates(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 			OrderType:   domain.OrderTypeOutbound,
@@ -1031,7 +1114,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_UpdateOrderLineStatus_NotFound(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		_, err := svc.UpdateOrderLineStatus(ctx, uuid.New(), UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
 		if err == nil {
@@ -1042,7 +1125,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateOrderLineStatus_Validation(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		order, _ := svc.CreateOrder(ctx, CreateOrderInput{
 			OrderType:   domain.OrderTypeOutbound,
@@ -1070,7 +1153,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateASNStatus_ValidTransitions(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASN(repo)
 
@@ -1105,7 +1188,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateASNStatus_PartialFlow(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASN(repo)
 
@@ -1133,7 +1216,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateASNStatus_InvalidTransitions(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASN(repo)
 
@@ -1167,7 +1250,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateASNStatus_TerminalStates(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASN(repo)
 
@@ -1190,7 +1273,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_UpdateASNStatus_NotFound(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		_, err := svc.UpdateASNStatus(ctx, uuid.New(), UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 		if err == nil {
@@ -1201,7 +1284,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateASNStatus_Validation(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASN(repo)
 
@@ -1221,7 +1304,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_UpdateASNStatus_LoadsLines(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASNWithLines(repo, 2)
 
@@ -1238,7 +1321,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_CreateASN(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		skuID := uuid.New()
 		whID := uuid.New()
@@ -1285,7 +1368,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_CreateASN_CustomNo(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		asn, err := svc.CreateASN(ctx, CreateASNInput{
 			ASNNo:       "ASN-CUSTOM-001",
@@ -1303,7 +1386,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_CreateASN_WithOrderLink(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		orderID := uuid.New()
 		asn, err := svc.CreateASN(ctx, CreateASNInput{
@@ -1322,7 +1405,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_CreateASN_ValidationErrors(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		tests := []struct {
 			name  string
@@ -1380,7 +1463,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_GetASN(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		asn := setupMockASNWithLines(repo, 3)
 
@@ -1398,7 +1481,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 
 	func TestOrderService_GetASN_NotFound(t *testing.T) {
 		ctx := context.Background()
-		svc := NewOrderService(newMockOrderRepo())
+		svc, _, _ := newMockOrderService()
 
 		_, err := svc.GetASN(ctx, uuid.New())
 		if err == nil {
@@ -1411,7 +1494,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	func TestOrderService_ListASNs(t *testing.T) {
 		ctx := context.Background()
 		repo := newMockOrderRepo()
-		svc := NewOrderService(repo)
+		svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 		wh1 := uuid.New()
 		wh2 := uuid.New()
@@ -1488,3 +1571,215 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		}
 		return asn
 	}
+
+// ── Order→Task Generation Tests ──────────────────────────────────────────────────
+
+func TestOrderService_ConfirmInbound_GeneratesPutawayTasks(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeInbound,
+		WarehouseID: uuid.New(),
+		Lines: []CreateOrderLineInput{
+			{SKUID: uuid.New(), OrderedQty: 100, UOM: "CS"},
+			{SKUID: uuid.New(), OrderedQty: 50, UOM: "EA"},
+		},
+		CreatedBy: "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	updated, err := svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	if err != nil {
+		t.Fatalf("draft → confirmed failed: %v", err)
+	}
+	if updated.Status != domain.OrderStatusConfirmed {
+		t.Errorf("status = %q, want %q", updated.Status, domain.OrderStatusConfirmed)
+	}
+
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+
+	for i, task := range tasks {
+		if task.TaskType != domain.TaskTypePutaway {
+			t.Errorf("task[%d] type = %q, want putaway", i, task.TaskType)
+		}
+		if task.OrderID == nil || *task.OrderID != order.ID {
+			t.Errorf("task[%d] order_id not set correctly", i)
+		}
+		if task.WarehouseID != order.WarehouseID {
+			t.Errorf("task[%d] warehouse_id mismatch", i)
+		}
+		if task.Status != domain.TaskStatusPending {
+			t.Errorf("task[%d] status = %q, want pending", i, task.Status)
+		}
+		if task.ExpectedQty <= 0 {
+			t.Errorf("task[%d] expected_qty = %f, want > 0", i, task.ExpectedQty)
+		}
+		if task.Instructions == "" {
+			t.Errorf("task[%d] instructions empty", i)
+		}
+	}
+}
+
+func TestOrderService_ConfirmOutbound_GeneratesPickTasks(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Priority:    domain.OrderPriorityHigh,
+		Lines: []CreateOrderLineInput{
+			{SKUID: uuid.New(), OrderedQty: 30},
+		},
+		CreatedBy: "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	updated, err := svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	if err != nil {
+		t.Fatalf("draft → confirmed failed: %v", err)
+	}
+	if updated.Status != domain.OrderStatusConfirmed {
+		t.Errorf("status = %q, want %q", updated.Status, domain.OrderStatusConfirmed)
+	}
+
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+
+	task := tasks[0]
+	if task.TaskType != domain.TaskTypePick {
+		t.Errorf("task type = %q, want pick", task.TaskType)
+	}
+	if task.Priority != domain.TaskPriorityHigh {
+		t.Errorf("task priority = %q, want high", task.Priority)
+	}
+	if !strings.Contains(task.Instructions, "Pick") {
+		t.Errorf("instructions should mention 'Pick': %q", task.Instructions)
+	}
+}
+
+func TestOrderService_Confirm_TaskFieldsMatchOrder(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	skuID := uuid.New()
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Priority:    domain.OrderPriorityUrgent,
+		Lines: []CreateOrderLineInput{
+			{SKUID: skuID, OrderedQty: 75, UOM: "BX", BatchNo: "BATCH-A"},
+		},
+		CreatedBy: "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	_, err = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	if err != nil {
+		t.Fatalf("confirm failed: %v", err)
+	}
+
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+
+	line := order.Lines[0]
+	task := tasks[0]
+
+	if task.WarehouseID != order.WarehouseID {
+		t.Errorf("warehouse_id mismatch")
+	}
+	if task.Priority != domain.TaskPriorityUrgent {
+		t.Errorf("priority = %q, want urgent", task.Priority)
+	}
+	if task.SKUID != skuID {
+		t.Errorf("sku_id mismatch")
+	}
+	if task.ExpectedQty != line.OrderedQty {
+		t.Errorf("expected_qty = %f, want %f", task.ExpectedQty, line.OrderedQty)
+	}
+	if task.UOM != "BX" {
+		t.Errorf("uom = %q, want BX", task.UOM)
+	}
+	if task.BatchNo != "BATCH-A" {
+		t.Errorf("batch_no = %q, want BATCH-A", task.BatchNo)
+	}
+	if task.Status != domain.TaskStatusPending {
+		t.Errorf("status = %q, want pending", task.Status)
+	}
+	if task.OrderID == nil || *task.OrderID != order.ID {
+		t.Errorf("order_id not set correctly")
+	}
+	if task.OrderLineID == nil || *task.OrderLineID != line.ID {
+		t.Errorf("order_line_id not set correctly")
+	}
+}
+
+func TestOrderService_ConfirmTransfer_GeneratesPutawayTasks(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeTransfer,
+		WarehouseID: uuid.New(),
+		Lines: []CreateOrderLineInput{
+			{SKUID: uuid.New(), OrderedQty: 200},
+		},
+		CreatedBy: "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	_, err = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	if err != nil {
+		t.Fatalf("confirm failed: %v", err)
+	}
+
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].TaskType != domain.TaskTypePutaway {
+		t.Errorf("task type = %q, want putaway", tasks[0].TaskType)
+	}
+}
+
+func TestOrderService_Confirm_NoTasksForNonConfirmTransition(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Cancel the order — no tasks should be generated.
+	_, err = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCancelled})
+	if err != nil {
+		t.Fatalf("draft → cancelled failed: %v", err)
+	}
+
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 0 {
+		t.Errorf("expected 0 tasks for cancelled order, got %d", len(tasks))
+	}
+}

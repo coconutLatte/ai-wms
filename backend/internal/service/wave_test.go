@@ -31,6 +31,9 @@ func (m *mockRepoForWave) CreateTask(ctx context.Context, t *domain.Task) error 
 func (m *mockRepoForWave) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, error) {
 	panic("not implemented")
 }
+func (m *mockRepoForWave) GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error) {
+	panic("not implemented")
+}
 func (m *mockRepoForWave) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
 	panic("not implemented")
 }

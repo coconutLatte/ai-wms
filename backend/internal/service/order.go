@@ -15,12 +15,13 @@ import (
 
 // OrderService orchestrates business logic for orders and order lines.
 type OrderService struct {
-	repo repository.OrderRepository
+	repo     repository.OrderRepository
+	taskRepo repository.TaskRepository
 }
 
 // NewOrderService creates a new OrderService.
-func NewOrderService(repo repository.OrderRepository) *OrderService {
-	return &OrderService{repo: repo}
+func NewOrderService(repo repository.OrderRepository, taskRepo repository.TaskRepository) *OrderService {
+	return &OrderService{repo: repo, taskRepo: taskRepo}
 }
 
 // ── Input Types ──────────────────────────────────────────────────────────────────────────
@@ -234,6 +235,12 @@ func (s *OrderService) ListOrders(ctx context.Context, filter repository.OrderFi
 }
 
 // UpdateOrderStatus validates the state transition and updates the order status.
+// When status transitions to "confirmed", tasks are auto-generated for the order:
+//   - inbound orders  → putaway tasks (one per line)
+//   - outbound orders → pick tasks (one per line)
+//   - transfer/return → putaway tasks (one per line)
+//
+// Task generation is idempotent: if tasks already exist for the order, no new tasks are created.
 func (s *OrderService) UpdateOrderStatus(ctx context.Context, id uuid.UUID, input UpdateOrderStatusInput) (*domain.Order, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -251,6 +258,13 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id uuid.UUID, inpu
 
 	if err := s.repo.UpdateOrderStatus(ctx, id, input.Status); err != nil {
 		return nil, fmt.Errorf("order service: update status %s: %w", id, err)
+	}
+
+	// Auto-generate tasks when transitioning to "confirmed".
+	if input.Status == domain.OrderStatusConfirmed {
+		if err := s.generateTasksForOrder(ctx, order); err != nil {
+			return nil, fmt.Errorf("order service: generate tasks: %w", err)
+		}
 	}
 
 	// Re-fetch to get updated state.
@@ -539,6 +553,87 @@ func (s *OrderService) UpdateASNStatus(ctx context.Context, asnID uuid.UUID, inp
 	}
 
 	return updated, nil
+}
+
+// generateTasksForOrder creates warehouse tasks for an order when it is confirmed.
+// Task types:
+//   - inbound orders  → putaway (one per line, since receiving is handled by ASN)
+//   - outbound orders → pick (one per line)
+//   - transfer/return → putaway (one per line)
+//
+// Deduplication: if tasks already exist for this order, no new tasks are created.
+func (s *OrderService) generateTasksForOrder(ctx context.Context, order *domain.Order) error {
+	// Deduplication: skip if tasks already exist for this order.
+	existing, err := s.taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if err != nil {
+		return fmt.Errorf("check existing tasks: %w", err)
+	}
+	if len(existing) > 0 {
+		return nil // Tasks already generated — idempotent, skip.
+	}
+
+	// Determine task type based on order type.
+	taskType := domain.TaskTypePutaway
+	switch order.OrderType {
+	case domain.OrderTypeOutbound:
+		taskType = domain.TaskTypePick
+	case domain.OrderTypeInbound, domain.OrderTypeTransfer, domain.OrderTypeReturn:
+		taskType = domain.TaskTypePutaway
+	}
+
+	// Map order priority to task priority (same enum values).
+	taskPriority := domain.TaskPriority(order.Priority)
+
+	// Load order lines if not already loaded.
+	if len(order.Lines) == 0 {
+		lines, err := s.repo.GetOrderLines(ctx, order.ID)
+		if err != nil {
+			return fmt.Errorf("load order lines: %w", err)
+		}
+		for _, l := range lines {
+			order.Lines = append(order.Lines, *l)
+		}
+	}
+
+	// Generate one task per order line.
+	for _, line := range order.Lines {
+		lineID := line.ID // Capture for pointer.
+
+		instructions := buildTaskInstructions(taskType, order.OrderNo, line.LineNo)
+
+		task := &domain.Task{
+			TaskNo:       generateTaskNo(),
+			TaskType:     taskType,
+			WarehouseID:  order.WarehouseID,
+			OrderID:      &order.ID,
+			OrderLineID:  &lineID,
+			Priority:     taskPriority,
+			Status:       domain.TaskStatusPending,
+			SKUID:        line.SKUID,
+			ExpectedQty:  line.OrderedQty,
+			UOM:          line.UOM,
+			BatchNo:      line.BatchNo,
+			Instructions: instructions,
+		}
+
+		if err := s.taskRepo.CreateTask(ctx, task); err != nil {
+			return fmt.Errorf("create task for line %d: %w", line.LineNo, err)
+		}
+	}
+
+	return nil
+}
+
+// buildTaskInstructions creates human-readable instructions for a warehouse task.
+func buildTaskInstructions(taskType domain.TaskType, orderNo string, lineNo int) string {
+	switch taskType {
+	case domain.TaskTypePick:
+		return fmt.Sprintf("Pick for order %s, line %d. Scan location, then SKU barcode to confirm.", orderNo, lineNo)
+	case domain.TaskTypePutaway:
+		return fmt.Sprintf("Putaway for order %s, line %d. Scan target location barcode to confirm placement.", orderNo, lineNo)
+	default:
+		return fmt.Sprintf("Task for order %s, line %d.", orderNo, lineNo)
+	}
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────────────

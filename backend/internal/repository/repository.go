@@ -170,6 +170,7 @@ type TaskRepository interface {
 	// Task
 	CreateTask(ctx context.Context, t *domain.Task) error
 	GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, error)
+	GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error)
 	ListTasks(ctx context.Context, filter TaskFilter) ([]*domain.Task, error)
 	AssignTask(ctx context.Context, id uuid.UUID, assignedTo string) error
 	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error

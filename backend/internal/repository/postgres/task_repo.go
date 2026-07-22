@@ -81,6 +81,36 @@ func (r *TaskRepo) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, err
 	return t, nil
 }
 
+// GetTasksByOrderID retrieves all tasks associated with a given order.
+func (r *TaskRepo) GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error) {
+	const query = `
+		SELECT id, task_no, task_type, warehouse_id, order_id, order_line_id,
+		       priority, status, assigned_to, from_location_id, to_location_id,
+		       sku_id, expected_qty, actual_qty, uom, batch_no, instructions,
+		       created_at, started_at, completed_at, cancelled_at
+		FROM tasks WHERE order_id = $1
+		ORDER BY created_at ASC`
+
+	rows, err := r.query(ctx, query, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("get tasks by order: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []*domain.Task
+	for rows.Next() {
+		t, err := r.scanTaskFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan task: %w", err)
+		}
+		tasks = append(tasks, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tasks: %w", err)
+	}
+	return tasks, nil
+}
+
 // ListTasks returns tasks matching the specified filter.
 func (r *TaskRepo) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
 	var conditions []string

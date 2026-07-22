@@ -43,6 +43,16 @@ func (m *mockTaskRepo) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task,
 	return t, nil
 }
 
+func (m *mockTaskRepo) GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error) {
+	var result []*domain.Task
+	for _, t := range m.tasks {
+		if t.OrderID != nil && *t.OrderID == orderID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
 func (m *mockTaskRepo) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
 	var result []*domain.Task
 	for _, t := range m.tasks {

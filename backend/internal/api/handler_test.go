@@ -152,6 +152,40 @@ func (m *mockOrderRepo) UpdateASNLineStatus(ctx context.Context, id uuid.UUID, s
 }
 func (m *mockOrderRepo) UpdateASNLineReceivedQty(ctx context.Context, id uuid.UUID, qty float64) error { return nil }
 
+// ── Mock Task Repo (for OrderHandler tests) ───────────────────────────────────
+
+type mockTaskRepoForHandler struct{}
+
+func (m *mockTaskRepoForHandler) CreateTask(ctx context.Context, t *domain.Task) error                         { return nil }
+func (m *mockTaskRepoForHandler) GetTask(ctx context.Context, id uuid.UUID) (*domain.Task, error)               { return nil, nil }
+func (m *mockTaskRepoForHandler) GetTasksByOrderID(ctx context.Context, orderID uuid.UUID) ([]*domain.Task, error) {
+	return nil, nil
+}
+func (m *mockTaskRepoForHandler) ListTasks(ctx context.Context, filter repository.TaskFilter) ([]*domain.Task, error) {
+	return nil, nil
+}
+func (m *mockTaskRepoForHandler) AssignTask(ctx context.Context, id uuid.UUID, assignedTo string) error { return nil }
+func (m *mockTaskRepoForHandler) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error {
+	return nil
+}
+func (m *mockTaskRepoForHandler) CompleteTask(ctx context.Context, id uuid.UUID, actualQty float64, toLocationID *uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepoForHandler) CountTasks(ctx context.Context, filter repository.TaskFilter) (int, error) { return 0, nil }
+func (m *mockTaskRepoForHandler) CreateWave(ctx context.Context, w *domain.Wave) error                       { return nil }
+func (m *mockTaskRepoForHandler) GetWave(ctx context.Context, id uuid.UUID) (*domain.Wave, error)             { return nil, nil }
+func (m *mockTaskRepoForHandler) ListWaves(ctx context.Context, filter repository.WaveFilter) ([]*domain.Wave, error) {
+	return nil, nil
+}
+func (m *mockTaskRepoForHandler) UpdateWaveStatus(ctx context.Context, id uuid.UUID, status domain.WaveStatus) error {
+	return nil
+}
+func (m *mockTaskRepoForHandler) AddWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error { return nil }
+func (m *mockTaskRepoForHandler) RemoveWaveOrders(ctx context.Context, id uuid.UUID, orderIDs []uuid.UUID) error {
+	return nil
+}
+func (m *mockTaskRepoForHandler) CountWaves(ctx context.Context, filter repository.WaveFilter) (int, error) { return 0, nil }
+
 // ── Mock Warehouse Repo (for WarehouseHandler tests) ───────────────────────────
 
 type mockWhRepo struct {
@@ -315,7 +349,7 @@ func TestUpdateOrderLineStatus_Success(t *testing.T) {
 			return nil
 		},
 	}
-	handler := &OrderHandler{svc: service.NewOrderService(repo)}
+	handler := &OrderHandler{svc: service.NewOrderService(repo, &mockTaskRepoForHandler{})}
 
 	body := `{"status": "allocated"}`
 	r := httptest.NewRequest("PUT", "/api/v1/orders/"+ordID.String()+"/lines/"+lineID.String()+"/status", strings.NewReader(body))
@@ -339,7 +373,7 @@ func TestUpdateOrderLineStatus_Success(t *testing.T) {
 }
 
 func TestUpdateOrderLineStatus_InvalidUUID(t *testing.T) {
-	handler := &OrderHandler{svc: service.NewOrderService(&mockOrderRepo{})}
+	handler := &OrderHandler{svc: service.NewOrderService(&mockOrderRepo{}, &mockTaskRepoForHandler{})}
 
 	body := `{"status": "allocated"}`
 	r := httptest.NewRequest("PUT", "/api/v1/orders/"+ordID.String()+"/lines/bad-uuid/status", strings.NewReader(body))
@@ -355,7 +389,7 @@ func TestUpdateOrderLineStatus_InvalidUUID(t *testing.T) {
 }
 
 func TestUpdateOrderLineStatus_NotFound(t *testing.T) {
-	handler := &OrderHandler{svc: service.NewOrderService(&mockOrderRepo{})}
+	handler := &OrderHandler{svc: service.NewOrderService(&mockOrderRepo{}, &mockTaskRepoForHandler{})}
 
 	body := `{"status": "allocated"}`
 	r := httptest.NewRequest("PUT", "/api/v1/orders/"+ordID.String()+"/lines/"+lineID.String()+"/status", strings.NewReader(body))
