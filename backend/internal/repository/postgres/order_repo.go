@@ -391,6 +391,93 @@ func (r *OrderRepo) UpdateASNStatus(ctx context.Context, id uuid.UUID, status do
 	return nil
 }
 
+// ListASNs returns ASNs matching the specified filter.
+func (r *OrderRepo) ListASNs(ctx context.Context, filter repository.ASNFilter) ([]*domain.ASN, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+
+	query := `
+		SELECT id, asn_no, warehouse_id, order_id, carrier, tracking_no,
+		       expected_at, arrived_at, status, created_at
+		FROM asns`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY created_at DESC"
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, filter.Offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list asns: %w", err)
+	}
+	defer rows.Close()
+
+	var asns []*domain.ASN
+	for rows.Next() {
+		a, err := r.scanASNFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan asn: %w", err)
+		}
+		asns = append(asns, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate asns: %w", err)
+	}
+	return asns, nil
+}
+
+// CountASNs returns the total number of ASNs matching the specified filter.
+func (r *OrderRepo) CountASNs(ctx context.Context, filter repository.ASNFilter) (int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, filter.Status)
+		argIdx++
+	}
+
+	query := "SELECT COUNT(*) FROM asns"
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.queryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count asns: %w", err)
+	}
+	return count, nil
+}
+
 // ── ASNLine ─────────────────────────────────────────────────
 
 // CreateASNLine inserts a new ASN line.
@@ -590,6 +677,34 @@ func (r *OrderRepo) scanASN(row pgx.Row) (*domain.ASN, error) {
 	var carrier, trackingNo *string
 
 	err := row.Scan(
+		&a.ID, &a.ASNNo, &a.WarehouseID, &orderID,
+		&carrier, &trackingNo,
+		&a.ExpectedAt, &a.ArrivedAt, &a.Status, &a.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if orderID != nil {
+		a.OrderID = *orderID
+	}
+	if carrier != nil {
+		a.Carrier = *carrier
+	}
+	if trackingNo != nil {
+		a.TrackingNo = *trackingNo
+	}
+
+	return a, nil
+}
+
+// scanASNFromRows scans an ASN row from a Rows iterator.
+func (r *OrderRepo) scanASNFromRows(rows pgx.Rows) (*domain.ASN, error) {
+	a := &domain.ASN{}
+	var orderID *uuid.UUID
+	var carrier, trackingNo *string
+
+	err := rows.Scan(
 		&a.ID, &a.ASNNo, &a.WarehouseID, &orderID,
 		&carrier, &trackingNo,
 		&a.ExpectedAt, &a.ArrivedAt, &a.Status, &a.CreatedAt,

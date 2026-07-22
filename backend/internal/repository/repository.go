@@ -137,13 +137,23 @@ type OrderRepository interface {
 	CreateASN(ctx context.Context, asn *domain.ASN) error
 	GetASN(ctx context.Context, id uuid.UUID) (*domain.ASN, error)
 	GetASNByNo(ctx context.Context, asnNo string) (*domain.ASN, error)
+	ListASNs(ctx context.Context, filter ASNFilter) ([]*domain.ASN, error)
 	UpdateASNStatus(ctx context.Context, id uuid.UUID, status domain.ASNStatus) error
+	CountASNs(ctx context.Context, filter ASNFilter) (int, error)
 
 	// ASNLine
 	CreateASNLine(ctx context.Context, line *domain.ASNLine) error
 	GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain.ASNLine, error)
 	UpdateASNLineStatus(ctx context.Context, id uuid.UUID, status domain.ASNLineStatus) error
 	UpdateASNLineReceivedQty(ctx context.Context, id uuid.UUID, qty float64) error
+}
+
+// ASNFilter defines query parameters for ASN search.
+type ASNFilter struct {
+	WarehouseID uuid.UUID
+	Status      domain.ASNStatus
+	Limit       int
+	Offset      int
 }
 
 // OrderFilter defines query parameters for order search.

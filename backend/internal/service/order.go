@@ -373,6 +373,136 @@ func (in *UpdateASNStatusInput) Validate() error {
 	return nil
 }
 
+// ── ASN Input Types ───────────────────────────────────────────────────────────────────
+
+// CreateASNInput is the input for creating a new ASN.
+type CreateASNInput struct {
+	ASNNo       string               `json:"asn_no,omitempty"` // Auto-generated if empty
+	WarehouseID uuid.UUID            `json:"warehouse_id"`
+	OrderID     uuid.UUID            `json:"order_id,omitempty"` // Linked inbound order (optional)
+	Carrier     string               `json:"carrier,omitempty"`
+	TrackingNo  string               `json:"tracking_no,omitempty"`
+	ExpectedAt  time.Time            `json:"expected_at"`
+	Lines       []CreateASNLineInput `json:"lines"`
+}
+
+// Validate checks the input for business rule violations.
+func (in *CreateASNInput) Validate() error {
+	if in.WarehouseID == uuid.Nil {
+		return pkgerrors.NewInvalidInput("warehouse_id is required")
+	}
+	if in.ExpectedAt.IsZero() {
+		return pkgerrors.NewInvalidInput("expected_at is required")
+	}
+	if len(in.Lines) == 0 {
+		return pkgerrors.NewInvalidInput("at least one ASN line is required")
+	}
+	for i, line := range in.Lines {
+		if err := line.Validate(); err != nil {
+			return fmt.Errorf("line %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// CreateASNLineInput is the input for a single ASN line within CreateASNInput.
+type CreateASNLineInput struct {
+	SKUID       uuid.UUID `json:"sku_id"`
+	ExpectedQty float64   `json:"expected_qty"`
+	BatchNo     string    `json:"batch_no,omitempty"`
+}
+
+// Validate checks the line input for business rule violations.
+func (in *CreateASNLineInput) Validate() error {
+	if in.SKUID == uuid.Nil {
+		return pkgerrors.NewInvalidInput("sku_id is required")
+	}
+	if in.ExpectedQty <= 0 {
+		return pkgerrors.NewInvalidInput("expected_qty must be positive")
+	}
+	return nil
+}
+
+// CreateASN validates input and creates a new ASN with its lines.
+func (s *OrderService) CreateASN(ctx context.Context, input CreateASNInput) (*domain.ASN, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	// Generate ASN number if not provided.
+	asnNo := input.ASNNo
+	if asnNo == "" {
+		asnNo = generateASNNo()
+	}
+
+	asn := &domain.ASN{
+		ASNNo:       asnNo,
+		WarehouseID: input.WarehouseID,
+		OrderID:     input.OrderID,
+		Carrier:     input.Carrier,
+		TrackingNo:  input.TrackingNo,
+		ExpectedAt:  input.ExpectedAt,
+		Status:      domain.ASNStatusPending,
+	}
+
+	if err := s.repo.CreateASN(ctx, asn); err != nil {
+		return nil, fmt.Errorf("order service: create asn: %w", err)
+	}
+
+	// Create ASN lines.
+	for i, lineInput := range input.Lines {
+		line := &domain.ASNLine{
+			ASNID:       asn.ID,
+			SKUID:       lineInput.SKUID,
+			ExpectedQty: lineInput.ExpectedQty,
+			ReceivedQty: 0,
+			BatchNo:     lineInput.BatchNo,
+			Status:      domain.ASNLineStatusPending,
+		}
+
+		if err := s.repo.CreateASNLine(ctx, line); err != nil {
+			return nil, fmt.Errorf("order service: create asn line %d: %w", i+1, err)
+		}
+		asn.Lines = append(asn.Lines, *line)
+	}
+
+	return asn, nil
+}
+
+// GetASN retrieves an ASN with its lines populated.
+func (s *OrderService) GetASN(ctx context.Context, id uuid.UUID) (*domain.ASN, error) {
+	asn, err := s.repo.GetASN(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order service: get asn %s: %w", id, err)
+	}
+
+	lines, err := s.repo.GetASNLines(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order service: get asn lines %s: %w", id, err)
+	}
+	asn.Lines = make([]domain.ASNLine, len(lines))
+	for i, l := range lines {
+		asn.Lines[i] = *l
+	}
+
+	return asn, nil
+}
+
+// ListASNs returns ASNs matching the specified filter.
+func (s *OrderService) ListASNs(ctx context.Context, filter repository.ASNFilter) ([]*domain.ASN, int, error) {
+	asns, err := s.repo.ListASNs(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("order service: list asns: %w", err)
+	}
+
+	total, err := s.repo.CountASNs(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("order service: count asns: %w", err)
+	}
+
+	return asns, total, nil
+}
+
 // UpdateASNStatus validates the state transition and updates the ASN status.
 func (s *OrderService) UpdateASNStatus(ctx context.Context, asnID uuid.UUID, input UpdateASNStatusInput) (*domain.ASN, error) {
 	if err := input.Validate(); err != nil {
@@ -428,6 +558,12 @@ func generateOrderNo(orderType domain.OrderType) string {
 		prefix = "RET"
 	}
 	return fmt.Sprintf("%s-%s-%06d", prefix, now.Format("20060102"), now.UnixMilli()%1000000)
+}
+
+// generateASNNo creates a business ASN number based on timestamp.
+func generateASNNo() string {
+	now := time.Now()
+	return fmt.Sprintf("ASN-%s-%06d", now.Format("20060102"), now.UnixMilli()%1000000)
 }
 
 func isValidOrderType(t domain.OrderType) bool {

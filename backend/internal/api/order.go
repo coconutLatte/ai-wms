@@ -260,3 +260,199 @@ func (h *OrderHandler) AddOrderLine(w http.ResponseWriter, r *http.Request) {
 
 	WriteCreated(w, toOrderLineResponse(line))
 }
+
+// ── ASN Response Types ──────────────────────────────────────────────────────────────
+
+// asnResponse is the JSON shape returned for ASN endpoints.
+type asnResponse struct {
+	ID          string          `json:"id"`
+	ASNNo       string          `json:"asn_no"`
+	WarehouseID string          `json:"warehouse_id"`
+	OrderID     string          `json:"order_id,omitempty"`
+	Carrier     string          `json:"carrier,omitempty"`
+	TrackingNo  string          `json:"tracking_no,omitempty"`
+	ExpectedAt  string          `json:"expected_at"`
+	ArrivedAt   string          `json:"arrived_at,omitempty"`
+	Lines       []asnLineResponse `json:"lines"`
+	Status      string          `json:"status"`
+	CreatedAt   string          `json:"created_at"`
+}
+
+// asnLineResponse is the JSON shape for ASN line items.
+type asnLineResponse struct {
+	ID          string  `json:"id"`
+	ASNID       string  `json:"asn_id"`
+	SKUID       string  `json:"sku_id"`
+	ExpectedQty float64 `json:"expected_qty"`
+	ReceivedQty float64 `json:"received_qty"`
+	BatchNo     string  `json:"batch_no,omitempty"`
+	Status      string  `json:"status"`
+}
+
+// asnSummaryResponse is a lighter response shape for list endpoints (no lines).
+type asnSummaryResponse struct {
+	ID          string `json:"id"`
+	ASNNo       string `json:"asn_no"`
+	WarehouseID string `json:"warehouse_id"`
+	OrderID     string `json:"order_id,omitempty"`
+	Carrier     string `json:"carrier,omitempty"`
+	TrackingNo  string `json:"tracking_no,omitempty"`
+	ExpectedAt  string `json:"expected_at"`
+	ArrivedAt   string `json:"arrived_at,omitempty"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
+}
+
+func toASNResponse(a *domain.ASN) asnResponse {
+	r := asnResponse{
+		ID:          a.ID.String(),
+		ASNNo:       a.ASNNo,
+		WarehouseID: a.WarehouseID.String(),
+		Carrier:     a.Carrier,
+		TrackingNo:  a.TrackingNo,
+		ExpectedAt:  a.ExpectedAt.Format("2006-01-02T15:04:05Z"),
+		Status:      string(a.Status),
+		CreatedAt:   a.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+	if a.OrderID != uuid.Nil {
+		r.OrderID = a.OrderID.String()
+	}
+	if a.ArrivedAt != nil {
+		r.ArrivedAt = a.ArrivedAt.Format("2006-01-02T15:04:05Z")
+	}
+	r.Lines = make([]asnLineResponse, len(a.Lines))
+	for i, l := range a.Lines {
+		r.Lines[i] = toASNLineResponse(&l)
+	}
+	return r
+}
+
+func toASNLineResponse(l *domain.ASNLine) asnLineResponse {
+	return asnLineResponse{
+		ID:          l.ID.String(),
+		ASNID:       l.ASNID.String(),
+		SKUID:       l.SKUID.String(),
+		ExpectedQty: l.ExpectedQty,
+		ReceivedQty: l.ReceivedQty,
+		BatchNo:     l.BatchNo,
+		Status:      string(l.Status),
+	}
+}
+
+func toASNSummaryResponse(a *domain.ASN) asnSummaryResponse {
+	r := asnSummaryResponse{
+		ID:          a.ID.String(),
+		ASNNo:       a.ASNNo,
+		WarehouseID: a.WarehouseID.String(),
+		Carrier:     a.Carrier,
+		TrackingNo:  a.TrackingNo,
+		ExpectedAt:  a.ExpectedAt.Format("2006-01-02T15:04:05Z"),
+		Status:      string(a.Status),
+		CreatedAt:   a.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+	if a.OrderID != uuid.Nil {
+		r.OrderID = a.OrderID.String()
+	}
+	if a.ArrivedAt != nil {
+		r.ArrivedAt = a.ArrivedAt.Format("2006-01-02T15:04:05Z")
+	}
+	return r
+}
+
+// ── ASN Handlers ───────────────────────────────────────────────────────────────────
+
+// CreateASN handles POST /api/v1/asns
+func (h *OrderHandler) CreateASN(w http.ResponseWriter, r *http.Request) {
+	var input service.CreateASNInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	asn, err := h.svc.CreateASN(r.Context(), input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteCreated(w, toASNResponse(asn))
+}
+
+// GetASN handles GET /api/v1/asns/{id}
+func (h *OrderHandler) GetASN(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	asn, err := h.svc.GetASN(r.Context(), id)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toASNResponse(asn))
+}
+
+// ListASNs handles GET /api/v1/asns
+func (h *OrderHandler) ListASNs(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	filter := repository.ASNFilter{
+		Limit:  pageSize,
+		Offset: offset,
+	}
+
+	if raw := QueryParam(r, "warehouse_id", ""); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			WriteError(w, r, pkgerrors.NewInvalidInput("invalid warehouse_id UUID"))
+			return
+		}
+		filter.WarehouseID = id
+	}
+	if raw := QueryParam(r, "status", ""); raw != "" {
+		filter.Status = domain.ASNStatus(raw)
+	}
+
+	asns, total, err := h.svc.ListASNs(r.Context(), filter)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]asnSummaryResponse, 0, len(asns))
+	for _, a := range asns {
+		resp = append(resp, toASNSummaryResponse(a))
+	}
+
+	WriteJSON(w, http.StatusOK, ListResponse[asnSummaryResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
+}
+
+// UpdateASNStatus handles PUT /api/v1/asns/{id}/status
+func (h *OrderHandler) UpdateASNStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateASNStatusInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	asn, err := h.svc.UpdateASNStatus(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toASNResponse(asn))
+}

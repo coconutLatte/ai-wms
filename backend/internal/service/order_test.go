@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -179,6 +180,34 @@ func (m *mockOrderRepo) GetASNByNo(ctx context.Context, asnNo string) (*domain.A
 		}
 	}
 	return nil, pkgerrors.NewNotFound("asn", asnNo)
+}
+
+func (m *mockOrderRepo) ListASNs(ctx context.Context, filter repository.ASNFilter) ([]*domain.ASN, error) {
+	var result []*domain.ASN
+	for _, a := range m.asns {
+		if filter.WarehouseID != uuid.Nil && a.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.Status != "" && a.Status != filter.Status {
+			continue
+		}
+		result = append(result, a)
+	}
+	return result, nil
+}
+
+func (m *mockOrderRepo) CountASNs(ctx context.Context, filter repository.ASNFilter) (int, error) {
+	count := 0
+	for _, a := range m.asns {
+		if filter.WarehouseID != uuid.Nil && a.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		if filter.Status != "" && a.Status != filter.Status {
+			continue
+		}
+		count++
+	}
+	return count, nil
 }
 
 func (m *mockOrderRepo) UpdateASNStatus(ctx context.Context, id uuid.UUID, status domain.ASNStatus) error {
@@ -1202,6 +1231,230 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		}
 		if len(updated.Lines) != 2 {
 			t.Errorf("expected 2 ASN lines, got %d", len(updated.Lines))
+		}
+	}
+
+	// ── CreateASN Tests ──────────────────────────────────────────────────────────────
+
+	func TestOrderService_CreateASN(t *testing.T) {
+		ctx := context.Background()
+		svc := NewOrderService(newMockOrderRepo())
+
+		skuID := uuid.New()
+		whID := uuid.New()
+		expectedAt := time.Now().Add(48 * time.Hour).Truncate(time.Second)
+
+		asn, err := svc.CreateASN(ctx, CreateASNInput{
+			WarehouseID: whID,
+			Carrier:     "UPS",
+			TrackingNo:  "1Z999AA10123456784",
+			ExpectedAt:  expectedAt,
+			Lines: []CreateASNLineInput{
+				{SKUID: skuID, ExpectedQty: 50},
+				{SKUID: uuid.New(), ExpectedQty: 30, BatchNo: "BATCH-001"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("CreateASN failed: %v", err)
+		}
+		if asn.Status != domain.ASNStatusPending {
+			t.Errorf("status = %q, want %q", asn.Status, domain.ASNStatusPending)
+		}
+		if !strings.HasPrefix(asn.ASNNo, "ASN-") {
+			t.Errorf("asn_no should start with ASN-: got %q", asn.ASNNo)
+		}
+		if asn.Carrier != "UPS" {
+			t.Errorf("carrier = %q, want UPS", asn.Carrier)
+		}
+		if asn.TrackingNo != "1Z999AA10123456784" {
+			t.Errorf("tracking_no = %q, want 1Z999AA10123456784", asn.TrackingNo)
+		}
+		if len(asn.Lines) != 2 {
+			t.Fatalf("expected 2 lines, got %d", len(asn.Lines))
+		}
+		if asn.Lines[0].SKUID != skuID {
+			t.Errorf("line[0] sku_id = %q, want %q", asn.Lines[0].SKUID, skuID)
+		}
+		if asn.Lines[0].ExpectedQty != 50 {
+			t.Errorf("line[0] expected_qty = %f, want 50", asn.Lines[0].ExpectedQty)
+		}
+		if asn.Lines[1].BatchNo != "BATCH-001" {
+			t.Errorf("line[1] batch_no = %q, want BATCH-001", asn.Lines[1].BatchNo)
+		}
+	}
+
+	func TestOrderService_CreateASN_CustomNo(t *testing.T) {
+		ctx := context.Background()
+		svc := NewOrderService(newMockOrderRepo())
+
+		asn, err := svc.CreateASN(ctx, CreateASNInput{
+			ASNNo:       "ASN-CUSTOM-001",
+			WarehouseID: uuid.New(),
+			ExpectedAt:  time.Now().Add(24 * time.Hour),
+			Lines:       []CreateASNLineInput{{SKUID: uuid.New(), ExpectedQty: 10}},
+		})
+		if err != nil {
+			t.Fatalf("CreateASN failed: %v", err)
+		}
+		if asn.ASNNo != "ASN-CUSTOM-001" {
+			t.Errorf("asn_no = %q, want ASN-CUSTOM-001", asn.ASNNo)
+		}
+	}
+
+	func TestOrderService_CreateASN_WithOrderLink(t *testing.T) {
+		ctx := context.Background()
+		svc := NewOrderService(newMockOrderRepo())
+
+		orderID := uuid.New()
+		asn, err := svc.CreateASN(ctx, CreateASNInput{
+			WarehouseID: uuid.New(),
+			OrderID:     orderID,
+			ExpectedAt:  time.Now().Add(24 * time.Hour),
+			Lines:       []CreateASNLineInput{{SKUID: uuid.New(), ExpectedQty: 10}},
+		})
+		if err != nil {
+			t.Fatalf("CreateASN failed: %v", err)
+		}
+		if asn.OrderID != orderID {
+			t.Errorf("order_id = %q, want %q", asn.OrderID, orderID)
+		}
+	}
+
+	func TestOrderService_CreateASN_ValidationErrors(t *testing.T) {
+		ctx := context.Background()
+		svc := NewOrderService(newMockOrderRepo())
+
+		tests := []struct {
+			name  string
+			input CreateASNInput
+		}{
+			{"nil warehouse id", CreateASNInput{
+				WarehouseID: uuid.Nil,
+				ExpectedAt:  time.Now(),
+				Lines:       []CreateASNLineInput{{SKUID: uuid.New(), ExpectedQty: 1}},
+			}},
+			{"zero expected_at", CreateASNInput{
+				WarehouseID: uuid.New(),
+				ExpectedAt:  time.Time{},
+				Lines:       []CreateASNLineInput{{SKUID: uuid.New(), ExpectedQty: 1}},
+			}},
+			{"no lines", CreateASNInput{
+				WarehouseID: uuid.New(),
+				ExpectedAt:  time.Now(),
+				Lines:       nil,
+			}},
+			{"empty lines", CreateASNInput{
+				WarehouseID: uuid.New(),
+				ExpectedAt:  time.Now(),
+				Lines:       []CreateASNLineInput{},
+			}},
+			{"zero qty line", CreateASNInput{
+				WarehouseID: uuid.New(),
+				ExpectedAt:  time.Now(),
+				Lines:       []CreateASNLineInput{{SKUID: uuid.New(), ExpectedQty: 0}},
+			}},
+			{"negative qty line", CreateASNInput{
+				WarehouseID: uuid.New(),
+				ExpectedAt:  time.Now(),
+				Lines:       []CreateASNLineInput{{SKUID: uuid.New(), ExpectedQty: -5}},
+			}},
+			{"nil sku id line", CreateASNInput{
+				WarehouseID: uuid.New(),
+				ExpectedAt:  time.Now(),
+				Lines:       []CreateASNLineInput{{SKUID: uuid.Nil, ExpectedQty: 1}},
+			}},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := svc.CreateASN(ctx, tt.input)
+				if err == nil {
+					t.Fatal("expected error")
+				}
+			})
+		}
+	}
+
+	// ── GetASN Tests ────────────────────────────────────────────────────────────────
+
+	func TestOrderService_GetASN(t *testing.T) {
+		ctx := context.Background()
+		repo := newMockOrderRepo()
+		svc := NewOrderService(repo)
+
+		asn := setupMockASNWithLines(repo, 3)
+
+		got, err := svc.GetASN(ctx, asn.ID)
+		if err != nil {
+			t.Fatalf("GetASN failed: %v", err)
+		}
+		if got.ASNNo != asn.ASNNo {
+			t.Errorf("asn_no = %q, want %q", got.ASNNo, asn.ASNNo)
+		}
+		if len(got.Lines) != 3 {
+			t.Errorf("expected 3 lines, got %d", len(got.Lines))
+		}
+	}
+
+	func TestOrderService_GetASN_NotFound(t *testing.T) {
+		ctx := context.Background()
+		svc := NewOrderService(newMockOrderRepo())
+
+		_, err := svc.GetASN(ctx, uuid.New())
+		if err == nil {
+			t.Fatal("expected error for unknown ASN")
+		}
+	}
+
+	// ── ListASNs Tests ──────────────────────────────────────────────────────────────
+
+	func TestOrderService_ListASNs(t *testing.T) {
+		ctx := context.Background()
+		repo := newMockOrderRepo()
+		svc := NewOrderService(repo)
+
+		wh1 := uuid.New()
+		wh2 := uuid.New()
+
+		// Create ASNs in different warehouses with different statuses.
+		repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-001", WarehouseID: wh1, Status: domain.ASNStatusPending})
+		repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-002", WarehouseID: wh1, Status: domain.ASNStatusArrived})
+		repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-003", WarehouseID: wh2, Status: domain.ASNStatusPending})
+
+		// All ASNs.
+		all, count, err := svc.ListASNs(ctx, repository.ASNFilter{})
+		if err != nil {
+			t.Fatalf("ListASNs failed: %v", err)
+		}
+		if len(all) != 3 {
+			t.Errorf("expected 3 asns, got %d", len(all))
+		}
+		if count != 3 {
+			t.Errorf("count = %d, want 3", count)
+		}
+
+		// Filter by warehouse.
+		wh1ASNs, wh1Count, err := svc.ListASNs(ctx, repository.ASNFilter{WarehouseID: wh1})
+		if err != nil {
+			t.Fatalf("ListASNs wh1 failed: %v", err)
+		}
+		if len(wh1ASNs) != 2 {
+			t.Errorf("expected 2 asns in wh1, got %d", len(wh1ASNs))
+		}
+		if wh1Count != 2 {
+			t.Errorf("wh1 count = %d, want 2", wh1Count)
+		}
+
+		// Filter by status.
+		pending, pendingCount, err := svc.ListASNs(ctx, repository.ASNFilter{Status: domain.ASNStatusPending})
+		if err != nil {
+			t.Fatalf("ListASNs pending failed: %v", err)
+		}
+		if len(pending) != 2 {
+			t.Errorf("expected 2 pending asns, got %d", len(pending))
+		}
+		if pendingCount != 2 {
+			t.Errorf("pending count = %d, want 2", pendingCount)
 		}
 	}
 

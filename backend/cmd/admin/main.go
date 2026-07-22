@@ -133,6 +133,7 @@ func main() {
 	api.RegisterSKURoutes(protected, skuHandler)
 	api.RegisterInventoryRoutes(protected, inventoryHandler)
 	api.RegisterOrderRoutes(protected, orderHandler)
+	api.RegisterASNRoutes(protected, orderHandler)
 	api.RegisterTaskRoutes(protected, taskHandler)
 	api.RegisterWaveRoutes(protected, waveHandler)
 
