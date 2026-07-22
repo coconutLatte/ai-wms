@@ -237,3 +237,17 @@ type AuditLogFilter struct {
 	Limit    int
 	Offset   int
 }
+
+// MigrationRepository manages schema migration tracking.
+// It tracks which SQL migration files have been applied to ensure
+// each .sql file in the migrations/ directory runs exactly once.
+type MigrationRepository interface {
+	// GetApplied returns all migrations that have been applied, ordered by version.
+	GetApplied(ctx context.Context) ([]*domain.SchemaMigration, error)
+
+	// IsApplied checks whether a specific migration version has been applied.
+	IsApplied(ctx context.Context, version string) (bool, error)
+
+	// RecordApplied records that a migration has been successfully applied.
+	RecordApplied(ctx context.Context, m *domain.SchemaMigration) error
+}

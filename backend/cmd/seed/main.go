@@ -32,6 +32,16 @@ func main() {
 	}
 	defer db.Close()
 
+	// Run database migrations (idempotent — only unapplied migrations execute).
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	if err := db.RunMigrationsFromDir(context.Background(), migrationsDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to run migrations: %v\n", err)
+		os.Exit(1)
+	}
+
 	warehouseRepo := postgres.NewWarehouseRepo(db)
 	inventoryRepo := postgres.NewInventoryRepo(db)
 

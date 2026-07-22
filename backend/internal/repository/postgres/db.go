@@ -55,13 +55,3 @@ func (db *DB) Close() {
 func (db *DB) Ping(ctx context.Context) error {
 	return db.Pool.Ping(ctx)
 }
-
-// RunMigrations executes SQL migration files against the database.
-// In production, use a proper migration tool (golang-migrate, atlas, etc.).
-func (db *DB) RunMigrations(ctx context.Context, migrationsSQL string) error {
-	_, err := db.Pool.Exec(ctx, migrationsSQL)
-	if err != nil {
-		return fmt.Errorf("run migrations: %w", err)
-	}
-	return nil
-}

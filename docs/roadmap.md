@@ -73,7 +73,7 @@
 | P3-09 | P1 | i18n: Chinese (default) + English for Admin + PDA | completed | 2026-07-21 | react-i18next + i18next-browser-languagedetector, zh-CN default + en, language switcher in Admin header + PDA header, all page text + form labels + Ant Design locale translated |
 | P3-10 | P2 | GitHub Pages: deploy PDA demo alongside admin | completed | 2026-07-21 | Build PDA to docs/pda/, cross-links admin ↔ PDA in headers |
 | P3-11 | P2 | Redis client bootstrap | completed | 2026-07-21 | go-redis/v9 client, config-driven bootstrap, wired into admin + PDA entry points |
-| P3-12 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |
+| P3-12 | P2 | Migration tracking table | completed | 2026-07-22 | schema_migrations table + runner; each .sql runs once via RunMigrationsFromDir |
 | P3-13 | P1 | WMS standard benchmark / test scenarios | pending | — | Core flow tests: ASN→收货→上架, 波次→分配→拣货→复核, 出库→称重→发货, 盘点→差异→调整; accuracy KPIs (inventory ≥99.5%, pick ≥99.9%); race conditions (concurrent adjust, allocate+pick same SKU) |
 | P3-14 | P1 | Wave service + Admin API | pending | — | Wave repo supports full CRUD (CreateWave, ListWaves, GetWave, UpdateWaveStatus, AddWaveOrders, RemoveWaveOrders); needs WaveService layer + REST handlers; proto already defines CreateWave/ReleaseWave/GetWave |
 | P3-15 | P1 | Extend UserService + Admin API: Create, Get, Update, UpdateStatus | pending | — | UserRepo has full CRUD but UserService only exposes ListUsers; add remaining service methods + POST/PUT /users, GET /users/{id}, PUT /users/{id}/status routes |

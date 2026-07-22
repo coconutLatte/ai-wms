@@ -133,12 +133,12 @@ make evolve-dry     # Preview next task only
 <!-- EVOLUTION-STATS-START -->
 | Metric | Value |
 |--------|-------|
-| Total tasks | 54 |
-| Completed | 52 |
-| Pending | 2 |
+| Total tasks | 62 |
+| Completed | 53 |
+| Pending | 9 |
 | Cancelled | 0 |
-| Evolution rounds | 50 |
-| Last evolution | 2026-07-21 |
+| Evolution rounds | 51 |
+| Last evolution | 2026-07-22 |
 <!-- EVOLUTION-STATS-END -->
 
 See [docs/roadmap.md](docs/roadmap.md) for the full task list.

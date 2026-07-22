@@ -52,6 +52,16 @@ func main() {
 	}
 	defer db.Close()
 
+	// Run database migrations (idempotent — only unapplied migrations execute).
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	if err := db.RunMigrationsFromDir(context.Background(), migrationsDir); err != nil {
+		log.Error("Failed to run migrations", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	// Initialize Redis connection (non-fatal if unavailable in development).
 	redisClient, err := redis.New(context.Background(), cfg)
 	if err != nil {
