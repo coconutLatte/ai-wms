@@ -267,13 +267,38 @@ export interface UpdateOrderStatusRequest {
 export interface Task {
   id: string
   task_no: string
-  type: string
-  status: string
+  task_type: string
   warehouse_id: string
-  assignee_id: string
-  reference_type: string
-  reference_id: string
-  priority: number
+  order_id?: string
+  order_line_id?: string
+  priority: string
+  status: string
+  assigned_to?: string
+  from_location_id?: string
+  to_location_id?: string
+  sku_id: string
+  expected_qty: number
+  actual_qty: number
+  uom: string
+  batch_no?: string
+  instructions?: string
   created_at: string
-  updated_at: string
+  started_at?: string
+  completed_at?: string
+  cancelled_at?: string
+}
+
+export interface AssignTaskRequest {
+  assigned_to: string
+}
+
+export interface UpdateTaskStatusRequest {
+  status: string
+}
+
+export interface CompleteTaskRequest {
+  actual_qty: number
+  batch_no?: string
+  from_location_id?: string
+  to_location_id?: string
 }
