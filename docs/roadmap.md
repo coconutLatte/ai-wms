@@ -75,5 +75,13 @@
 | P3-11 | P2 | Redis client bootstrap | completed | 2026-07-21 | go-redis/v9 client, config-driven bootstrap, wired into admin + PDA entry points |
 | P3-12 | P2 | Migration tracking table | pending | — | schema_migrations so each .sql runs once |
 | P3-13 | P1 | WMS standard benchmark / test scenarios | pending | — | Core flow tests: ASN→收货→上架, 波次→分配→拣货→复核, 出库→称重→发货, 盘点→差异→调整; accuracy KPIs (inventory ≥99.5%, pick ≥99.9%); race conditions (concurrent adjust, allocate+pick same SKU) |
+| P3-14 | P1 | Wave service + Admin API | pending | — | Wave repo supports full CRUD (CreateWave, ListWaves, GetWave, UpdateWaveStatus, AddWaveOrders, RemoveWaveOrders); needs WaveService layer + REST handlers; proto already defines CreateWave/ReleaseWave/GetWave |
+| P3-15 | P1 | Extend UserService + Admin API: Create, Get, Update, UpdateStatus | pending | — | UserRepo has full CRUD but UserService only exposes ListUsers; add remaining service methods + POST/PUT /users, GET /users/{id}, PUT /users/{id}/status routes |
+| P3-16 | P1 | ASN API endpoints via OrderService | pending | — | OrderRepo supports ASN CRUD (CreateASN, GetASN, CreateASNLine, UpdateASNStatus); OrderService has status operations; add ASN HTTP handler + routes: POST/GET /asns, GET /asns/{id}, PUT /asns/{id}/status, POST /asns/{id}/lines; requires ListASNs repo method |
+| P3-17 | P1 | REST gap fill: inventory status, order line status, location barcode, SKU barcode | pending | — | 4 small isolated gaps with existing repo support: PATCH /inventory/{id}/status, PUT /orders/{id}/lines/{lineId}/status, GET /locations?barcode=X, GET /skus?code=X; add service methods + handler routes |
+| P3-18 | P2 | Admin: Task management page | pending | — | Replace placeholder with real task list (table filtered by type/status/worker), task detail drawer with order/line refs, assignment dropdown, status transitions |
+| P3-19 | P2 | Admin: Order create form | pending | — | Modal form: order type selector (inbound/outbound/transfer/return), warehouse picker, line items editor with SKU search + qty; POST /orders API already wired |
+| P3-20 | P2 | Admin: User & Role management pages | pending | — | User table (list, status badges, create/edit modal with role assignment); Role list with permission config (resource+actions matrix); depends on P3-15 API |
+| P3-21 | P2 | PDA: Camera barcode scanning integration | pending | — | Wire @zxing/library (already installed) into BarcodeScanner component for real camera scanning; add barcode lookup API call with result navigation (location→putaway task, SKU→inventory info) |
 
-<!-- DISCOVER refills when pending < 3. Last trim: 2026-07-21 (9→8, removed completed P3-07). -->
+<!-- DISCOVER refilled to 10 pending on 2026-07-22. -->
