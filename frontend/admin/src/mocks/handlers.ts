@@ -53,6 +53,25 @@ const tasks = [
   { id: id(402), task_no: 'TASK-20260721-000003', task_type: 'cycle_count', warehouse_id: id(2), sku_id: id(101), status: 'assigned', priority: 'low', assigned_to: '操作员-李', expected_qty: 500, actual_qty: 0, created_at: now },
 ]
 
+const asns = [
+  { id: id(500), asn_no: 'ASN-20260721-000001', warehouse_id: id(1), carrier: '顺丰速运', tracking_no: 'SF1234567890', expected_at: '2026-07-25T10:00:00Z', status: 'pending', created_at: now },
+  { id: id(501), asn_no: 'ASN-20260721-000002', warehouse_id: id(1), carrier: '德邦物流', tracking_no: 'DP9876543210', expected_at: '2026-07-22T14:00:00Z', status: 'arrived', arrived_at: '2026-07-22T13:45:00Z', created_at: now },
+  { id: id(502), asn_no: 'ASN-20260720-000001', warehouse_id: id(2), carrier: '中通快递', tracking_no: 'ZT5555666677', expected_at: '2026-07-21T08:00:00Z', status: 'receiving', arrived_at: '2026-07-21T07:30:00Z', created_at: now },
+]
+const asnLines: Record<string, { id: string; asn_id: string; sku_id: string; expected_qty: number; received_qty: number; batch_no: string; status: string }[]> = {
+  [id(500)]: [
+    { id: id(510), asn_id: id(500), sku_id: id(100), expected_qty: 200, received_qty: 0, batch_no: 'B2026-004', status: 'pending' },
+    { id: id(511), asn_id: id(500), sku_id: id(101), expected_qty: 1000, received_qty: 0, batch_no: 'B2026-005', status: 'pending' },
+  ],
+  [id(501)]: [
+    { id: id(520), asn_id: id(501), sku_id: id(102), expected_qty: 500, received_qty: 0, batch_no: 'B2026-006', status: 'pending' },
+  ],
+  [id(502)]: [
+    { id: id(530), asn_id: id(502), sku_id: id(103), expected_qty: 300, received_qty: 150, batch_no: 'B2026-007', status: 'partial' },
+    { id: id(531), asn_id: id(502), sku_id: id(100), expected_qty: 100, received_qty: 100, batch_no: 'B2026-008', status: 'received' },
+  ],
+}
+
 // ── Handlers ───────────────────────────────────────────────────
 
 export const handlers = [
@@ -148,5 +167,43 @@ export const handlers = [
   http.get('/api/v1/tasks/:id', async ({ params }) => {
     const t = tasks.find(t => t.id === params.id)
     return t ? HttpResponse.json(t) : new HttpResponse(null, { status: 404 })
+  }),
+
+  // ASNs
+  http.get('/api/v1/asns', async ({ request }) => {
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const status = url.searchParams.get('status')
+    const filtered = status ? asns.filter(a => a.status === status) : asns
+    return HttpResponse.json(paginate(filtered, page, 10))
+  }),
+  http.get('/api/v1/asns/:id', async ({ params }) => {
+    const a = asns.find(a => a.id === params.id)
+    if (!a) return new HttpResponse(null, { status: 404 })
+    return HttpResponse.json({ ...a, lines: asnLines[a.id] ?? [] })
+  }),
+  http.post('/api/v1/asns', async ({ request }) => {
+    await delay(200)
+    const body = await request.json() as { warehouse_id: string; carrier?: string }
+    const newAsn = {
+      id: id(Date.now() % 100000),
+      asn_no: `ASN-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`,
+      warehouse_id: body.warehouse_id,
+      carrier: body.carrier ?? '',
+      tracking_no: '',
+      expected_at: new Date().toISOString(),
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    }
+    asns.unshift(newAsn)
+    return HttpResponse.json(newAsn, { status: 201 })
+  }),
+  http.put('/api/v1/asns/:id/status', async ({ params, request }) => {
+    const body = await request.json() as { status: string }
+    const a = asns.find(a => a.id === params.id)
+    if (!a) return new HttpResponse(null, { status: 404 })
+    a.status = body.status
+    if (body.status === 'arrived') (a as Record<string, unknown>).arrived_at = new Date().toISOString()
+    return HttpResponse.json(a)
   }),
 ]

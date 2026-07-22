@@ -391,3 +391,52 @@ export interface UpdateRoleRequest {
   description?: string
   permissions?: Permission[]
 }
+
+// ── ASN ────────────────────────────────────────────────────────────────────
+
+export interface ASNSummary {
+  id: string
+  asn_no: string
+  warehouse_id: string
+  order_id?: string
+  carrier: string
+  tracking_no: string
+  expected_at: string
+  arrived_at?: string
+  status: string
+  created_at: string
+}
+
+export interface ASNLine {
+  id: string
+  asn_id: string
+  sku_id: string
+  expected_qty: number
+  received_qty: number
+  batch_no: string
+  status: string
+}
+
+export interface ASN extends ASNSummary {
+  lines: ASNLine[]
+}
+
+export interface CreateASNLineRequest {
+  sku_id: string
+  expected_qty: number
+  batch_no?: string
+}
+
+export interface CreateASNRequest {
+  asn_no?: string
+  warehouse_id: string
+  order_id?: string
+  carrier?: string
+  tracking_no?: string
+  expected_at: string
+  lines: CreateASNLineRequest[]
+}
+
+export interface UpdateASNStatusRequest {
+  status: string
+}

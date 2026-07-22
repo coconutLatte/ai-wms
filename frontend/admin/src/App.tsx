@@ -18,6 +18,7 @@ import OrdersPage from '@/pages/Orders'
 import TasksPage from '@/pages/Tasks'
 import UsersPage from '@/pages/Users'
 import RolesPage from '@/pages/Roles'
+import AsnsPage from '@/pages/Asns'
 import NotFoundPage from '@/pages/NotFound'
 
 // ── Ant Design theme ────────────────────────────────────────────────
@@ -54,6 +55,7 @@ function AppRoutes() {
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/roles" element={<RolesPage />} />
+                <Route path="/asns" element={<AsnsPage />} />
               </Route>
             </Route>
 
