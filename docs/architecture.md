@@ -105,6 +105,7 @@ GET    /api/v1/warehouses/:id/zones — List zones
 
 GET    /api/v1/inventory           — Query inventory (with filters)
 POST   /api/v1/inventory/adjust    — Manual inventory adjustment
+GET    /api/v1/inventory-transactions — Global inventory transaction history (with type/SKU/warehouse/date filters)
 
 GET    /api/v1/orders              — List orders
 POST   /api/v1/orders              — Create order

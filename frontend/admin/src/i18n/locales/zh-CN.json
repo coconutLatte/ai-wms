@@ -41,7 +41,8 @@
     "asns": "ASN 预到货",
     "zones": "库区",
     "locations": "库位",
-    "waves": "波次"
+    "waves": "波次",
+    "inventoryTransactions": "库存流水"
   },
   "auth": {
     "login": "登录",
@@ -577,5 +578,32 @@
     "cannotModify": "仅有 \"已创建\" 状态的波次才能修改订单",
     "releaseConfirmTitle": "释放该波次?",
     "releaseConfirmMsg": "释放波次 {{name}} 将为所有关联订单生成拣货任务。此操作不可撤销。"
+  },
+  "inventoryTxn": {
+    "title": "库存流水",
+    "subtitle": "全局库存交易历史记录，支持按类型、SKU、仓库或日期范围筛选。",
+    "type": "类型",
+    "deltaQty": "变动数",
+    "resultingQty": "结余",
+    "skuId": "SKU ID",
+    "locationId": "库位 ID",
+    "inventoryId": "库存 ID",
+    "referenceType": "关联类型",
+    "referenceId": "关联 ID",
+    "createdBy": "操作人",
+    "createdAt": "时间",
+    "filterType": "筛选类型",
+    "filterSku": "SKU ID (UUID)",
+    "filterWarehouse": "仓库 ID (UUID)",
+    "detailTitle": "流水详情",
+    "receipt": "收货",
+    "putaway": "上架",
+    "pick": "拣货",
+    "ship": "发货",
+    "transfer": "移库",
+    "adjustment": "调整",
+    "return": "退货",
+    "reserve": "预留",
+    "unreserve": "释放预留"
   }
 }

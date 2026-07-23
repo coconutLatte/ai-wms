@@ -214,6 +214,39 @@ func (h *InventoryHandler) GetTransactions(w http.ResponseWriter, r *http.Reques
 	})
 }
 
+// QueryTransactions handles GET /api/v1/inventory-transactions
+// Returns global transaction history with optional filters (SKU, warehouse, type, date range).
+func (h *InventoryHandler) QueryTransactions(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	input := service.QueryTransactionsInput{
+		SKUID:       QueryParam(r, "sku_id", ""),
+		WarehouseID: QueryParam(r, "warehouse_id", ""),
+		TxType:      domain.InventoryTxType(QueryParam(r, "type", "")),
+		DateFrom:    QueryParam(r, "date_from", ""),
+		DateTo:      QueryParam(r, "date_to", ""),
+		Limit:       pageSize,
+		Offset:      offset,
+	}
+
+	txs, total, err := h.svc.QueryTransactions(r.Context(), input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]inventoryTxnResponse, 0, len(txs))
+	for _, tx := range txs {
+		resp = append(resp, toInventoryTxnResponse(tx))
+	}
+
+	WriteJSON(w, http.StatusOK, ListResponse[inventoryTxnResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
+}
+
 // GetOldestInventory handles GET /api/v1/inventory/fifo
 // Returns available inventory sorted by received_at ASC (oldest first — FIFO).
 func (h *InventoryHandler) GetOldestInventory(w http.ResponseWriter, r *http.Request) {

@@ -86,6 +86,12 @@ func (m *mockInvRepo) ListTransactionsByReference(ctx context.Context, reference
 	return nil, nil
 }
 func (m *mockInvRepo) CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error) { return 0, nil }
+func (m *mockInvRepo) ListTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) ([]*domain.InventoryTransaction, error) {
+	return nil, nil
+}
+func (m *mockInvRepo) CountTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) (int, error) {
+	return 0, nil
+}
 func (m *mockInvRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
 	return nil, nil
 }
@@ -547,5 +553,99 @@ func TestGetSKUByCode_NotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+// ── QueryTransactions Handler Tests ────────────────────────────────────────────
+
+func TestQueryTransactions_Success(t *testing.T) {
+	repo := &mockInvRepo{}
+	// We need a mock that returns data for ListTransactionsGlobal.
+	// Since the mockInvRepo only stubs are empty, we use a simpler approach:
+	// just verify the handler doesn't crash on empty results.
+	handler := &InventoryHandler{svc: service.NewInventoryService(repo)}
+
+	r := httptest.NewRequest("GET", "/api/v1/inventory-transactions", nil)
+	w := httptest.NewRecorder()
+
+	handler.QueryTransactions(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify response structure is a list with pagination.
+	var resp struct {
+		Data       []inventoryTxnResponse `json:"data"`
+		Pagination struct {
+			Total      int `json:"total"`
+			Page       int `json:"page"`
+			PageSize   int `json:"page_size"`
+			TotalPages int `json:"total_pages"`
+		} `json:"pagination"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Pagination.Total != 0 {
+		t.Errorf("total = %d, want 0", resp.Pagination.Total)
+	}
+}
+
+func TestQueryTransactions_WithFilters(t *testing.T) {
+	repo := &mockInvRepo{}
+	handler := &InventoryHandler{svc: service.NewInventoryService(repo)}
+
+	r := httptest.NewRequest("GET", "/api/v1/inventory-transactions?type=receipt&date_from=2026-01-01T00:00:00Z", nil)
+	w := httptest.NewRecorder()
+
+	handler.QueryTransactions(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestQueryTransactions_InvalidDate(t *testing.T) {
+	repo := &mockInvRepo{}
+	handler := &InventoryHandler{svc: service.NewInventoryService(repo)}
+
+	r := httptest.NewRequest("GET", "/api/v1/inventory-transactions?date_from=not-a-date", nil)
+	w := httptest.NewRecorder()
+
+	handler.QueryTransactions(w, r)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400 for invalid date, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestQueryTransactions_Pagination(t *testing.T) {
+	repo := &mockInvRepo{}
+	handler := &InventoryHandler{svc: service.NewInventoryService(repo)}
+
+	r := httptest.NewRequest("GET", "/api/v1/inventory-transactions?page=1&page_size=10", nil)
+	w := httptest.NewRecorder()
+
+	handler.QueryTransactions(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Pagination struct {
+			Page     int `json:"page"`
+			PageSize int `json:"page_size"`
+		} `json:"pagination"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Pagination.Page != 1 {
+		t.Errorf("page = %d, want 1", resp.Pagination.Page)
+	}
+	if resp.Pagination.PageSize != 10 {
+		t.Errorf("page_size = %d, want 10", resp.Pagination.PageSize)
 	}
 }

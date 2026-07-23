@@ -41,7 +41,8 @@
     "asns": "ASNs",
     "zones": "Zones",
     "locations": "Locations",
-    "waves": "Waves"
+    "waves": "Waves",
+    "inventoryTransactions": "Transactions"
   },
   "auth": {
     "login": "Login",
@@ -577,5 +578,32 @@
     "cannotModify": "Only waves in \"created\" status can modify orders",
     "releaseConfirmTitle": "Release this wave?",
     "releaseConfirmMsg": "Releasing wave {{name}} will generate picking tasks for all linked orders. This cannot be undone."
+  },
+  "inventoryTxn": {
+    "title": "Inventory Transactions",
+    "subtitle": "Global inventory transaction history. Filter by type, SKU, warehouse, or date range.",
+    "type": "Type",
+    "deltaQty": "Delta Qty",
+    "resultingQty": "Result Qty",
+    "skuId": "SKU ID",
+    "locationId": "Location ID",
+    "inventoryId": "Inventory ID",
+    "referenceType": "Ref Type",
+    "referenceId": "Ref ID",
+    "createdBy": "Created By",
+    "createdAt": "Date",
+    "filterType": "Filter Type",
+    "filterSku": "SKU ID (UUID)",
+    "filterWarehouse": "Warehouse ID (UUID)",
+    "detailTitle": "Transaction Detail",
+    "receipt": "Receipt",
+    "putaway": "Putaway",
+    "pick": "Pick",
+    "ship": "Ship",
+    "transfer": "Transfer",
+    "adjustment": "Adjustment",
+    "return": "Return",
+    "reserve": "Reserve",
+    "unreserve": "Unreserve"
   }
 }

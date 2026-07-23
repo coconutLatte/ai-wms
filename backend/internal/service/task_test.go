@@ -1048,6 +1048,14 @@ func (m *combinedMockRepo) CountTransactions(ctx context.Context, inventoryID uu
 	return 0, nil
 }
 
+func (m *combinedMockRepo) ListTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) ([]*domain.InventoryTransaction, error) {
+	return nil, nil
+}
+
+func (m *combinedMockRepo) CountTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) (int, error) {
+	return 0, nil
+}
+
 func (m *combinedMockRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
 	return nil, nil
 }

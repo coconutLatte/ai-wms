@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -151,6 +152,7 @@ func (m *mockInventoryRepo) CreateTransaction(ctx context.Context, tx *domain.In
 	if tx.ID == uuid.Nil {
 		tx.ID = uuid.New()
 	}
+	tx.CreatedAt = time.Now()
 	m.transactions = append(m.transactions, tx)
 	return nil
 }
@@ -280,6 +282,58 @@ func (m *mockInventoryRepo) CountTransactions(ctx context.Context, inventoryID u
 		if tx.InventoryID == inventoryID {
 			count++
 		}
+	}
+	return count, nil
+}
+
+func (m *mockInventoryRepo) ListTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) ([]*domain.InventoryTransaction, error) {
+	var results []*domain.InventoryTransaction
+	for _, tx := range m.transactions {
+		if filter.SKUID != uuid.Nil && tx.SKUID != filter.SKUID {
+			continue
+		}
+		if filter.TxType != "" && tx.Type != filter.TxType {
+			continue
+		}
+		if filter.DateFrom != nil && tx.CreatedAt.Before(*filter.DateFrom) {
+			continue
+		}
+		if filter.DateTo != nil && tx.CreatedAt.After(*filter.DateTo) {
+			continue
+		}
+		results = append(results, tx)
+	}
+	// Sort by created_at DESC (newest first)
+	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
+		results[i], results[j] = results[j], results[i]
+	}
+	start := filter.Offset
+	if start > len(results) {
+		start = len(results)
+	}
+	end := start + filter.Limit
+	if filter.Limit <= 0 || end > len(results) {
+		end = len(results)
+	}
+	return results[start:end], nil
+}
+
+func (m *mockInventoryRepo) CountTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) (int, error) {
+	count := 0
+	for _, tx := range m.transactions {
+		if filter.SKUID != uuid.Nil && tx.SKUID != filter.SKUID {
+			continue
+		}
+		if filter.TxType != "" && tx.Type != filter.TxType {
+			continue
+		}
+		if filter.DateFrom != nil && tx.CreatedAt.Before(*filter.DateFrom) {
+			continue
+		}
+		if filter.DateTo != nil && tx.CreatedAt.After(*filter.DateTo) {
+			continue
+		}
+		count++
 	}
 	return count, nil
 }

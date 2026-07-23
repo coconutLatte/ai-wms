@@ -185,11 +185,15 @@ export interface Inventory {
 export interface InventoryTransaction {
   id: string
   inventory_id: string
+  sku_id: string
+  location_id: string
   type: string
-  quantity: number
+  delta_qty: number
+  resulting_qty: number
   reference_type: string
   reference_id: string
   created_at: string
+  created_by: string
 }
 
 // ── Inventory Dashboard ────────────────────────────────────────────────────

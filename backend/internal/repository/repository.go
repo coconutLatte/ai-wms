@@ -87,6 +87,10 @@ type InventoryRepository interface {
 		ListTransactionsByReference(ctx context.Context, referenceType string, referenceID uuid.UUID) ([]*domain.InventoryTransaction, error)
 	CountTransactions(ctx context.Context, inventoryID uuid.UUID) (int, error)
 
+	// Global transaction queries (across all inventory records)
+		ListTransactionsGlobal(ctx context.Context, filter InventoryTxFilter) ([]*domain.InventoryTransaction, error)
+		CountTransactionsGlobal(ctx context.Context, filter InventoryTxFilter) (int, error)
+
 	// Dashboard queries
 	GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*InventoryDashboardStats, error)
 	GetLowStockInventory(ctx context.Context, threshold float64, warehouseID uuid.UUID, limit int) ([]*domain.Inventory, error)
@@ -112,6 +116,17 @@ type InventoryRetrievalFilter struct {
 	WarehouseID uuid.UUID
 	SKUID       uuid.UUID
 	Limit       int
+}
+
+// InventoryTxFilter defines query parameters for global inventory transaction search.
+type InventoryTxFilter struct {
+	SKUID       uuid.UUID
+	WarehouseID uuid.UUID
+	TxType      domain.InventoryTxType
+	DateFrom    *time.Time
+	DateTo      *time.Time
+	Limit       int
+	Offset      int
 }
 
 // InventoryDashboardStats holds aggregate inventory statistics for the dashboard.

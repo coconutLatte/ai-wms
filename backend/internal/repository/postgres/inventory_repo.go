@@ -683,6 +683,136 @@ func (r *InventoryRepo) CountTransactions(ctx context.Context, inventoryID uuid.
 	return count, nil
 }
 
+// ListTransactionsGlobal returns inventory transactions matching the given filter
+// across all inventory records, with optional warehouse filter (via JOIN).
+func (r *InventoryRepo) ListTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) ([]*domain.InventoryTransaction, error) {
+	conditions, args := r.buildTxGlobalConditions(filter, nil)
+
+	query := `
+		SELECT t.id, t.inventory_id, t.sku_id, t.location_id,
+		       t.type, t.delta_qty, t.resulting_qty,
+		       t.reference_type, t.reference_id,
+		       t.created_at, t.created_by
+		FROM inventory_transactions t`
+	if filter.WarehouseID != uuid.Nil {
+		query += ` JOIN inventory i ON t.inventory_id = i.id`
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY t.created_at DESC"
+
+	argIdx := len(args) + 1
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, filter.Offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list transactions global: %w", err)
+	}
+	defer rows.Close()
+
+	return r.scanTxRows(rows)
+}
+
+// CountTransactionsGlobal returns the total count of inventory transactions matching the filter.
+func (r *InventoryRepo) CountTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) (int, error) {
+	conditions, args := r.buildTxGlobalConditions(filter, nil)
+
+	query := `SELECT COUNT(*) FROM inventory_transactions t`
+	if filter.WarehouseID != uuid.Nil {
+		query += ` JOIN inventory i ON t.inventory_id = i.id`
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var count int
+	err := r.queryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count transactions global: %w", err)
+	}
+	return count, nil
+}
+
+// buildTxGlobalConditions builds WHERE clauses and argument list for
+// inventory transaction global queries.
+func (r *InventoryRepo) buildTxGlobalConditions(filter repository.InventoryTxFilter, _ *int) ([]string, []any) {
+	var conditions []string
+	var args []any
+	idx := 1
+
+	if filter.SKUID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("t.sku_id = $%d", idx))
+		args = append(args, filter.SKUID)
+		idx++
+	}
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("i.warehouse_id = $%d", idx))
+		args = append(args, filter.WarehouseID)
+		idx++
+	}
+	if filter.TxType != "" {
+		conditions = append(conditions, fmt.Sprintf("t.type = $%d", idx))
+		args = append(args, filter.TxType)
+		idx++
+	}
+	if filter.DateFrom != nil {
+		conditions = append(conditions, fmt.Sprintf("t.created_at >= $%d", idx))
+		args = append(args, *filter.DateFrom)
+		idx++
+	}
+	if filter.DateTo != nil {
+		conditions = append(conditions, fmt.Sprintf("t.created_at <= $%d", idx))
+		args = append(args, *filter.DateTo)
+		idx++
+	}
+
+	return conditions, args
+}
+
+// scanTxRows scans inventory transaction rows from an iterator.
+func (r *InventoryRepo) scanTxRows(rows pgx.Rows) ([]*domain.InventoryTransaction, error) {
+	var txs []*domain.InventoryTransaction
+	for rows.Next() {
+		tx := &domain.InventoryTransaction{}
+		var refType, createdBy *string
+		var refID *uuid.UUID
+
+		if err := rows.Scan(
+			&tx.ID, &tx.InventoryID, &tx.SKUID, &tx.LocationID,
+			&tx.Type, &tx.DeltaQty, &tx.ResultingQty,
+			&refType, &refID,
+			&tx.CreatedAt, &createdBy,
+		); err != nil {
+			return nil, fmt.Errorf("scan transaction: %w", err)
+		}
+
+		if refType != nil {
+			tx.ReferenceType = *refType
+		}
+		if refID != nil {
+			tx.ReferenceID = *refID
+		}
+		if createdBy != nil {
+			tx.CreatedBy = *createdBy
+		}
+		txs = append(txs, tx)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate transactions: %w", err)
+	}
+	return txs, nil
+}
+
 // ── Dashboard Queries ────────────────────────────────────────
 
 // GetInventoryDashboardStats returns aggregate inventory statistics.

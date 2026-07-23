@@ -4,6 +4,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -275,6 +276,77 @@ func (s *InventoryService) GetTransactions(ctx context.Context, inventoryID uuid
 	total, err := s.repo.CountTransactions(ctx, inventoryID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("inventory service: count transactions %s: %w", inventoryID, err)
+	}
+
+	return txs, total, nil
+}
+
+// QueryTransactionsInput is the input for querying inventory transactions globally
+// (across all inventory records, with optional filters).
+type QueryTransactionsInput struct {
+	SKUID       string                 `json:"sku_id,omitempty"`
+	WarehouseID string                 `json:"warehouse_id,omitempty"`
+	TxType      domain.InventoryTxType `json:"type,omitempty"`
+	DateFrom    string                 `json:"date_from,omitempty"` // RFC 3339
+	DateTo      string                 `json:"date_to,omitempty"`   // RFC 3339
+	Limit       int                    `json:"limit,omitempty"`
+	Offset      int                    `json:"offset,omitempty"`
+}
+
+// ToFilter converts the input to a repository filter, parsing UUIDs and dates.
+func (in *QueryTransactionsInput) ToFilter() (repository.InventoryTxFilter, error) {
+	f := repository.InventoryTxFilter{
+		TxType: in.TxType,
+		Limit:  in.Limit,
+		Offset: in.Offset,
+	}
+	if in.SKUID != "" {
+		id, err := uuid.Parse(in.SKUID)
+		if err != nil {
+			return f, pkgerrors.NewInvalidInput("invalid sku_id UUID")
+		}
+		f.SKUID = id
+	}
+	if in.WarehouseID != "" {
+		id, err := uuid.Parse(in.WarehouseID)
+		if err != nil {
+			return f, pkgerrors.NewInvalidInput("invalid warehouse_id UUID")
+		}
+		f.WarehouseID = id
+	}
+	if in.DateFrom != "" {
+		t, err := time.Parse(time.RFC3339, in.DateFrom)
+		if err != nil {
+			return f, pkgerrors.NewInvalidInput("invalid date_from format (use RFC 3339)")
+		}
+		f.DateFrom = &t
+	}
+	if in.DateTo != "" {
+		t, err := time.Parse(time.RFC3339, in.DateTo)
+		if err != nil {
+			return f, pkgerrors.NewInvalidInput("invalid date_to format (use RFC 3339)")
+		}
+		f.DateTo = &t
+	}
+	return f, nil
+}
+
+// QueryTransactions queries inventory transactions globally across all inventory
+// records, with optional filters for SKU, warehouse, type, and date range.
+func (s *InventoryService) QueryTransactions(ctx context.Context, input QueryTransactionsInput) ([]*domain.InventoryTransaction, int, error) {
+	filter, err := input.ToFilter()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	txs, err := s.repo.ListTransactionsGlobal(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("inventory service: query transactions: %w", err)
+	}
+
+	total, err := s.repo.CountTransactionsGlobal(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("inventory service: count transactions global: %w", err)
 	}
 
 	return txs, total, nil

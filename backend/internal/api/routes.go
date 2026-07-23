@@ -66,6 +66,9 @@ func RegisterInventoryRoutes(mux *http.ServeMux, h *InventoryHandler) {
 	mux.HandleFunc("GET /api/v1/inventory/fefo", h.GetExpiringInventory)
 	mux.HandleFunc("GET /api/v1/inventory/dashboard", h.GetDashboard)
 
+	// Global transaction history
+	mux.HandleFunc("GET /api/v1/inventory-transactions", h.QueryTransactions)
+
 	// Inventory status transition
 	mux.HandleFunc("PATCH /api/v1/inventory/{id}/status", h.UpdateInventoryStatus)
 }

@@ -1522,3 +1522,215 @@ func TestInventoryService_ReserveInventory_RespectsAvailableQty(t *testing.T) {
 		t.Errorf("available = %f, want 0", got.AvailableQty)
 	}
 }
+
+// ── QueryTransactions Tests ───────────────────────────────────────────────────
+
+func TestInventoryService_QueryTransactions_All(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100,
+	})
+
+	// Create transactions via adjustments.
+	_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+		DeltaQty: 20.0, ReferenceType: "receipt", CreatedBy: "receiver",
+	})
+	_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+		DeltaQty: -5.0, ReferenceType: "adjustment", CreatedBy: "counter",
+	})
+	_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+		DeltaQty: 10.0, ReferenceType: "receipt", CreatedBy: "receiver",
+	})
+
+	txs, total, err := svc.QueryTransactions(ctx, QueryTransactionsInput{})
+	if err != nil {
+		t.Fatalf("QueryTransactions failed: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("total = %d, want 3", total)
+	}
+	if len(txs) != 3 {
+		t.Errorf("len(txs) = %d, want 3", len(txs))
+	}
+}
+
+func TestInventoryService_QueryTransactions_ByType(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100,
+	})
+
+	_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+		DeltaQty: 20.0, ReferenceType: "receipt", CreatedBy: "receiver",
+	})
+	_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+		DeltaQty: -5.0, ReferenceType: "adjustment", CreatedBy: "counter",
+	})
+
+	txs, total, err := svc.QueryTransactions(ctx, QueryTransactionsInput{
+		TxType: domain.InventoryTxAdjustment,
+	})
+	if err != nil {
+		t.Fatalf("QueryTransactions by type failed: %v", err)
+	}
+	// AdjustInventory always sets Type=adjustment, so both transactions match.
+	if total != 2 {
+		t.Errorf("total = %d, want 2", total)
+	}
+	if len(txs) != 2 {
+		t.Errorf("len(txs) = %d, want 2", len(txs))
+	}
+	for _, tx := range txs {
+		if tx.Type != domain.InventoryTxAdjustment {
+			t.Errorf("tx type = %q, want adjustment", tx.Type)
+		}
+	}
+}
+
+func TestInventoryService_QueryTransactions_BySKU(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	skuA := uuid.New()
+	skuB := uuid.New()
+
+	invA, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuA, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100,
+	})
+	invB, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: skuB, LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100,
+	})
+
+	_, _ = svc.AdjustInventory(ctx, invA.ID, AdjustInventoryInput{
+		DeltaQty: 10.0, ReferenceType: "receipt", CreatedBy: "r",
+	})
+	_, _ = svc.AdjustInventory(ctx, invB.ID, AdjustInventoryInput{
+		DeltaQty: 20.0, ReferenceType: "receipt", CreatedBy: "r",
+	})
+	_, _ = svc.AdjustInventory(ctx, invB.ID, AdjustInventoryInput{
+		DeltaQty: 5.0, ReferenceType: "receipt", CreatedBy: "r",
+	})
+
+	txs, total, err := svc.QueryTransactions(ctx, QueryTransactionsInput{
+		SKUID: skuB.String(),
+	})
+	if err != nil {
+		t.Fatalf("QueryTransactions by SKU failed: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("total = %d, want 2", total)
+	}
+	if len(txs) != 2 {
+		t.Errorf("len(txs) = %d, want 2", len(txs))
+	}
+}
+
+func TestInventoryService_QueryTransactions_ByDateRange(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100,
+	})
+
+	_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+		DeltaQty: 10.0, ReferenceType: "receipt", CreatedBy: "r",
+	})
+
+	// Use a 2-day window to avoid any timing/truncation edge cases.
+	future := time.Now().AddDate(0, 0, 1).Format(time.RFC3339)
+	past := time.Now().AddDate(0, 0, -1).Format(time.RFC3339)
+
+	txs, total, err := svc.QueryTransactions(ctx, QueryTransactionsInput{
+		DateFrom: past,
+		DateTo:   future,
+	})
+	if err != nil {
+		t.Fatalf("QueryTransactions by date range failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("total = %d, want 1", total)
+	}
+	if len(txs) != 1 {
+		t.Errorf("len(txs) = %d, want 1", len(txs))
+	}
+}
+
+func TestInventoryService_QueryTransactions_Pagination(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	inv, _ := svc.CreateInventory(ctx, CreateInventoryInput{
+		SKUID: uuid.New(), LocationID: uuid.New(), WarehouseID: uuid.New(),
+		Qty: 100,
+	})
+
+	for i := 0; i < 5; i++ {
+		_, _ = svc.AdjustInventory(ctx, inv.ID, AdjustInventoryInput{
+			DeltaQty: float64(i + 1), ReferenceType: "receipt", CreatedBy: "r",
+		})
+	}
+
+	txs, total, err := svc.QueryTransactions(ctx, QueryTransactionsInput{
+		Limit:  2,
+		Offset: 1,
+	})
+	if err != nil {
+		t.Fatalf("QueryTransactions pagination failed: %v", err)
+	}
+	if total != 5 {
+		t.Errorf("total = %d, want 5", total)
+	}
+	if len(txs) != 2 {
+		t.Errorf("len(txs) = %d, want 2 (page size)", len(txs))
+	}
+}
+
+func TestInventoryService_QueryTransactions_InvalidDate(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	_, _, err := svc.QueryTransactions(ctx, QueryTransactionsInput{
+		DateFrom: "not-a-date",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid date_from format")
+	}
+}
+
+func TestInventoryService_QueryTransactions_InvalidUUID(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	_, _, err := svc.QueryTransactions(ctx, QueryTransactionsInput{
+		SKUID: "not-a-uuid",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid sku_id UUID")
+	}
+}
+
+func TestInventoryService_QueryTransactions_Empty(t *testing.T) {
+	ctx := context.Background()
+	svc := NewInventoryService(newMockInventoryRepo())
+
+	txs, total, err := svc.QueryTransactions(ctx, QueryTransactionsInput{})
+	if err != nil {
+		t.Fatalf("QueryTransactions (empty db) failed: %v", err)
+	}
+	if total != 0 {
+		t.Errorf("total = %d, want 0", total)
+	}
+	if len(txs) != 0 {
+		t.Errorf("len(txs) = %d, want 0", len(txs))
+	}
+}

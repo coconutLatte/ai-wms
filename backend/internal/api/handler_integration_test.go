@@ -493,6 +493,12 @@ func (m *memInventoryRepo) CountTransactions(ctx context.Context, inventoryID uu
 	}
 	return count, nil
 }
+func (m *memInventoryRepo) ListTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) ([]*domain.InventoryTransaction, error) {
+	return nil, nil
+}
+func (m *memInventoryRepo) CountTransactionsGlobal(ctx context.Context, filter repository.InventoryTxFilter) (int, error) {
+	return 0, nil
+}
 func (m *memInventoryRepo) GetInventoryDashboardStats(ctx context.Context, warehouseID uuid.UUID, lowStockThreshold float64) (*repository.InventoryDashboardStats, error) {
 	return &repository.InventoryDashboardStats{}, nil
 }
