@@ -84,6 +84,8 @@ export default function ScanPage() {
     (action: ScanAction) => {
       if (action.key === 'receiving') {
         navigate('/receive')
+      } else if (action.key === 'putaway') {
+        navigate('/putaway')
       } else if (action.key === 'orderLookup') {
         navigate('/order-lookup')
       } else {
