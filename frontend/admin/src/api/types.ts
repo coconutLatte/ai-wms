@@ -478,6 +478,42 @@ export interface RemoveWaveOrdersRequest {
   order_ids: string[]
 }
 
+// ── Shipments ────────────────────────────────────────────────────────────────
+
+export interface Shipment {
+  id: string
+  shipment_no: string
+  order_id: string
+  warehouse_id: string
+  status: string
+  carrier: string
+  tracking_no?: string
+  carrier_service?: string
+  estimated_delivery?: string
+  actual_delivery?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  shipped_at?: string
+  delivered_at?: string
+}
+
+export interface CreateShipmentRequest {
+  order_id: string
+  warehouse_id: string
+  carrier: string
+  tracking_no?: string
+  carrier_service?: string
+  estimated_delivery?: string
+  notes?: string
+}
+
+export interface UpdateTrackingRequest {
+  carrier?: string
+  tracking_no?: string
+  carrier_service?: string
+}
+
 // ── Audit Log ─────────────────────────────────────────────────────────────────
 
 export interface AuditLog {
