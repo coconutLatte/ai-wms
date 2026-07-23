@@ -23,6 +23,7 @@ import ZonesPage from '@/pages/Zones'
 import LocationsPage from '@/pages/Locations'
 import WavesPage from '@/pages/Waves'
 import InventoryTransactionsPage from '@/pages/InventoryTransactions'
+import AuditLogsPage from '@/pages/AuditLogs'
 import NotFoundPage from '@/pages/NotFound'
 
 // ── Ant Design theme ────────────────────────────────────────────────
@@ -64,6 +65,7 @@ function AppRoutes() {
                 <Route path="/locations" element={<LocationsPage />} />
                 <Route path="/waves" element={<WavesPage />} />
                 <Route path="/inventory-transactions" element={<InventoryTransactionsPage />} />
+                <Route path="/audit-logs" element={<AuditLogsPage />} />
               </Route>
             </Route>
 

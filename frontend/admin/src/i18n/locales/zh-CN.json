@@ -42,7 +42,8 @@
     "zones": "库区",
     "locations": "库位",
     "waves": "波次",
-    "inventoryTransactions": "库存流水"
+    "inventoryTransactions": "库存流水",
+    "auditLog": "审计日志"
   },
   "auth": {
     "login": "登录",
@@ -605,5 +606,23 @@
     "return": "退货",
     "reserve": "预留",
     "unreserve": "释放预留"
+  },
+  "auditLog": {
+    "title": "审计日志",
+    "subtitle": "系统操作审计追溯，记录所有用户操作。支持按操作、用户、资源或日期范围筛选。",
+    "action": "操作",
+    "resource": "资源类型",
+    "resourceId": "资源 ID",
+    "username": "操作人",
+    "userId": "用户 ID",
+    "ipAddress": "IP 地址",
+    "details": "详细信息",
+    "createdAt": "时间",
+    "filterAction": "操作 (如 order.create)",
+    "filterUser": "用户 ID (UUID)",
+    "filterResource": "资源类型 (如 order)",
+    "detailTitle": "审计日志详情",
+    "oldValues": "旧值",
+    "newValues": "新值"
   }
 }

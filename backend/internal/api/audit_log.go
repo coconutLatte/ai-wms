@@ -80,6 +80,12 @@ func (h *AuditLogHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) 
 	if raw := QueryParam(r, "resource", ""); raw != "" {
 		filter.Resource = raw
 	}
+	if raw := QueryParam(r, "date_from", ""); raw != "" {
+		filter.DateFrom = raw
+	}
+	if raw := QueryParam(r, "date_to", ""); raw != "" {
+		filter.DateTo = raw
+	}
 
 	logs, total, err := h.svc.ListAuditLogs(r.Context(), filter)
 	if err != nil {

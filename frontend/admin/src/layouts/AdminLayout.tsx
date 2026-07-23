@@ -23,6 +23,7 @@ import {
   EnvironmentOutlined,
   ThunderboltOutlined,
   HistoryOutlined,
+  AuditOutlined,
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
@@ -53,6 +54,7 @@ const menuKeys: MenuItem[] = [
   { key: 'locations', icon: <EnvironmentOutlined />, labelKey: 'nav.locations', path: '/locations' },
   { key: 'waves', icon: <ThunderboltOutlined />, labelKey: 'nav.waves', path: '/waves' },
   { key: 'inventory-transactions', icon: <HistoryOutlined />, labelKey: 'nav.inventoryTransactions', path: '/inventory-transactions' },
+  { key: 'audit-logs', icon: <AuditOutlined />, labelKey: 'nav.auditLog', path: '/audit-logs' },
 ]
 
 export default function AdminLayout() {

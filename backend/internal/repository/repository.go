@@ -296,11 +296,13 @@ type TokenBlacklistRepository interface {
 
 // AuditLogFilter defines query parameters for audit log search.
 type AuditLogFilter struct {
-	UserID   uuid.UUID
-	Action   string
-	Resource string
-	Limit    int
-	Offset   int
+	UserID    uuid.UUID
+	Action    string
+	Resource  string
+	DateFrom  string
+	DateTo    string
+	Limit     int
+	Offset    int
 }
 
 // MigrationRepository manages schema migration tracking.

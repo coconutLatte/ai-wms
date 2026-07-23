@@ -477,3 +477,17 @@ export interface AddWaveOrdersRequest {
 export interface RemoveWaveOrdersRequest {
   order_ids: string[]
 }
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export interface AuditLog {
+  id: string
+  user_id: string
+  username: string
+  action: string
+  resource: string
+  resource_id: string
+  details: string
+  ip_address: string
+  created_at: string
+}

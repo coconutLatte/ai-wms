@@ -396,6 +396,16 @@ func (r *UserRepo) ListAuditLogs(ctx context.Context, filter repository.AuditLog
 		args = append(args, filter.Resource)
 		argIdx++
 	}
+	if filter.DateFrom != "" {
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d::timestamptz", argIdx))
+		args = append(args, filter.DateFrom)
+		argIdx++
+	}
+	if filter.DateTo != "" {
+		conditions = append(conditions, fmt.Sprintf("created_at <= $%d::timestamptz", argIdx))
+		args = append(args, filter.DateTo)
+		argIdx++
+	}
 
 	query := `
 		SELECT id, user_id, username, action, resource, resource_id, details, ip_address, created_at
@@ -454,6 +464,16 @@ func (r *UserRepo) CountAuditLogs(ctx context.Context, filter repository.AuditLo
 	if filter.Resource != "" {
 		conditions = append(conditions, fmt.Sprintf("resource = $%d", argIdx))
 		args = append(args, filter.Resource)
+		argIdx++
+	}
+	if filter.DateFrom != "" {
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d::timestamptz", argIdx))
+		args = append(args, filter.DateFrom)
+		argIdx++
+	}
+	if filter.DateTo != "" {
+		conditions = append(conditions, fmt.Sprintf("created_at <= $%d::timestamptz", argIdx))
+		args = append(args, filter.DateTo)
 		argIdx++
 	}
 

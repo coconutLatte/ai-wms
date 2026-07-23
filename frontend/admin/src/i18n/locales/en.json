@@ -42,7 +42,8 @@
     "zones": "Zones",
     "locations": "Locations",
     "waves": "Waves",
-    "inventoryTransactions": "Transactions"
+    "inventoryTransactions": "Transactions",
+    "auditLog": "Audit Log"
   },
   "auth": {
     "login": "Login",
@@ -605,5 +606,23 @@
     "return": "Return",
     "reserve": "Reserve",
     "unreserve": "Unreserve"
+  },
+  "auditLog": {
+    "title": "Audit Log",
+    "subtitle": "System audit trail of all user operations. Filter by action, user, resource, or date range.",
+    "action": "Action",
+    "resource": "Resource",
+    "resourceId": "Resource ID",
+    "username": "User",
+    "userId": "User ID",
+    "ipAddress": "IP Address",
+    "details": "Details",
+    "createdAt": "Date",
+    "filterAction": "Action (e.g. order.create)",
+    "filterUser": "User ID (UUID)",
+    "filterResource": "Resource (e.g. order)",
+    "detailTitle": "Audit Log Detail",
+    "oldValues": "Old Values",
+    "newValues": "New Values"
   }
 }
