@@ -130,6 +130,10 @@ func main() {
 		fmt.Fprintf(w, `{"status":"ok","service":"admin","version":"0.1.0"}`)
 	})
 
+	// Readiness probe — pings PostgreSQL and Redis, returns per-service status.
+	healthHandler := api.NewHealthHandler(db, redisClient, log.Logger)
+	mux.HandleFunc("GET /ready", healthHandler.Ready)
+
 	// Auth routes (no auth required — these are the login/refresh endpoints).
 	api.RegisterAuthRoutes(mux, authHandler)
 
