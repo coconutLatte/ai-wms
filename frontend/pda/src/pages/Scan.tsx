@@ -57,6 +57,12 @@ export default function ScanPage() {
       labelKey: 'scan.orderLookup',
       descriptionKey: 'scan.orderLookupDesc',
     },
+    {
+      key: 'cycleCount',
+      icon: '\u{1F522}',
+      labelKey: 'scan.cycleCount',
+      descriptionKey: 'scan.cycleCountDesc',
+    },
   ]
 
   const handleScan = useCallback(async (barcode: string) => {
@@ -92,6 +98,8 @@ export default function ScanPage() {
         navigate('/order-lookup')
       } else if (action.key === 'locate') {
         navigate('/stock-inquiry')
+      } else if (action.key === 'cycleCount') {
+        navigate('/cycle-count')
       } else {
         navigate('/tasks')
       }

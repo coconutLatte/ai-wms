@@ -31,6 +31,8 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/putaway')) return 'scan'
   if (pathname.startsWith('/pick')) return 'scan'
   if (pathname.startsWith('/order-lookup')) return 'scan'
+  if (pathname.startsWith('/stock-inquiry')) return 'scan'
+  if (pathname.startsWith('/cycle-count')) return 'scan'
   if (pathname.startsWith('/profile')) return 'profile'
   return 'tasks'
 }
@@ -44,6 +46,8 @@ function getHeaderTitle(pathname: string): string {
   if (pathname.startsWith('/putaway')) return 'putaway.title'
   if (pathname.startsWith('/pick')) return 'picking.title'
   if (pathname.startsWith('/order-lookup')) return 'orderLookup.title'
+  if (pathname.startsWith('/stock-inquiry')) return 'stockInquiry.title'
+  if (pathname.startsWith('/cycle-count')) return 'cycleCount.title'
   if (pathname.startsWith('/profile')) return 'app.headerProfile'
   return 'app.headerHome'
 }

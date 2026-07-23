@@ -144,3 +144,14 @@ func RegisterWaveRoutes(mux *http.ServeMux, h *WaveHandler) {
 func RegisterDashboardRoute(mux *http.ServeMux, h *DashboardHandler) {
 	mux.HandleFunc("GET /api/v1/dashboard", h.GetDashboard)
 }
+
+// RegisterCycleCountRoutes registers cycle count API routes on the given mux.
+func RegisterCycleCountRoutes(mux *http.ServeMux, h *CycleCountHandler) {
+	mux.HandleFunc("POST /api/v1/cycle-counts", h.StartCycleCount)
+	mux.HandleFunc("GET /api/v1/cycle-counts", h.ListCycleCounts)
+	mux.HandleFunc("GET /api/v1/cycle-counts/{id}", h.GetCycleCount)
+	mux.HandleFunc("POST /api/v1/cycle-counts/{id}/lines", h.SubmitLine)
+	mux.HandleFunc("POST /api/v1/cycle-counts/{id}/finalize", h.FinalizeCount)
+	mux.HandleFunc("PUT /api/v1/cycle-counts/{id}/approve", h.ApproveCount)
+	mux.HandleFunc("PUT /api/v1/cycle-counts/{id}/cancel", h.CancelCycleCount)
+}

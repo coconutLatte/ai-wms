@@ -26,6 +26,12 @@ Task ─── operates on ──→ Inventory (at Location)
   ▼
 Wave (1) ──→ (*) Order → (*) Task
 
+CycleCount (1) ──→ (*) CycleCountLine ─── references ──→ SKU, Location
+  │
+  │ applied via
+  ▼
+InventoryTransaction (adjustment)
+
 User (1) ──→ (*) Role ──→ (*) Permission
 ```
 
@@ -114,6 +120,16 @@ A group of orders batched for efficient picking.
 - **Status flow**: created → released → in_progress → completed
 - Managed via WaveService with Admin API (POST/GET /waves, PUT /waves/{id}/status, POST /waves/{id}/release, POST/DELETE /waves/{id}/orders)
 
+### CycleCount
+A physical inventory count for a specific warehouse area (location or zone).
+- Created via `POST /cycle-counts` — auto-generates lines from current inventory records
+- Contains CycleCountLine entries, each representing a SKU/batch at a location
+- **Status flow**: draft → in_progress → pending_review → approved/adjusted → (terminal)
+  - Any non-terminal stage can also transition to cancelled
+- **State machine** implemented in `domain.CycleCount.CanTransitionTo()`
+- Lines track system_qty vs counted_qty, computing variance automatically
+- Approval can apply inventory adjustments atomically (CycleCountService.ApproveCount with "approve" action)
+
 ### User
 A system user (admin or warehouse operator).
 - Linked to Roles for permissions
@@ -156,6 +172,18 @@ created → released → in_progress → completed
 ```
 - Orders can only be added/removed in `created` status.
 - `completed` is terminal — no further transitions allowed.
+
+### CycleCount Lifecycle
+```
+draft → in_progress → pending_review → approved → (terminal)
+  │         │             │              │
+  │         │             │              └──→ adjusted → (terminal)
+  └─────────┴─────────────┴──────────────┴──→ cancelled → (terminal)
+```
+- Lines are generated from current inventory when count starts.
+- Operator submits counted qty per line; variance = counted_qty - system_qty.
+- At finalize, all lines must be counted; count moves to pending_review.
+- Approve action applies inventory adjustments; adjust action marks without applying changes.
 
 ### Inventory Status
 ```

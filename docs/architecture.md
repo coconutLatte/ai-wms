@@ -144,6 +144,14 @@ POST   /api/v1/asns/:id/lines/:lineId/receive — Receive a line quantity
 GET    /api/v1/locations             — Location lookup (support ?barcode=X for scanner)
 GET    /api/v1/skus                  — SKU lookup (support ?code=X for scanner)
 GET    /api/v1/stock-inquiry         — Stock inquiry (support ?barcode=X for scanner, resolves to location or SKU, returns inventory levels)
+
+POST   /api/v1/cycle-counts           — Start a new cycle count (body: warehouse_id, location_id/zone_id)
+GET    /api/v1/cycle-counts           — List cycle counts (filterable by warehouse_id, status)
+GET    /api/v1/cycle-counts/:id       — Get cycle count with lines
+POST   /api/v1/cycle-counts/:id/lines — Submit a counted quantity for a line
+POST   /api/v1/cycle-counts/:id/finalize — Finalize count → pending_review
+PUT    /api/v1/cycle-counts/:id/approve — Approve/adjust (applies inventory adjustments atomically)
+PUT    /api/v1/cycle-counts/:id/cancel — Cancel a cycle count
 ```
 
 #### Authentication Flow

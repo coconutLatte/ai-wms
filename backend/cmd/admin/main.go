@@ -84,6 +84,7 @@ func main() {
 	taskRepo := postgres.NewTaskRepo(db)
 	userRepo := postgres.NewUserRepo(db)
 	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
+	cycleCountRepo := postgres.NewCycleCountRepo(db)
 
 	// Initialize transaction manager for atomic multi-step operations.
 	txManager := postgres.NewTxManager(db)
@@ -99,6 +100,7 @@ func main() {
 	auditLogSvc := service.NewAuditLogService(userRepo)
 	userSvc := service.NewUserService(userRepo)
 	roleSvc := service.NewRoleService(userRepo)
+	cycleCountSvc := service.NewCycleCountService(cycleCountRepo, inventoryRepo, warehouseRepo, txManager)
 
 	// Initialize API handlers.
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
@@ -112,6 +114,7 @@ func main() {
 	userHandler := api.NewUserHandler(userSvc, log.Logger)
 	roleHandler := api.NewRoleHandler(roleSvc, log.Logger)
 	dashboardHandler := api.NewDashboardHandler(warehouseSvc, skuSvc, inventorySvc, orderSvc, taskSvc, log.Logger)
+	cycleCountHandler := api.NewCycleCountHandler(cycleCountSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -146,6 +149,7 @@ func main() {
 	api.RegisterAuditLogRoutes(adminOnly, auditLogHandler)
 	api.RegisterUserRoutes(adminOnly, userHandler)
 	api.RegisterRoleRoutes(adminOnly, roleHandler)
+	api.RegisterCycleCountRoutes(adminOnly, cycleCountHandler)
 
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
 	adminHandler := authMiddleware(middleware.RequireRole("admin")(adminOnly))
