@@ -86,6 +86,7 @@ func main() {
 	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 	cycleCountRepo := postgres.NewCycleCountRepo(db)
 	shipmentRepo := postgres.NewShipmentRepo(db)
+	appConfigRepo := postgres.NewAppConfigRepo(db)
 
 	// Initialize transaction manager for atomic multi-step operations.
 	txManager := postgres.NewTxManager(db)
@@ -103,6 +104,7 @@ func main() {
 	roleSvc := service.NewRoleService(userRepo)
 	cycleCountSvc := service.NewCycleCountService(cycleCountRepo, inventoryRepo, warehouseRepo, txManager)
 	shipmentSvc := service.NewShipmentService(shipmentRepo, orderRepo)
+	appConfigSvc := service.NewAppConfigService(appConfigRepo)
 
 	// Initialize API handlers.
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
@@ -118,6 +120,7 @@ func main() {
 	dashboardHandler := api.NewDashboardHandler(warehouseSvc, skuSvc, inventorySvc, orderSvc, taskSvc, log.Logger)
 	cycleCountHandler := api.NewCycleCountHandler(cycleCountSvc, log.Logger)
 	shipmentHandler := api.NewShipmentHandler(shipmentSvc, log.Logger)
+	appConfigHandler := api.NewAppConfigHandler(appConfigSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -158,6 +161,7 @@ func main() {
 	api.RegisterUserRoutes(adminOnly, userHandler)
 	api.RegisterRoleRoutes(adminOnly, roleHandler)
 	api.RegisterCycleCountRoutes(adminOnly, cycleCountHandler)
+	api.RegisterAppConfigRoutes(adminOnly, appConfigHandler)
 
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
 	adminHandler := authMiddleware(middleware.RequireRole("admin")(adminOnly))
@@ -169,6 +173,7 @@ func main() {
 	mux.Handle("/api/v1/users/", adminHandler)
 	mux.Handle("/api/v1/roles", adminHandler)
 	mux.Handle("/api/v1/roles/", adminHandler)
+	mux.Handle("/api/v1/settings", adminHandler)
 
 	// All other /api/v1/ routes require auth but not admin role.
 	mux.Handle("/api/v1/", authMiddleware(protected))

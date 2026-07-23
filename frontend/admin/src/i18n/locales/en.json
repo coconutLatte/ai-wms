@@ -44,7 +44,8 @@
     "waves": "Waves",
     "inventoryTransactions": "Transactions",
     "auditLog": "Audit Log",
-    "shipments": "Shipments"
+    "shipments": "Shipments",
+    "settings": "Settings"
   },
   "auth": {
     "login": "Login",
@@ -689,5 +690,33 @@
     "deliverFailed": "Failed to mark shipment as delivered",
     "inTransitConfirmTitle": "Mark as in transit?",
     "inTransitConfirmMsg": "Confirm that shipment {{name}} has been picked up by the carrier?"
+  },
+  "settings": {
+    "title": "System Settings",
+    "subtitle": "Configure application-level settings including site name, inventory thresholds, pagination defaults, and JWT token lifetime.",
+    "currentConfig": "Current Configuration",
+    "editConfig": "Edit Configuration",
+    "siteNameLabel": "Site Name",
+    "siteNamePlaceholder": "e.g. AI-WMS Production",
+    "siteNameRequired": "Please enter a site name",
+    "defaultWarehouseLabel": "Default Warehouse ID",
+    "defaultWarehouseHelp": "UUID of the default warehouse (optional). Used as default when creating orders, tasks, etc.",
+    "defaultWarehousePlaceholder": "Enter warehouse UUID (optional)",
+    "lowStockLabel": "Low Stock Threshold",
+    "lowStockPlaceholder": "e.g. 10",
+    "lowStockRequired": "Please enter a low stock threshold",
+    "pageSizeLabel": "Default Page Size",
+    "pageSizePlaceholder": "e.g. 20",
+    "pageSizeRequired": "Please enter a default page size",
+    "pageSizeHelp": "Items per page in list views (1–100)",
+    "jwtTtlLabel": "JWT Access Token TTL",
+    "jwtTtlPlaceholder": "e.g. 3600",
+    "jwtTtlRequired": "Please enter a JWT TTL",
+    "jwtTtlHelp": "Access token lifetime in seconds (min 60, max 86400). Applies to new tokens issued after the change.",
+    "seconds": "seconds",
+    "lastUpdated": "Last Updated",
+    "reset": "Reset",
+    "saved": "Settings saved successfully",
+    "saveFailed": "Failed to save settings"
   }
 }

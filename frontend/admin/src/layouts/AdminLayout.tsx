@@ -25,6 +25,7 @@ import {
   HistoryOutlined,
   AuditOutlined,
   SendOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
@@ -57,6 +58,7 @@ const menuKeys: MenuItem[] = [
   { key: 'inventory-transactions', icon: <HistoryOutlined />, labelKey: 'nav.inventoryTransactions', path: '/inventory-transactions' },
   { key: 'audit-logs', icon: <AuditOutlined />, labelKey: 'nav.auditLog', path: '/audit-logs' },
   { key: 'shipments', icon: <SendOutlined />, labelKey: 'nav.shipments', path: '/shipments' },
+  { key: 'settings', icon: <SettingOutlined />, labelKey: 'nav.settings', path: '/settings' },
 ]
 
 export default function AdminLayout() {

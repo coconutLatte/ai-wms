@@ -44,7 +44,8 @@
     "waves": "波次",
     "inventoryTransactions": "库存流水",
     "auditLog": "审计日志",
-    "shipments": "发货管理"
+    "shipments": "发货管理",
+    "settings": "系统设置"
   },
   "auth": {
     "login": "登录",
@@ -689,5 +690,33 @@
     "deliverFailed": "标记已签收失败",
     "inTransitConfirmTitle": "标记为运输中?",
     "inTransitConfirmMsg": "确认发货单 {{name}} 已被承运商揽收?"
+  },
+  "settings": {
+    "title": "系统设置",
+    "subtitle": "配置应用级设置，包括站点名称、库存阈值、默认分页大小和 JWT 令牌有效期。",
+    "currentConfig": "当前配置",
+    "editConfig": "编辑配置",
+    "siteNameLabel": "站点名称",
+    "siteNamePlaceholder": "例如：AI-WMS 生产环境",
+    "siteNameRequired": "请输入站点名称",
+    "defaultWarehouseLabel": "默认仓库 ID",
+    "defaultWarehouseHelp": "默认仓库的 UUID（可选）。在创建订单、任务等操作时用作默认值。",
+    "defaultWarehousePlaceholder": "输入仓库 UUID（可选）",
+    "lowStockLabel": "低库存阈值",
+    "lowStockPlaceholder": "例如：10",
+    "lowStockRequired": "请输入低库存阈值",
+    "pageSizeLabel": "默认分页大小",
+    "pageSizePlaceholder": "例如：20",
+    "pageSizeRequired": "请输入默认分页大小",
+    "pageSizeHelp": "列表视图中每页显示条数（1–100）",
+    "jwtTtlLabel": "JWT 访问令牌有效期",
+    "jwtTtlPlaceholder": "例如：3600",
+    "jwtTtlRequired": "请输入 JWT 有效期",
+    "jwtTtlHelp": "访问令牌有效期，单位秒（最小 60，最大 86400）。变更后仅对新签发的令牌生效。",
+    "seconds": "秒",
+    "lastUpdated": "最后更新",
+    "reset": "重置",
+    "saved": "设置保存成功",
+    "saveFailed": "保存设置失败"
   }
 }

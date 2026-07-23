@@ -199,6 +199,13 @@ pending → in_transit → delivered → (terminal)
 - Carrier and tracking number can be updated while non-terminal.
 - Marking delivered records the actual delivery timestamp.
 
+### App Configuration (System Settings)
+- **Single-row configuration** (app_config table, JSONB).
+- **Fields**: site_name, default_warehouse_id, low_stock_threshold, default_page_size, jwt_access_ttl
+- Stored as a single JSONB document with upsert semantics.
+- Admin-only access via GET/PUT /api/v1/settings.
+- Sensible defaults seeded by migration 000006.
+
 ### Inventory Status
 ```
 available   → quarantine (quality hold)

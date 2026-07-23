@@ -527,3 +527,22 @@ export interface AuditLog {
   ip_address: string
   created_at: string
 }
+
+// ── System Configuration ──────────────────────────────────────────────────────
+
+export interface AppConfig {
+  site_name: string
+  default_warehouse_id: string
+  low_stock_threshold: number
+  default_page_size: number
+  jwt_access_ttl: number
+  updated_at?: string
+}
+
+export interface UpdateAppConfigRequest {
+  site_name?: string
+  default_warehouse_id?: string
+  low_stock_threshold?: number
+  default_page_size?: number
+  jwt_access_ttl?: number
+}
