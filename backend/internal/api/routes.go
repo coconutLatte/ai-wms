@@ -155,3 +155,13 @@ func RegisterCycleCountRoutes(mux *http.ServeMux, h *CycleCountHandler) {
 	mux.HandleFunc("PUT /api/v1/cycle-counts/{id}/approve", h.ApproveCount)
 	mux.HandleFunc("PUT /api/v1/cycle-counts/{id}/cancel", h.CancelCycleCount)
 }
+
+// RegisterShipmentRoutes registers shipment API routes on the given mux.
+func RegisterShipmentRoutes(mux *http.ServeMux, h *ShipmentHandler) {
+	mux.HandleFunc("POST /api/v1/shipments", h.CreateShipment)
+	mux.HandleFunc("GET /api/v1/shipments", h.ListShipments)
+	mux.HandleFunc("GET /api/v1/shipments/{id}", h.GetShipment)
+	mux.HandleFunc("PUT /api/v1/shipments/{id}/status", h.UpdateShipmentStatus)
+	mux.HandleFunc("PUT /api/v1/shipments/{id}/tracking", h.UpdateTracking)
+	mux.HandleFunc("PUT /api/v1/shipments/{id}/deliver", h.DeliverShipment)
+}

@@ -85,6 +85,7 @@ func main() {
 	userRepo := postgres.NewUserRepo(db)
 	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 	cycleCountRepo := postgres.NewCycleCountRepo(db)
+	shipmentRepo := postgres.NewShipmentRepo(db)
 
 	// Initialize transaction manager for atomic multi-step operations.
 	txManager := postgres.NewTxManager(db)
@@ -97,6 +98,7 @@ func main() {
 	inventorySvc := service.NewInventoryServiceWithTx(inventoryRepo, txManager)
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	cycleCountSvc := service.NewCycleCountService(cycleCountRepo, inventoryRepo, warehouseRepo, txManager)
+	shipmentSvc := service.NewShipmentService(shipmentRepo, orderRepo)
 
 	// Initialize API handlers.
 	authHandler := api.NewAuthHandler(authSvc, log.Logger)
@@ -106,6 +108,7 @@ func main() {
 	skuHandler := api.NewSKUHandler(skuSvc, log.Logger)
 	stockInquiryHandler := api.NewStockInquiryHandler(inventorySvc, warehouseSvc, skuSvc, log.Logger)
 	cycleCountHandler := api.NewCycleCountHandler(cycleCountSvc, log.Logger)
+	shipmentHandler := api.NewShipmentHandler(shipmentSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -136,6 +139,7 @@ func main() {
 
 	// Cycle count endpoints — PDA operators can start, submit, and finalize counts.
 	api.RegisterCycleCountRoutes(protected, cycleCountHandler)
+	api.RegisterShipmentRoutes(protected, shipmentHandler)
 
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
 	mux.Handle("/api/v1/", authMiddleware(protected))

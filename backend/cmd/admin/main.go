@@ -85,6 +85,7 @@ func main() {
 	userRepo := postgres.NewUserRepo(db)
 	tokenBLRepo := postgres.NewTokenBlacklistRepo(db)
 	cycleCountRepo := postgres.NewCycleCountRepo(db)
+	shipmentRepo := postgres.NewShipmentRepo(db)
 
 	// Initialize transaction manager for atomic multi-step operations.
 	txManager := postgres.NewTxManager(db)
@@ -101,6 +102,7 @@ func main() {
 	userSvc := service.NewUserService(userRepo)
 	roleSvc := service.NewRoleService(userRepo)
 	cycleCountSvc := service.NewCycleCountService(cycleCountRepo, inventoryRepo, warehouseRepo, txManager)
+	shipmentSvc := service.NewShipmentService(shipmentRepo, orderRepo)
 
 	// Initialize API handlers.
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
@@ -115,6 +117,7 @@ func main() {
 	roleHandler := api.NewRoleHandler(roleSvc, log.Logger)
 	dashboardHandler := api.NewDashboardHandler(warehouseSvc, skuSvc, inventorySvc, orderSvc, taskSvc, log.Logger)
 	cycleCountHandler := api.NewCycleCountHandler(cycleCountSvc, log.Logger)
+	shipmentHandler := api.NewShipmentHandler(shipmentSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -143,6 +146,7 @@ func main() {
 	api.RegisterTaskRoutes(protected, taskHandler)
 	api.RegisterWaveRoutes(protected, waveHandler)
 	api.RegisterDashboardRoute(protected, dashboardHandler)
+	api.RegisterShipmentRoutes(protected, shipmentHandler)
 
 	// Admin-only routes (require auth + admin role).
 	adminOnly := http.NewServeMux()

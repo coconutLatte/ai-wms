@@ -152,6 +152,14 @@ POST   /api/v1/cycle-counts/:id/lines — Submit a counted quantity for a line
 POST   /api/v1/cycle-counts/:id/finalize — Finalize count → pending_review
 PUT    /api/v1/cycle-counts/:id/approve — Approve/adjust (applies inventory adjustments atomically)
 PUT    /api/v1/cycle-counts/:id/cancel — Cancel a cycle count
+
+### Shipments
+POST   /api/v1/shipments               — Create a shipment (body: order_id, warehouse_id, carrier, ...)
+GET    /api/v1/shipments               — List shipments (filterable by warehouse_id, order_id, status, carrier)
+GET    /api/v1/shipments/:id           — Get shipment details
+PUT    /api/v1/shipments/:id/status    — Transition shipment status (pending→in_transit→delivered / cancelled)
+PUT    /api/v1/shipments/:id/tracking  — Update carrier and tracking number
+PUT    /api/v1/shipments/:id/deliver   — Mark shipment as delivered
 ```
 
 #### Authentication Flow

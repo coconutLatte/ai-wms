@@ -185,6 +185,20 @@ draft → in_progress → pending_review → approved → (terminal)
 - At finalize, all lines must be counted; count moves to pending_review.
 - Approve action applies inventory adjustments; adjust action marks without applying changes.
 
+### Shipment (Outbound)
+- **Fields**: id, shipment_no, order_id, warehouse_id, status, carrier, tracking_no, carrier_service, estimated_delivery, actual_delivery, notes, timestamps
+- **Statuses**: pending, in_transit, delivered, cancelled
+
+### Shipment Lifecycle
+```
+pending → in_transit → delivered → (terminal)
+  │          │
+  └──────────┴──────────→ cancelled → (terminal)
+```
+- Created for confirmed outbound orders only.
+- Carrier and tracking number can be updated while non-terminal.
+- Marking delivered records the actual delivery timestamp.
+
 ### Inventory Status
 ```
 available   → quarantine (quality hold)
@@ -208,3 +222,4 @@ expired     → (terminal)
    - FIFO: earliest received_at first (if no expiry)
 5. **Task completion updates inventory.** Completing a pick task decrements inventory; completing a putaway task increments inventory.
 6. **All inventory changes are audited.** Every change creates an InventoryTransaction.
+7. **Shipments are for outbound orders only.** A shipment can only be created for confirmed, processing, partial, or completed outbound orders (not drafts or cancelled).
