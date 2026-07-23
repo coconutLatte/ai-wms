@@ -440,3 +440,36 @@ export interface CreateASNRequest {
 export interface UpdateASNStatusRequest {
   status: string
 }
+
+// ── Waves ────────────────────────────────────────────────────────────────────
+
+export interface Wave {
+  id: string
+  wave_no: string
+  warehouse_id: string
+  wave_type: string
+  status: string
+  order_ids: string[]
+  task_ids: string[]
+  total_orders: number
+  total_lines: number
+  total_qty: number
+  created_at: string
+  released_at?: string
+  completed_at?: string
+}
+
+export interface CreateWaveRequest {
+  wave_no?: string
+  wave_type: string
+  warehouse_id: string
+  order_ids?: string[]
+}
+
+export interface AddWaveOrdersRequest {
+  order_ids: string[]
+}
+
+export interface RemoveWaveOrdersRequest {
+  order_ids: string[]
+}

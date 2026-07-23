@@ -21,6 +21,7 @@ import RolesPage from '@/pages/Roles'
 import AsnsPage from '@/pages/Asns'
 import ZonesPage from '@/pages/Zones'
 import LocationsPage from '@/pages/Locations'
+import WavesPage from '@/pages/Waves'
 import NotFoundPage from '@/pages/NotFound'
 
 // ── Ant Design theme ────────────────────────────────────────────────
@@ -60,6 +61,7 @@ function AppRoutes() {
                 <Route path="/asns" element={<AsnsPage />} />
                 <Route path="/zones" element={<ZonesPage />} />
                 <Route path="/locations" element={<LocationsPage />} />
+                <Route path="/waves" element={<WavesPage />} />
               </Route>
             </Route>
 

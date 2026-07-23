@@ -20,7 +20,7 @@ export default function BarcodeScanner({ onScan, placeholder }: BarcodeScannerPr
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraLoading, setCameraLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const readerRef = useRef<BrowserMultiFormatReader | null>(null)
 
   const defaultPlaceholder = placeholder ?? t('scan.scanPlaceholder')
@@ -197,7 +197,6 @@ export default function BarcodeScanner({ onScan, placeholder }: BarcodeScannerPr
       {cameraActive && (
         <div style={{ marginBottom: 12 }}>
           <div
-            ref={videoRef}
             style={{
               width: '100%',
               maxWidth: 400,
@@ -212,6 +211,14 @@ export default function BarcodeScanner({ onScan, placeholder }: BarcodeScannerPr
               justifyContent: 'center',
             }}
           >
+            <video
+              ref={videoRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
             {/* Scanning overlay frame */}
             <div
               style={{

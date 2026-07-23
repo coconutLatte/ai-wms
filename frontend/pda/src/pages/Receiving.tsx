@@ -60,7 +60,6 @@ export default function ReceivingPage() {
   // ── State ────────────────────────────────────────────────────────────
 
   const [asnNo, setAsnNo] = useState('')
-  const [lookupError, setLookupError] = useState<string | null>(null)
   const [receiveQtys, setReceiveQtys] = useState<Record<string, string>>({})
   const [receivingLines, setReceivingLines] = useState<Set<string>>(new Set())
 
@@ -106,7 +105,6 @@ export default function ReceivingPage() {
   // ── Handle barcode scan / manual input ───────────────────────────────
 
   const handleScan = useCallback((barcode: string) => {
-    setLookupError(null)
     setAsnNo(barcode)
     setReceiveQtys({})
     setReceivingLines(new Set())
@@ -116,7 +114,6 @@ export default function ReceivingPage() {
 
   const handleClear = useCallback(() => {
     setAsnNo('')
-    setLookupError(null)
     setReceiveQtys({})
     setReceivingLines(new Set())
   }, [])
