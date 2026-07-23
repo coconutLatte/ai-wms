@@ -86,6 +86,8 @@ export default function ScanPage() {
         navigate('/receive')
       } else if (action.key === 'putaway') {
         navigate('/putaway')
+      } else if (action.key === 'picking') {
+        navigate('/pick')
       } else if (action.key === 'orderLookup') {
         navigate('/order-lookup')
       } else {

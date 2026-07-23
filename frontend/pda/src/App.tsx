@@ -11,6 +11,7 @@ import TaskDetailPage from '@/pages/TaskDetail'
 import ScanPage from '@/pages/Scan'
 import ReceivingPage from '@/pages/Receiving'
 import PutawayPage from '@/pages/Putaway'
+import PickingPage from '@/pages/Picking'
 import OrderLookupPage from '@/pages/OrderLookup'
 import ProfilePage from '@/pages/Profile'
 import NotFoundPage from '@/pages/NotFound'
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/scan" element={<ScanPage />} />
             <Route path="/receive" element={<ReceivingPage />} />
             <Route path="/putaway" element={<PutawayPage />} />
+            <Route path="/pick" element={<PickingPage />} />
             <Route path="/order-lookup" element={<OrderLookupPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
