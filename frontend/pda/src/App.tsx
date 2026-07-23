@@ -15,6 +15,7 @@ import PickingPage from '@/pages/Picking'
 import OrderLookupPage from '@/pages/OrderLookup'
 import StockInquiryPage from '@/pages/StockInquiry'
 import CycleCountPage from '@/pages/CycleCount'
+import ShipConfirmationPage from '@/pages/ShipConfirmation'
 import ProfilePage from '@/pages/Profile'
 import NotFoundPage from '@/pages/NotFound'
 
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/order-lookup" element={<OrderLookupPage />} />
             <Route path="/stock-inquiry" element={<StockInquiryPage />} />
             <Route path="/cycle-count" element={<CycleCountPage />} />
+            <Route path="/ship-confirm" element={<ShipConfirmationPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>

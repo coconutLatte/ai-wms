@@ -100,6 +100,38 @@ export interface CompleteTaskRequest {
   notes?: string
 }
 
+// ── Shipments ─────────────────────────────────────────────────────────────────
+
+export type ShipmentStatus = 'pending' | 'in_transit' | 'delivered' | 'cancelled'
+
+export interface Shipment {
+  id: string
+  shipment_no: string
+  order_id: string
+  warehouse_id: string
+  status: ShipmentStatus
+  carrier: string
+  tracking_no?: string
+  carrier_service?: string
+  estimated_delivery?: string
+  actual_delivery?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  shipped_at?: string
+  delivered_at?: string
+}
+
+export interface CreateShipmentRequest {
+  order_id: string
+  warehouse_id: string
+  carrier: string
+  tracking_no?: string
+  carrier_service?: string
+  estimated_delivery?: string
+  notes?: string
+}
+
 // ── ASN (Advanced Shipping Notice) ──────────────────────────────────────
 
 export type ASNStatus = 'pending' | 'arrived' | 'receiving' | 'partial' | 'received'

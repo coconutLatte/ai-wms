@@ -63,6 +63,12 @@ export default function ScanPage() {
       labelKey: 'scan.cycleCount',
       descriptionKey: 'scan.cycleCountDesc',
     },
+    {
+      key: 'shipConfirm',
+      icon: '\u{1F69A}',
+      labelKey: 'scan.shipConfirm',
+      descriptionKey: 'scan.shipConfirmDesc',
+    },
   ]
 
   const handleScan = useCallback(async (barcode: string) => {
@@ -100,6 +106,8 @@ export default function ScanPage() {
         navigate('/stock-inquiry')
       } else if (action.key === 'cycleCount') {
         navigate('/cycle-count')
+      } else if (action.key === 'shipConfirm') {
+        navigate('/ship-confirm')
       } else {
         navigate('/tasks')
       }
