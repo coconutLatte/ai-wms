@@ -1265,3 +1265,167 @@ func TestOrderRepo_UpdateASNLineStatus_TransitionToReceived(t *testing.T) {
 		t.Errorf("received_qty = %f, want 500.0", lines[0].ReceivedQty)
 	}
 }
+
+// ── Additional Order Repo Tests ───────────────────────────
+
+func TestOrderRepo_CountOrdersByStatus(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+
+	// Create 2 draft, 1 confirmed order
+	draft1 := &domain.Order{OrderNo: "TEST-ORD-CNT-001", OrderType: domain.OrderTypeInbound, WarehouseID: wh.ID, Status: domain.OrderStatusDraft}
+	draft2 := &domain.Order{OrderNo: "TEST-ORD-CNT-002", OrderType: domain.OrderTypeOutbound, WarehouseID: wh.ID, Status: domain.OrderStatusDraft}
+	confirmed := &domain.Order{OrderNo: "TEST-ORD-CNT-003", OrderType: domain.OrderTypeTransfer, WarehouseID: wh.ID, Status: domain.OrderStatusConfirmed}
+	if err := orderRepo.CreateOrder(ctx, draft1); err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+	if err := orderRepo.CreateOrder(ctx, draft2); err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+	if err := orderRepo.CreateOrder(ctx, confirmed); err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	counts, err := orderRepo.CountOrdersByStatus(ctx)
+	if err != nil {
+		t.Fatalf("CountOrdersByStatus failed: %v", err)
+	}
+	// At minimum we expect 2 drafts
+	if counts[domain.OrderStatusDraft] < 2 {
+		t.Errorf("expected at least 2 drafts, got %d", counts[domain.OrderStatusDraft])
+	}
+	if counts[domain.OrderStatusConfirmed] < 1 {
+		t.Errorf("expected at least 1 confirmed, got %d", counts[domain.OrderStatusConfirmed])
+	}
+}
+
+func TestOrderRepo_ListASNs(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+
+	// Create 3 ASNs
+	for i := range 3 {
+		asn := &domain.ASN{
+			ASNNo:       "TEST-ASN-LIST-00" + string(rune('1'+i)),
+			WarehouseID: wh.ID,
+			Status:      domain.ASNStatusPending,
+		}
+		if err := orderRepo.CreateASN(ctx, asn); err != nil {
+			t.Fatalf("CreateASN failed: %v", err)
+		}
+	}
+	// Create one arrived ASN
+	asn4 := &domain.ASN{
+		ASNNo:       "TEST-ASN-LIST-004",
+		WarehouseID: wh.ID,
+		Status:      domain.ASNStatusArrived,
+	}
+	if err := orderRepo.CreateASN(ctx, asn4); err != nil {
+		t.Fatalf("CreateASN arrived failed: %v", err)
+	}
+
+	// List all
+	all, err := orderRepo.ListASNs(ctx, repository.ASNFilter{})
+	if err != nil {
+		t.Fatalf("ListASNs failed: %v", err)
+	}
+	if len(all) < 4 {
+		t.Errorf("expected at least 4 ASNs, got %d", len(all))
+	}
+
+	// Filter by warehouse
+	byWH, err := orderRepo.ListASNs(ctx, repository.ASNFilter{WarehouseID: wh.ID})
+	if err != nil {
+		t.Fatalf("ListASNs by warehouse failed: %v", err)
+	}
+	if len(byWH) != 4 {
+		t.Errorf("expected 4 ASNs for warehouse, got %d", len(byWH))
+	}
+
+	// Filter by status
+	byStatus, err := orderRepo.ListASNs(ctx, repository.ASNFilter{Status: domain.ASNStatusPending})
+	if err != nil {
+		t.Fatalf("ListASNs by status failed: %v", err)
+	}
+	if len(byStatus) != 3 {
+		t.Errorf("expected 3 pending ASNs, got %d", len(byStatus))
+	}
+
+	// Filter by ASNNo
+	byNo, err := orderRepo.ListASNs(ctx, repository.ASNFilter{ASNNo: "TEST-ASN-LIST-001"})
+	if err != nil {
+		t.Fatalf("ListASNs by ASNNo failed: %v", err)
+	}
+	if len(byNo) != 1 {
+		t.Errorf("expected 1 ASN by no, got %d", len(byNo))
+	}
+
+	// With limit
+	limited, err := orderRepo.ListASNs(ctx, repository.ASNFilter{Limit: 2})
+	if err != nil {
+		t.Fatalf("ListASNs with limit failed: %v", err)
+	}
+	if len(limited) != 2 {
+		t.Errorf("expected 2 ASNs with limit, got %d", len(limited))
+	}
+}
+
+func TestOrderRepo_CountASNs(t *testing.T) {
+	db, cleanup := setupOrderTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	orderRepo := NewOrderRepo(db)
+
+	wh := createTestWarehouse(t, ctx, whRepo)
+
+	// Create 3 ASNs
+	for i := range 3 {
+		asn := &domain.ASN{
+			ASNNo:       "TEST-ASN-CNT-00" + string(rune('1'+i)),
+			WarehouseID: wh.ID,
+		}
+		if err := orderRepo.CreateASN(ctx, asn); err != nil {
+			t.Fatalf("CreateASN failed: %v", err)
+		}
+	}
+
+	count, err := orderRepo.CountASNs(ctx, repository.ASNFilter{WarehouseID: wh.ID})
+	if err != nil {
+		t.Fatalf("CountASNs failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 ASNs, got %d", count)
+	}
+
+	// Zero for different warehouse
+	count, err = orderRepo.CountASNs(ctx, repository.ASNFilter{WarehouseID: uuid.New()})
+	if err != nil {
+		t.Fatalf("CountASNs for unknown warehouse failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 ASNs for unknown warehouse, got %d", count)
+	}
+}

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -968,5 +969,103 @@ func TestUserRepo_CountRoles(t *testing.T) {
 	}
 	if total != initial+3 {
 		t.Errorf("Expected %d roles total, got %d", initial+3, total)
+	}
+}
+
+// ── Additional User Repo Tests ─────────────────────────────
+
+func TestUserRepo_UpdateLastLogin(t *testing.T) {
+	db, cleanup := setupUserTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewUserRepo(db)
+
+	user := &domain.User{
+		Username:     "TEST-user-login-" + uuid.New().String()[:8],
+		Email:        "test-login-" + uuid.New().String()[:8] + "@test.com",
+		PasswordHash: "$2a$10$test_hash",
+	}
+	if err := repo.CreateUser(ctx, user); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Verify last_login is nil initially
+	fetched, err := repo.GetUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if fetched.LastLogin != nil {
+		t.Errorf("expected nil last_login initially, got %v", fetched.LastLogin)
+	}
+
+	// Update last login
+	loginTime := time.Now()
+	if err := repo.UpdateLastLogin(ctx, user.ID, loginTime); err != nil {
+		t.Fatalf("UpdateLastLogin failed: %v", err)
+	}
+
+	fetched, err = repo.GetUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if fetched.LastLogin == nil {
+		t.Error("expected last_login to be set")
+	}
+	if fetched.LastLogin != nil && !fetched.LastLogin.Equal(loginTime) {
+		t.Errorf("last_login = %v, want %v", fetched.LastLogin, loginTime)
+	}
+
+	// Not found
+	err = repo.UpdateLastLogin(ctx, uuid.New(), time.Now())
+	if err == nil {
+		t.Error("Expected error for non-existent user last login update")
+	}
+}
+
+func TestUserRepo_DeleteRole(t *testing.T) {
+	db, cleanup := setupUserTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewUserRepo(db)
+
+	role := &domain.Role{
+		Name: "TEST-role-delete-" + uuid.New().String()[:8],
+	}
+	if err := repo.CreateRole(ctx, role); err != nil {
+		t.Fatalf("CreateRole failed: %v", err)
+	}
+
+	// Verify it exists
+	fetched, err := repo.GetRole(ctx, role.ID)
+	if err != nil {
+		t.Fatalf("GetRole failed: %v", err)
+	}
+	if fetched.ID != role.ID {
+		t.Errorf("Expected role %s, got %s", role.ID, fetched.ID)
+	}
+
+	// Delete
+	if err := repo.DeleteRole(ctx, role.ID); err != nil {
+		t.Fatalf("DeleteRole failed: %v", err)
+	}
+
+	// Verify it's gone
+	_, err = repo.GetRole(ctx, role.ID)
+	if err == nil {
+		t.Error("Expected error for deleted role")
+	}
+
+	// Delete non-existent
+	err = repo.DeleteRole(ctx, uuid.New())
+	if err == nil {
+		t.Error("Expected error for non-existent role delete")
 	}
 }

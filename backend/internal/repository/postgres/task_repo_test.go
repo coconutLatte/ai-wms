@@ -1241,3 +1241,339 @@ func TestTaskRepo_CountWaves(t *testing.T) {
 		t.Errorf("expected 0 waves for unknown warehouse, got %d", count)
 	}
 }
+
+// ── Additional Task Repo Tests ─────────────────────────────
+
+func TestTaskRepo_GetTasksByOrderID(t *testing.T) {
+	db, cleanup := setupTaskTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	orderRepo := NewOrderRepo(db)
+	taskRepo := NewTaskRepo(db)
+
+	wh := createTaskTestWarehouse(t, ctx, whRepo)
+	sku := createTaskTestSKU(t, ctx, invRepo)
+
+	order := &domain.Order{
+		OrderNo:     "TEST-ORD-TBY-" + uuid.New().String()[:8],
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateOrder(ctx, order); err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Create 3 tasks for this order
+	for i := range 3 {
+		task := &domain.Task{
+			TaskNo:      "TEST-TASK-TBY-00" + string(rune('1'+i)),
+			TaskType:    domain.TaskTypePick,
+			WarehouseID: wh.ID,
+			OrderID:     &order.ID,
+			SKUID:       sku.ID,
+			ExpectedQty: 10.0,
+		}
+		if err := taskRepo.CreateTask(ctx, task); err != nil {
+			t.Fatalf("CreateTask failed: %v", err)
+		}
+	}
+
+	// Create 1 task for a different order
+	otherOrder := &domain.Order{
+		OrderNo:     "TEST-ORD-TBY-OTHER-" + uuid.New().String()[:8],
+		OrderType:   domain.OrderTypeInbound,
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateOrder(ctx, otherOrder); err != nil {
+		t.Fatalf("CreateOrder (other) failed: %v", err)
+	}
+	otherTask := &domain.Task{
+		TaskNo:      "TEST-TASK-TBY-OTHER",
+		TaskType:    domain.TaskTypePutaway,
+		WarehouseID: wh.ID,
+		OrderID:     &otherOrder.ID,
+		SKUID:       sku.ID,
+		ExpectedQty: 20.0,
+	}
+	if err := taskRepo.CreateTask(ctx, otherTask); err != nil {
+		t.Fatalf("CreateTask (other) failed: %v", err)
+	}
+
+	// Get tasks for the first order
+	tasks, err := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if err != nil {
+		t.Fatalf("GetTasksByOrderID failed: %v", err)
+	}
+	if len(tasks) != 3 {
+		t.Errorf("expected 3 tasks for order, got %d", len(tasks))
+	}
+	for _, task := range tasks {
+		if task.OrderID == nil || *task.OrderID != order.ID {
+			t.Error("task has wrong order_id")
+		}
+	}
+
+	// Get tasks for order with no tasks
+	emptyOrder := &domain.Order{
+		OrderNo:     "TEST-ORD-TBY-EMPTY-" + uuid.New().String()[:8],
+		OrderType:   domain.OrderTypeTransfer,
+		WarehouseID: wh.ID,
+	}
+	if err := orderRepo.CreateOrder(ctx, emptyOrder); err != nil {
+		t.Fatalf("CreateOrder (empty) failed: %v", err)
+	}
+	tasks, err = taskRepo.GetTasksByOrderID(ctx, emptyOrder.ID)
+	if err != nil {
+		t.Fatalf("GetTasksByOrderID for empty order failed: %v", err)
+	}
+	if len(tasks) != 0 {
+		t.Errorf("expected 0 tasks for empty order, got %d", len(tasks))
+	}
+}
+
+func TestTaskRepo_CountTasks(t *testing.T) {
+	db, cleanup := setupTaskTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	taskRepo := NewTaskRepo(db)
+
+	wh := createTaskTestWarehouse(t, ctx, whRepo)
+	sku := createTaskTestSKU(t, ctx, invRepo)
+
+	// Create 2 pick tasks and 1 putaway task
+	for i := range 3 {
+		taskType := domain.TaskTypePick
+		if i == 2 {
+			taskType = domain.TaskTypePutaway
+		}
+		task := &domain.Task{
+			TaskNo:      "TEST-TASK-CNT-00" + string(rune('1'+i)),
+			TaskType:    taskType,
+			WarehouseID: wh.ID,
+			SKUID:       sku.ID,
+			ExpectedQty: 10.0,
+		}
+		if err := taskRepo.CreateTask(ctx, task); err != nil {
+			t.Fatalf("CreateTask failed: %v", err)
+		}
+	}
+
+	// Count all
+	count, err := taskRepo.CountTasks(ctx, repository.TaskFilter{})
+	if err != nil {
+		t.Fatalf("CountTasks failed: %v", err)
+	}
+	if count < 3 {
+		t.Errorf("expected at least 3 tasks, got %d", count)
+	}
+
+	// Count by warehouse
+	count, err = taskRepo.CountTasks(ctx, repository.TaskFilter{WarehouseID: wh.ID})
+	if err != nil {
+		t.Fatalf("CountTasks by warehouse failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 tasks for warehouse, got %d", count)
+	}
+
+	// Count by type
+	count, err = taskRepo.CountTasks(ctx, repository.TaskFilter{TaskType: domain.TaskTypePick})
+	if err != nil {
+		t.Fatalf("CountTasks by type failed: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected 2 pick tasks, got %d", count)
+	}
+
+	// Zero for unknown warehouse
+	count, err = taskRepo.CountTasks(ctx, repository.TaskFilter{WarehouseID: uuid.New()})
+	if err != nil {
+		t.Fatalf("CountTasks for unknown warehouse failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 tasks for unknown warehouse, got %d", count)
+	}
+}
+
+func TestTaskRepo_CountTasksByStatus(t *testing.T) {
+	db, cleanup := setupTaskTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+	taskRepo := NewTaskRepo(db)
+
+	wh := createTaskTestWarehouse(t, ctx, whRepo)
+	sku := createTaskTestSKU(t, ctx, invRepo)
+
+	// Create tasks with different statuses
+	pending := &domain.Task{
+		TaskNo: "TEST-TASK-CNTSTAT-001", TaskType: domain.TaskTypePick,
+		WarehouseID: wh.ID, SKUID: sku.ID, ExpectedQty: 10.0,
+	}
+	assigned := &domain.Task{
+		TaskNo: "TEST-TASK-CNTSTAT-002", TaskType: domain.TaskTypePutaway,
+		WarehouseID: wh.ID, SKUID: sku.ID, ExpectedQty: 10.0,
+		Status: domain.TaskStatusAssigned, AssignedTo: "worker-1",
+	}
+	if err := taskRepo.CreateTask(ctx, pending); err != nil {
+		t.Fatalf("CreateTask pending failed: %v", err)
+	}
+	if err := taskRepo.CreateTask(ctx, assigned); err != nil {
+		t.Fatalf("CreateTask assigned failed: %v", err)
+	}
+
+	counts, err := taskRepo.CountTasksByStatus(ctx)
+	if err != nil {
+		t.Fatalf("CountTasksByStatus failed: %v", err)
+	}
+	if counts[domain.TaskStatusPending] < 1 {
+		t.Errorf("expected at least 1 pending task, got %d", counts[domain.TaskStatusPending])
+	}
+	if counts[domain.TaskStatusAssigned] < 1 {
+		t.Errorf("expected at least 1 assigned task, got %d", counts[domain.TaskStatusAssigned])
+	}
+}
+
+func TestTaskRepo_AddWaveOrders(t *testing.T) {
+	db, cleanup := setupTaskTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	taskRepo := NewTaskRepo(db)
+
+	wh := createTaskTestWarehouse(t, ctx, whRepo)
+
+	orderID1 := uuid.New()
+	orderID2 := uuid.New()
+	orderID3 := uuid.New()
+
+	wave := &domain.Wave{
+		WaveNo:      "TEST-WAVE-ADD-" + uuid.New().String()[:8],
+		WarehouseID: wh.ID,
+		WaveType:    domain.WaveTypeBatch,
+		OrderIDs:    []uuid.UUID{orderID1},
+		TotalOrders: 1,
+	}
+	if err := taskRepo.CreateWave(ctx, wave); err != nil {
+		t.Fatalf("CreateWave failed: %v", err)
+	}
+
+	// Add 2 more orders
+	if err := taskRepo.AddWaveOrders(ctx, wave.ID, []uuid.UUID{orderID2, orderID3}); err != nil {
+		t.Fatalf("AddWaveOrders failed: %v", err)
+	}
+
+	got, err := taskRepo.GetWave(ctx, wave.ID)
+	if err != nil {
+		t.Fatalf("GetWave failed: %v", err)
+	}
+	if got.TotalOrders != 3 {
+		t.Errorf("total_orders = %d, want 3", got.TotalOrders)
+	}
+	if len(got.OrderIDs) != 3 {
+		t.Errorf("expected 3 order IDs, got %d", len(got.OrderIDs))
+	}
+
+	// Add duplicate — should deduplicate
+	if err := taskRepo.AddWaveOrders(ctx, wave.ID, []uuid.UUID{orderID1}); err != nil {
+		t.Fatalf("AddWaveOrders (duplicate) failed: %v", err)
+	}
+
+	got, err = taskRepo.GetWave(ctx, wave.ID)
+	if err != nil {
+		t.Fatalf("GetWave failed: %v", err)
+	}
+	if got.TotalOrders != 3 {
+		t.Errorf("total_orders = %d, want 3 (no duplicates)", got.TotalOrders)
+	}
+
+	// Not found
+	err = taskRepo.AddWaveOrders(ctx, uuid.New(), []uuid.UUID{orderID1})
+	if err == nil {
+		t.Error("expected error for nonexistent wave")
+	}
+}
+
+func TestTaskRepo_RemoveWaveOrders(t *testing.T) {
+	db, cleanup := setupTaskTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	taskRepo := NewTaskRepo(db)
+
+	wh := createTaskTestWarehouse(t, ctx, whRepo)
+
+	orderID1 := uuid.New()
+	orderID2 := uuid.New()
+	orderID3 := uuid.New()
+
+	wave := &domain.Wave{
+		WaveNo:      "TEST-WAVE-REM-" + uuid.New().String()[:8],
+		WarehouseID: wh.ID,
+		WaveType:    domain.WaveTypeZone,
+		OrderIDs:    []uuid.UUID{orderID1, orderID2, orderID3},
+		TotalOrders: 3,
+	}
+	if err := taskRepo.CreateWave(ctx, wave); err != nil {
+		t.Fatalf("CreateWave failed: %v", err)
+	}
+
+	// Remove 1 order
+	if err := taskRepo.RemoveWaveOrders(ctx, wave.ID, []uuid.UUID{orderID2}); err != nil {
+		t.Fatalf("RemoveWaveOrders failed: %v", err)
+	}
+
+	got, err := taskRepo.GetWave(ctx, wave.ID)
+	if err != nil {
+		t.Fatalf("GetWave failed: %v", err)
+	}
+	if got.TotalOrders != 2 {
+		t.Errorf("total_orders = %d, want 2", got.TotalOrders)
+	}
+	if len(got.OrderIDs) != 2 {
+		t.Errorf("expected 2 order IDs, got %d", len(got.OrderIDs))
+	}
+	// Verify orderID2 is removed
+	for _, oid := range got.OrderIDs {
+		if oid == orderID2 {
+			t.Error("orderID2 should have been removed")
+		}
+	}
+
+	// Remove another 2
+	if err := taskRepo.RemoveWaveOrders(ctx, wave.ID, []uuid.UUID{orderID1, orderID3}); err != nil {
+		t.Fatalf("RemoveWaveOrders (remaining) failed: %v", err)
+	}
+	got, err = taskRepo.GetWave(ctx, wave.ID)
+	if err != nil {
+		t.Fatalf("GetWave failed: %v", err)
+	}
+	if got.TotalOrders != 0 {
+		t.Errorf("total_orders = %d, want 0", got.TotalOrders)
+	}
+}

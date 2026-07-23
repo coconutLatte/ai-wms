@@ -1092,3 +1092,515 @@ func TestInventoryRepo_GetOldestInventory_Limit(t *testing.T) {
 		t.Errorf("expected 3 results (limit=3), got %d", len(results))
 	}
 }
+
+// ── Additional Inventory Repo Tests ───────────────────────
+
+func TestInventoryRepo_UpdateInventoryStatus(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-ISTAT-" + uuid.New().String()[:8],
+		Name: "Status Update SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 50.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	// Transition to quarantine
+	if err := invRepo.UpdateInventoryStatus(ctx, inv.ID, domain.InventoryStatusQuarantine); err != nil {
+		t.Fatalf("UpdateInventoryStatus -> quarantine failed: %v", err)
+	}
+	got, err := invRepo.GetInventory(ctx, inv.ID)
+	if err != nil {
+		t.Fatalf("GetInventory failed: %v", err)
+	}
+	if got.Status != domain.InventoryStatusQuarantine {
+		t.Errorf("status = %q, want quarantine", got.Status)
+	}
+
+	// Transition to damaged
+	if err := invRepo.UpdateInventoryStatus(ctx, inv.ID, domain.InventoryStatusDamaged); err != nil {
+		t.Fatalf("UpdateInventoryStatus -> damaged failed: %v", err)
+	}
+	got, err = invRepo.GetInventory(ctx, inv.ID)
+	if err != nil {
+		t.Fatalf("GetInventory failed: %v", err)
+	}
+	if got.Status != domain.InventoryStatusDamaged {
+		t.Errorf("status = %q, want damaged", got.Status)
+	}
+
+	// Not found
+	err = invRepo.UpdateInventoryStatus(ctx, uuid.New(), domain.InventoryStatusExpired)
+	if err == nil {
+		t.Error("expected error for nonexistent inventory")
+	}
+}
+
+func TestInventoryRepo_GetAndLockInventory(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-LOCK-" + uuid.New().String()[:8],
+		Name: "Lock SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 100.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	// GetAndLockInventory may be called outside tx for integration testing
+	got, err := invRepo.GetAndLockInventory(ctx, inv.ID)
+	if err != nil {
+		t.Fatalf("GetAndLockInventory failed: %v", err)
+	}
+	if got.ID != inv.ID {
+		t.Errorf("id = %s, want %s", got.ID, inv.ID)
+	}
+	if got.Qty != 100.0 {
+		t.Errorf("qty = %f, want 100.0", got.Qty)
+	}
+
+	// Not found with lock
+	_, err = invRepo.GetAndLockInventory(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error for nonexistent inventory with lock")
+	}
+}
+
+func TestInventoryRepo_CountInventory(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-CNT-" + uuid.New().String()[:8],
+		Name: "Count Inventory SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	// No filter
+	initial, err := invRepo.CountInventory(ctx, repository.InventoryFilter{})
+	if err != nil {
+		t.Fatalf("CountInventory failed: %v", err)
+	}
+
+	// Create 3 inventory records
+	for i := range 3 {
+		inv := &domain.Inventory{
+			SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+			Qty: float64((i + 1) * 10), Status: domain.InventoryStatusAvailable,
+		}
+		if err := invRepo.CreateInventory(ctx, inv); err != nil {
+			t.Fatalf("CreateInventory failed: %v", err)
+		}
+	}
+
+	// Count by warehouse
+	count, err := invRepo.CountInventory(ctx, repository.InventoryFilter{WarehouseID: wh.ID})
+	if err != nil {
+		t.Fatalf("CountInventory by warehouse failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 inventory records, got %d", count)
+	}
+
+	// Count by SKU
+	count, err = invRepo.CountInventory(ctx, repository.InventoryFilter{SKUID: sku.ID})
+	if err != nil {
+		t.Fatalf("CountInventory by SKU failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 inventory records for SKU, got %d", count)
+	}
+
+	// Total should include initial + 3
+	total, err := invRepo.CountInventory(ctx, repository.InventoryFilter{})
+	if err != nil {
+		t.Fatalf("CountInventory failed: %v", err)
+	}
+	if total != initial+3 {
+		t.Errorf("expected %d total, got %d", initial+3, total)
+	}
+}
+
+func TestInventoryRepo_CountTransactions(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-TXCNT-" + uuid.New().String()[:8],
+		Name: "TX Count SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 0.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	// Create 3 transactions
+	for i := range 3 {
+		tx := &domain.InventoryTransaction{
+			InventoryID: inv.ID, SKUID: sku.ID, LocationID: loc.ID,
+			Type: domain.InventoryTxReceipt, DeltaQty: float64(10 * (i + 1)),
+			ResultingQty: float64(10 * (i + 1)), ReferenceType: "test",
+			ReferenceID: uuid.New(),
+		}
+		if err := invRepo.CreateTransaction(ctx, tx); err != nil {
+			t.Fatalf("CreateTransaction failed: %v", err)
+		}
+	}
+
+	count, err := invRepo.CountTransactions(ctx, inv.ID)
+	if err != nil {
+		t.Fatalf("CountTransactions failed: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("expected 3 transactions, got %d", count)
+	}
+
+	// Zero for unrelated inventory
+	count, err = invRepo.CountTransactions(ctx, uuid.New())
+	if err != nil {
+		t.Fatalf("CountTransactions for unknown failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 transactions for unknown inventory, got %d", count)
+	}
+}
+
+func TestInventoryRepo_ListTransactionsByReference(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-TXREF-" + uuid.New().String()[:8],
+		Name: "TX Ref SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 0.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	orderID := uuid.New()
+	// Create 2 transactions with the same reference, 1 with different
+	for i := range 2 {
+		tx := &domain.InventoryTransaction{
+			InventoryID: inv.ID, SKUID: sku.ID, LocationID: loc.ID,
+			Type: domain.InventoryTxReserve, DeltaQty: -float64(5 * (i + 1)),
+			ResultingQty: 95.0 - float64(5*i),
+			ReferenceType: "order_line", ReferenceID: orderID,
+		}
+		if err := invRepo.CreateTransaction(ctx, tx); err != nil {
+			t.Fatalf("CreateTransaction failed: %v", err)
+		}
+	}
+	{
+		tx := &domain.InventoryTransaction{
+			InventoryID: inv.ID, SKUID: sku.ID, LocationID: loc.ID,
+			Type: domain.InventoryTxPick, DeltaQty: -10.0,
+			ResultingQty: 85.0, ReferenceType: "task",
+			ReferenceID: uuid.New(),
+		}
+		if err := invRepo.CreateTransaction(ctx, tx); err != nil {
+			t.Fatalf("CreateTransaction failed: %v", err)
+		}
+	}
+
+	txs, err := invRepo.ListTransactionsByReference(ctx, "order_line", orderID)
+	if err != nil {
+		t.Fatalf("ListTransactionsByReference failed: %v", err)
+	}
+	if len(txs) != 2 {
+		t.Errorf("expected 2 transactions for reference, got %d", len(txs))
+	}
+
+	txs, err = invRepo.ListTransactionsByReference(ctx, "nonexistent", orderID)
+	if err != nil {
+		t.Fatalf("ListTransactionsByReference for nonexistent failed: %v", err)
+	}
+	if len(txs) != 0 {
+		t.Errorf("expected 0 transactions for nonexistent reference, got %d", len(txs))
+	}
+}
+
+func TestInventoryRepo_GetInventoryDashboardStats(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-DASH-" + uuid.New().String()[:8],
+		Name: "Dashboard SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	available := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 200.0, ReservedQty: 50.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, available); err != nil {
+		t.Fatalf("CreateInventory available failed: %v", err)
+	}
+
+	quarantine := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 30.0, Status: domain.InventoryStatusQuarantine,
+	}
+	if err := invRepo.CreateInventory(ctx, quarantine); err != nil {
+		t.Fatalf("CreateInventory quarantine failed: %v", err)
+	}
+
+	lowStock := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 5.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, lowStock); err != nil {
+		t.Fatalf("CreateInventory lowStock failed: %v", err)
+	}
+
+	stats, err := invRepo.GetInventoryDashboardStats(ctx, wh.ID, 10.0)
+	if err != nil {
+		t.Fatalf("GetInventoryDashboardStats failed: %v", err)
+	}
+	if stats.TotalRecords != 3 {
+		t.Errorf("total_records = %d, want 3", stats.TotalRecords)
+	}
+	if stats.AvailableCount != 2 {
+		t.Errorf("available_count = %d, want 2", stats.AvailableCount)
+	}
+	if stats.QuarantineCount != 1 {
+		t.Errorf("quarantine_count = %d, want 1", stats.QuarantineCount)
+	}
+	if stats.LowStockCount < 1 {
+		t.Errorf("low_stock_count = %d, want at least 1", stats.LowStockCount)
+	}
+
+	allStats, err := invRepo.GetInventoryDashboardStats(ctx, uuid.Nil, 10.0)
+	if err != nil {
+		t.Fatalf("GetInventoryDashboardStats (all) failed: %v", err)
+	}
+	if allStats.TotalRecords < 3 {
+		t.Errorf("total_records (all) = %d, want at least 3", allStats.TotalRecords)
+	}
+}
+
+func TestInventoryRepo_GetLowStockInventory(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-LOW-" + uuid.New().String()[:8],
+		Name: "Low Stock SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	low := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 5.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, low); err != nil {
+		t.Fatalf("CreateInventory low failed: %v", err)
+	}
+
+	high := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 500.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, high); err != nil {
+		t.Fatalf("CreateInventory high failed: %v", err)
+	}
+
+	results, err := invRepo.GetLowStockInventory(ctx, 10.0, wh.ID, 0)
+	if err != nil {
+		t.Fatalf("GetLowStockInventory failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 low stock record, got %d", len(results))
+	}
+	if results[0].Qty != 5.0 {
+		t.Errorf("qty = %f, want 5.0", results[0].Qty)
+	}
+}
+
+func TestInventoryRepo_GetInventoryByWarehouse(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	whRepo := NewWarehouseRepo(db)
+	invRepo := NewInventoryRepo(db)
+
+	wh, loc := createTestWarehouseZoneLocation(t, ctx, whRepo)
+	sku := &domain.SKU{
+		Code: "TEST-SKU-BYWH-" + uuid.New().String()[:8],
+		Name: "By Warehouse SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := invRepo.CreateSKU(ctx, sku); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	inv := &domain.Inventory{
+		SKUID: sku.ID, LocationID: loc.ID, WarehouseID: wh.ID,
+		Qty: 100.0, ReservedQty: 20.0, Status: domain.InventoryStatusAvailable,
+	}
+	if err := invRepo.CreateInventory(ctx, inv); err != nil {
+		t.Fatalf("CreateInventory failed: %v", err)
+	}
+
+	rows, err := invRepo.GetInventoryByWarehouse(ctx)
+	if err != nil {
+		t.Fatalf("GetInventoryByWarehouse failed: %v", err)
+	}
+
+	found := false
+	for _, row := range rows {
+		if row.WarehouseID == wh.ID {
+			found = true
+			if row.TotalQty < 100.0 {
+				t.Errorf("total_qty = %f, want at least 100.0", row.TotalQty)
+			}
+			if row.RecordCount < 1 {
+				t.Errorf("record_count = %d, want at least 1", row.RecordCount)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected to find warehouse in inventory by warehouse rows")
+	}
+}
+
+func TestInventoryRepo_CountSKUs(t *testing.T) {
+	db, cleanup := setupInventoryTestDB(t)
+	if db == nil {
+		return
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	repo := NewInventoryRepo(db)
+
+	initial, err := repo.CountSKUs(ctx)
+	if err != nil {
+		t.Fatalf("CountSKUs failed: %v", err)
+	}
+
+	s := &domain.SKU{
+		Code: "TEST-SKU-CNT-" + uuid.New().String()[:8],
+		Name: "Count SKU",
+		UOM:  domain.UOM{BaseUnit: "EA", PackQty: 1},
+	}
+	if err := repo.CreateSKU(ctx, s); err != nil {
+		t.Fatalf("CreateSKU failed: %v", err)
+	}
+
+	count, err := repo.CountSKUs(ctx)
+	if err != nil {
+		t.Fatalf("CountSKUs failed: %v", err)
+	}
+	if count != initial+1 {
+		t.Errorf("expected %d SKUs, got %d", initial+1, count)
+	}
+}
