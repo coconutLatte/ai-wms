@@ -20,7 +20,6 @@ import {
   Input,
   Select,
   Popconfirm,
-  Descriptions,
 } from 'antd'
 import {
   UserOutlined,
@@ -30,7 +29,6 @@ import {
   CheckCircleOutlined,
   StopOutlined,
   LockOutlined,
-  EyeOutlined,
   EditOutlined,
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'

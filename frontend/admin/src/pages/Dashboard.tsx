@@ -9,7 +9,6 @@ import {
   DatabaseOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
-  SyncOutlined,
   ToolOutlined,
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
@@ -59,7 +58,6 @@ export default function DashboardPage() {
     : null
 
   // Compute completed tasks count.
-  const completedTasks = data?.task_summary?.['completed'] ?? null
   const completedOrders = data?.order_summary?.['completed'] ?? null
 
   return (

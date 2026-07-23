@@ -221,7 +221,12 @@ export default function ZonesPage() {
   const stats = useMemo(() => {
     const counts: Record<string, number> = { active: 0, inactive: 0, full: 0 }
     zones.forEach((z) => { counts[z.status] = (counts[z.status] ?? 0) + 1 })
-    return { total, ...counts }
+    return {
+      total,
+      active: counts.active ?? 0,
+      inactive: counts.inactive ?? 0,
+      full: counts.full ?? 0,
+    }
   }, [zones, total])
 
   // ── Table columns ───────────────────────────────────────────────────────

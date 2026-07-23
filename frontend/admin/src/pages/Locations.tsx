@@ -47,8 +47,6 @@ import type {
 
 // ── Status & type colors ──────────────────────────────────────────────────
 
-const locationTypeLabels: Record<string, string> = {}  // populated from i18n
-
 const locationStatusColors: Record<string, string> = {
   empty: 'default',
   occupied: 'green',
@@ -277,7 +275,13 @@ export default function LocationsPage() {
   const stats = useMemo(() => {
     const counts: Record<string, number> = { empty: 0, occupied: 0, reserved: 0, blocked: 0 }
     locations.forEach((l) => { counts[l.status] = (counts[l.status] ?? 0) + 1 })
-    return { total, ...counts }
+    return {
+      total,
+      empty: counts.empty ?? 0,
+      occupied: counts.occupied ?? 0,
+      reserved: counts.reserved ?? 0,
+      blocked: counts.blocked ?? 0,
+    }
   }, [locations, total])
 
   // ── Table columns ──────────────────────────────────────────────────────

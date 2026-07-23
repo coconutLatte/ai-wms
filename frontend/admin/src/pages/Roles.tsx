@@ -18,7 +18,6 @@ import {
   Modal,
   Form,
   Input,
-  Select,
   Popconfirm,
   Checkbox,
 } from 'antd'
@@ -116,54 +115,6 @@ export default function RolesPage() {
     const perm = permissions.find((p) => p.resource === resource)
     if (!perm) return false
     return perm.actions.includes(action) || perm.actions.includes('*')
-  }
-
-  const toggleAction = (resource: string, action: string) => {
-    setPermissions((prev) => {
-      const existing = prev.find((p) => p.resource === resource)
-      if (!existing) {
-        // Add new resource permission
-        return [...prev, { resource, actions: [action] }]
-      }
-
-      const hasWildcard = existing.actions.includes('*')
-      const hasAction = existing.actions.includes(action)
-
-      if (hasWildcard) {
-        // Remove wildcard, add all actions except this one
-        return prev
-          .filter((p) => p.resource !== resource)
-          .concat([
-            {
-              resource,
-              actions: WMS_ACTIONS.filter((a) => a !== action),
-            },
-          ])
-      }
-
-      if (hasAction) {
-        // Remove this action
-        const newActions = existing.actions.filter((a) => a !== action)
-        if (newActions.length === 0) {
-          return prev.filter((p) => p.resource !== resource)
-        }
-        return prev.map((p) =>
-          p.resource === resource ? { ...p, actions: newActions } : p,
-        )
-      }
-
-      // Add this action
-      const newActions = [...existing.actions, action]
-      if (newActions.length === WMS_ACTIONS.length) {
-        // All actions selected → use wildcard
-        return prev.map((p) =>
-          p.resource === resource ? { ...p, actions: ['*'] } : p,
-        )
-      }
-      return prev.map((p) =>
-        p.resource === resource ? { ...p, actions: newActions } : p,
-      )
-    })
   }
 
   const hasAllActions = (resource: string): boolean => {
