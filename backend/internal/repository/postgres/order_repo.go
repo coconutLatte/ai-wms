@@ -100,6 +100,11 @@ func (r *OrderRepo) ListOrders(ctx context.Context, filter repository.OrderFilte
 		args = append(args, filter.WarehouseID)
 		argIdx++
 	}
+	if filter.OrderNo != "" {
+		conditions = append(conditions, fmt.Sprintf("order_no = $%d", argIdx))
+		args = append(args, filter.OrderNo)
+		argIdx++
+	}
 	if filter.OrderType != "" {
 		conditions = append(conditions, fmt.Sprintf("order_type = $%d", argIdx))
 		args = append(args, filter.OrderType)
@@ -160,6 +165,11 @@ func (r *OrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilt
 	if filter.WarehouseID != uuid.Nil {
 		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
 		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if filter.OrderNo != "" {
+		conditions = append(conditions, fmt.Sprintf("order_no = $%d", argIdx))
+		args = append(args, filter.OrderNo)
 		argIdx++
 	}
 	if filter.OrderType != "" {

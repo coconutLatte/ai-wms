@@ -51,6 +51,12 @@ export default function ScanPage() {
       labelKey: 'scan.locate',
       descriptionKey: 'scan.locateDesc',
     },
+    {
+      key: 'orderLookup',
+      icon: '\u{1F4CB}',
+      labelKey: 'scan.orderLookup',
+      descriptionKey: 'scan.orderLookupDesc',
+    },
   ]
 
   const handleScan = useCallback(async (barcode: string) => {
@@ -78,6 +84,8 @@ export default function ScanPage() {
     (action: ScanAction) => {
       if (action.key === 'receiving') {
         navigate('/receive')
+      } else if (action.key === 'orderLookup') {
+        navigate('/order-lookup')
       } else {
         navigate('/tasks')
       }

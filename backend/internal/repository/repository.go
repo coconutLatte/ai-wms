@@ -199,6 +199,7 @@ type ASNFilter struct {
 // OrderFilter defines query parameters for order search.
 type OrderFilter struct {
 	WarehouseID uuid.UUID
+	OrderNo     string
 	OrderType   domain.OrderType
 	Status      domain.OrderStatus
 	Limit       int

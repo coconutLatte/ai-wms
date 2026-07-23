@@ -121,7 +121,7 @@ GET    /api/v1/dashboard           — Admin dashboard (aggregated stats)
 
 ### REST Endpoints (PDA)
 
-The PDA server shares the same `/api/v1/` prefix as the Admin server, running on a separate port (default 8081). Auth endpoints (login, refresh, logout) are public; task endpoints require JWT authentication.
+The PDA server shares the same `/api/v1/` prefix as the Admin server, running on a separate port (default 8081). Auth endpoints (login, refresh, logout) are public; task and order endpoints require JWT authentication.
 
 ```
 POST   /api/v1/auth/login            — Operator login (public)
@@ -133,6 +133,16 @@ GET    /api/v1/tasks/:id             — Get task detail
 POST   /api/v1/tasks/:id/assign      — Assign task to worker
 PUT    /api/v1/tasks/:id/status      — Update task status (start, pause, cancel)
 POST   /api/v1/tasks/:id/complete    — Complete task with actual quantities
+
+GET    /api/v1/orders                — List/search orders (filterable by order_no, status, type)
+GET    /api/v1/orders/:id            — Get order with lines
+
+GET    /api/v1/asns                  — List ASNs (filterable by asn_no, status)
+GET    /api/v1/asns/:id              — Get ASN with lines
+POST   /api/v1/asns/:id/lines/:lineId/receive — Receive a line quantity
+
+GET    /api/v1/locations             — Location lookup (support ?barcode=X for scanner)
+GET    /api/v1/skus                  — SKU lookup (support ?code=X for scanner)
 ```
 
 #### Authentication Flow

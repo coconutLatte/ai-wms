@@ -120,6 +120,7 @@ func main() {
 	protected := http.NewServeMux()
 	api.RegisterTaskRoutes(protected, taskHandler)
 	api.RegisterASNRoutes(protected, orderHandler)
+	api.RegisterOrderRoutes(protected, orderHandler)
 
 	// Barcode lookup routes for the PDA scanner (location barcode → putaway, SKU barcode → inventory).
 	api.RegisterWarehouseRoutes(protected, warehouseHandler)

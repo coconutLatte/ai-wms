@@ -191,6 +191,9 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		}
 		filter.WarehouseID = id
 	}
+	if raw := QueryParam(r, "order_no", ""); raw != "" {
+		filter.OrderNo = raw
+	}
 	if raw := QueryParam(r, "order_type", ""); raw != "" {
 		filter.OrderType = domain.OrderType(raw)
 	}

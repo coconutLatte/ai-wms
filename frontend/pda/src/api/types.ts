@@ -145,3 +145,56 @@ export interface ASNSummary {
 export interface ReceiveLineRequest {
   received_qty: number
 }
+
+// ── Orders ──────────────────────────────────────────────────────────────────
+
+export type OrderType = 'inbound' | 'outbound' | 'transfer' | 'return'
+export type OrderStatus = 'draft' | 'confirmed' | 'processing' | 'partial' | 'completed' | 'cancelled'
+export type OrderPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type OrderLineStatus = 'pending' | 'allocated' | 'partial' | 'fulfilled' | 'cancelled'
+
+export interface OrderLine {
+  id: string
+  order_id: string
+  line_no: number
+  sku_id: string
+  ordered_qty: number
+  fulfilled_qty: number
+  uom: string
+  batch_no?: string
+  status: OrderLineStatus
+  notes?: string
+}
+
+export interface Order {
+  id: string
+  order_no: string
+  order_type: OrderType
+  warehouse_id: string
+  status: OrderStatus
+  priority: OrderPriority
+  external_ref?: string
+  external_type?: string
+  lines: OrderLine[]
+  notes?: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  created_by: string
+}
+
+export interface OrderSummary {
+  id: string
+  order_no: string
+  order_type: OrderType
+  warehouse_id: string
+  status: OrderStatus
+  priority: OrderPriority
+  external_ref?: string
+  external_type?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  created_by: string
+}
