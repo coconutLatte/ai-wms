@@ -45,6 +45,20 @@ func QueryParamInt(r *http.Request, key string, defaultVal int) int {
 	return n
 }
 
+// QueryUUID extracts a UUID query parameter from the request.
+// Returns uuid.Nil and no error if the parameter is missing or invalid.
+func QueryUUID(r *http.Request, key string) (uuid.UUID, error) {
+	raw := r.URL.Query().Get(key)
+	if raw == "" {
+		return uuid.Nil, nil
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, nil
+	}
+	return id, nil
+}
+
 // PaginationParams extracts page and page_size from query parameters with defaults.
 // page defaults to 1, page_size defaults to 20, max page_size is 100.
 func PaginationParams(r *http.Request) (page, pageSize int) {

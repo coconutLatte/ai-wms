@@ -19,6 +19,8 @@ import {
   TeamOutlined,
   SafetyOutlined,
   TruckOutlined,
+  AppstoreOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
@@ -45,6 +47,8 @@ const menuKeys: MenuItem[] = [
   { key: 'users', icon: <TeamOutlined />, labelKey: 'nav.users', path: '/users' },
   { key: 'roles', icon: <SafetyOutlined />, labelKey: 'nav.roles', path: '/roles' },
   { key: 'asns', icon: <TruckOutlined />, labelKey: 'nav.asns', path: '/asns' },
+  { key: 'zones', icon: <AppstoreOutlined />, labelKey: 'nav.zones', path: '/zones' },
+  { key: 'locations', icon: <EnvironmentOutlined />, labelKey: 'nav.locations', path: '/locations' },
 ]
 
 export default function AdminLayout() {

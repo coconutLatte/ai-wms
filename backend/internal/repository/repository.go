@@ -25,6 +25,9 @@ type WarehouseRepository interface {
 	GetZone(ctx context.Context, id uuid.UUID) (*domain.Zone, error)
 	ListZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID, limit, offset int) ([]*domain.Zone, error)
 	CountZonesByWarehouse(ctx context.Context, warehouseID uuid.UUID) (int, error)
+	ListAllZones(ctx context.Context, filter ZoneFilter) ([]*domain.Zone, error)
+	CountAllZones(ctx context.Context, filter ZoneFilter) (int, error)
+	UpdateZone(ctx context.Context, z *domain.Zone) error
 
 	// Location
 	CreateLocation(ctx context.Context, l *domain.Location) error
@@ -33,6 +36,24 @@ type WarehouseRepository interface {
 	ListLocationsByZone(ctx context.Context, zoneID uuid.UUID, limit, offset int) ([]*domain.Location, error)
 	UpdateLocationStatus(ctx context.Context, id uuid.UUID, status domain.LocationStatus) error
 	CountLocationsByZone(ctx context.Context, zoneID uuid.UUID) (int, error)
+	ListAllLocations(ctx context.Context, filter LocationFilter) ([]*domain.Location, error)
+	CountAllLocations(ctx context.Context, filter LocationFilter) (int, error)
+	UpdateLocation(ctx context.Context, l *domain.Location) error
+}
+
+// ZoneFilter defines query parameters for global zone search.
+type ZoneFilter struct {
+	WarehouseID uuid.UUID
+	Limit       int
+	Offset      int
+}
+
+// LocationFilter defines query parameters for global location search.
+type LocationFilter struct {
+	ZoneID      uuid.UUID
+	WarehouseID uuid.UUID
+	Limit       int
+	Offset      int
 }
 
 // InventoryRepository manages SKU, inventory, and transaction persistence.

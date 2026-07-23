@@ -27,15 +27,23 @@ func RegisterWarehouseRoutes(mux *http.ServeMux, h *WarehouseHandler) {
 	mux.HandleFunc("POST /api/v1/warehouses/{id}/zones", h.CreateZone)
 	mux.HandleFunc("GET /api/v1/warehouses/{id}/zones", h.ListZones)
 	mux.HandleFunc("GET /api/v1/zones/{id}", h.GetZone)
+	mux.HandleFunc("PUT /api/v1/zones/{id}", h.UpdateZone)
+
+	// Zone global listing
+	mux.HandleFunc("GET /api/v1/zones", h.ListAllZones)
 
 	// Location (nested under zone)
 	mux.HandleFunc("POST /api/v1/zones/{id}/locations", h.CreateLocation)
 	mux.HandleFunc("GET /api/v1/zones/{id}/locations", h.ListLocations)
 	mux.HandleFunc("GET /api/v1/locations/{id}", h.GetLocation)
+	mux.HandleFunc("PUT /api/v1/locations/{id}", h.UpdateLocation)
 	mux.HandleFunc("PATCH /api/v1/locations/{id}/status", h.UpdateLocationStatus)
 
-	// Location lookup by barcode
-	mux.HandleFunc("GET /api/v1/locations", h.GetLocationByBarcode)
+	// Location global listing (also handles barcode lookup via ?barcode=X)
+	mux.HandleFunc("GET /api/v1/locations", h.ListAllLocations)
+
+	// Location lookup by barcode is handled by GET /api/v1/locations?barcode=X
+	// (merged into ListAllLocations to avoid route conflicts)
 }
 
 // RegisterSKURoutes registers SKU API routes on the given mux.

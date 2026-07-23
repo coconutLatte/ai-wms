@@ -226,6 +226,68 @@ func (s *WarehouseService) ListZones(ctx context.Context, warehouseID uuid.UUID,
 	return zones, total, nil
 }
 
+// ListAllZones returns zones globally, optionally filtered by warehouse, with pagination.
+func (s *WarehouseService) ListAllZones(ctx context.Context, filter repository.ZoneFilter) ([]*domain.Zone, int, error) {
+	zones, err := s.repo.ListAllZones(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: list all zones: %w", err)
+	}
+
+	total, err := s.repo.CountAllZones(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: count all zones: %w", err)
+	}
+
+	return zones, total, nil
+}
+
+// UpdateZoneInput is the input for updating a zone.
+type UpdateZoneInput struct {
+	Name     *string           `json:"name,omitempty"`
+	ZoneType *domain.ZoneType  `json:"zone_type,omitempty"`
+	Status   *domain.ZoneStatus `json:"status,omitempty"`
+}
+
+// UpdateZone validates and updates an existing zone.
+func (s *WarehouseService) UpdateZone(ctx context.Context, id uuid.UUID, input UpdateZoneInput) (*domain.Zone, error) {
+	z, err := s.repo.GetZone(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("warehouse service: update zone %s: %w", id, err)
+	}
+
+	if input.Name != nil {
+		z.Name = *input.Name
+	}
+	if input.ZoneType != nil {
+		zt := *input.ZoneType
+		if !isValidZoneType(zt) {
+			return nil, pkgerrors.NewInvalidInput(fmt.Sprintf("invalid zone type: %s", zt))
+		}
+		z.ZoneType = zt
+	}
+	if input.Status != nil {
+		s := *input.Status
+		if !isValidZoneStatus(s) {
+			return nil, pkgerrors.NewInvalidInput(fmt.Sprintf("invalid zone status: %s", s))
+		}
+		z.Status = s
+	}
+
+	if err := s.repo.UpdateZone(ctx, z); err != nil {
+		return nil, fmt.Errorf("warehouse service: update zone %s: %w", id, err)
+	}
+
+	return z, nil
+}
+
+func isValidZoneStatus(s domain.ZoneStatus) bool {
+	switch s {
+	case domain.ZoneStatusActive, domain.ZoneStatusInactive, domain.ZoneStatusFull:
+		return true
+	}
+	return false
+}
+
 // ── Location ─────────────────────────────────────────────────────────────────────────────
 
 // CreateLocationInput is the input for creating a new location.
@@ -312,6 +374,60 @@ func (s *WarehouseService) ListLocations(ctx context.Context, zoneID uuid.UUID, 
 	}
 
 	return locs, total, nil
+}
+
+// ListAllLocations returns locations globally, optionally filtered by zone or warehouse, with pagination.
+func (s *WarehouseService) ListAllLocations(ctx context.Context, filter repository.LocationFilter) ([]*domain.Location, int, error) {
+	locs, err := s.repo.ListAllLocations(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: list all locations: %w", err)
+	}
+
+	total, err := s.repo.CountAllLocations(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("warehouse service: count all locations: %w", err)
+	}
+
+	return locs, total, nil
+}
+
+// UpdateLocationInput is the input for updating a location's metadata.
+type UpdateLocationInput struct {
+	Code         *string             `json:"code,omitempty"`
+	Barcode      *string             `json:"barcode,omitempty"`
+	LocationType *domain.LocationType `json:"location_type,omitempty"`
+	Capacity     *domain.Capacity    `json:"capacity,omitempty"`
+}
+
+// UpdateLocation validates and updates an existing location's metadata (not status).
+func (s *WarehouseService) UpdateLocation(ctx context.Context, id uuid.UUID, input UpdateLocationInput) (*domain.Location, error) {
+	loc, err := s.repo.GetLocation(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("warehouse service: update location %s: %w", id, err)
+	}
+
+	if input.Code != nil {
+		loc.Code = *input.Code
+	}
+	if input.Barcode != nil {
+		loc.Barcode = *input.Barcode
+	}
+	if input.LocationType != nil {
+		lt := *input.LocationType
+		if !isValidLocationType(lt) {
+			return nil, pkgerrors.NewInvalidInput(fmt.Sprintf("invalid location type: %s", lt))
+		}
+		loc.LocationType = lt
+	}
+	if input.Capacity != nil {
+		loc.Capacity = input.Capacity
+	}
+
+	if err := s.repo.UpdateLocation(ctx, loc); err != nil {
+		return nil, fmt.Errorf("warehouse service: update location %s: %w", id, err)
+	}
+
+	return loc, nil
 }
 
 // UpdateLocationStatus updates the status of a location, enforcing the

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
+	"github.com/ai-wms/ai-wms/backend/internal/repository"
 	"github.com/ai-wms/ai-wms/backend/internal/service"
 	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
 )
@@ -354,6 +355,132 @@ func (h *WarehouseHandler) GetLocationByBarcode(w http.ResponseWriter, r *http.R
 	}
 
 	loc, err := h.svc.GetLocationByBarcode(r.Context(), barcode)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toLocationResponse(loc))
+}
+
+// ── Global Zone Handlers ─────────────────────────────────────────────────────────────────
+
+// ListAllZones handles GET /api/v1/zones?warehouse_id=X
+func (h *WarehouseHandler) ListAllZones(w http.ResponseWriter, r *http.Request) {
+	warehouseID, _ := QueryUUID(r, "warehouse_id")
+
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	filter := repository.ZoneFilter{
+		WarehouseID: warehouseID,
+		Limit:       pageSize,
+		Offset:      offset,
+	}
+
+	zones, total, err := h.svc.ListAllZones(r.Context(), filter)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]zoneResponse, 0, len(zones))
+	for _, z := range zones {
+		resp = append(resp, toZoneResponse(z))
+	}
+
+	WriteJSON(w, http.StatusOK, ListResponse[zoneResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
+}
+
+// UpdateZone handles PUT /api/v1/zones/{id}
+func (h *WarehouseHandler) UpdateZone(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateZoneInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	z, err := h.svc.UpdateZone(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toZoneResponse(z))
+}
+
+// ── Global Location Handlers ──────────────────────────────────────────────────────────────
+
+// ListAllLocations handles GET /api/v1/locations. If ?barcode=X is present, returns
+// the single location with that barcode. Otherwise, lists locations with optional
+// ?zone_id and ?warehouse_id filters and pagination.
+func (h *WarehouseHandler) ListAllLocations(w http.ResponseWriter, r *http.Request) {
+	// Barcode lookup takes precedence over list.
+	barcode := QueryParam(r, "barcode", "")
+	if barcode != "" {
+		loc, err := h.svc.GetLocationByBarcode(r.Context(), barcode)
+		if err != nil {
+			WriteError(w, r, err)
+			return
+		}
+		WriteJSON(w, http.StatusOK, toLocationResponse(loc))
+		return
+	}
+
+	zoneID, _ := QueryUUID(r, "zone_id")
+	warehouseID, _ := QueryUUID(r, "warehouse_id")
+
+	page, pageSize := PaginationParams(r)
+	offset := paginationOffset(page, pageSize)
+
+	filter := repository.LocationFilter{
+		ZoneID:      zoneID,
+		WarehouseID: warehouseID,
+		Limit:       pageSize,
+		Offset:      offset,
+	}
+
+	locs, total, err := h.svc.ListAllLocations(r.Context(), filter)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]locationResponse, 0, len(locs))
+	for _, loc := range locs {
+		resp = append(resp, toLocationResponse(loc))
+	}
+
+	WriteJSON(w, http.StatusOK, ListResponse[locationResponse]{
+		Data:       resp,
+		Pagination: NewPaginationMeta(total, page, pageSize),
+	})
+}
+
+// UpdateLocation handles PUT /api/v1/locations/{id}
+func (h *WarehouseHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.UpdateLocationInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	loc, err := h.svc.UpdateLocation(r.Context(), id, input)
 	if err != nil {
 		WriteError(w, r, err)
 		return

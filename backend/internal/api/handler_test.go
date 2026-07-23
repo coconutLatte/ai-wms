@@ -235,6 +235,12 @@ func (m *mockWhRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUID, 
 }
 func (m *mockWhRepo) UpdateLocationStatus(ctx context.Context, id uuid.UUID, status domain.LocationStatus) error { return nil }
 func (m *mockWhRepo) CountLocationsByZone(ctx context.Context, zoneID uuid.UUID) (int, error)                    { return 0, nil }
+func (m *mockWhRepo) ListAllZones(ctx context.Context, filter repository.ZoneFilter) ([]*domain.Zone, error)       { return nil, nil }
+func (m *mockWhRepo) CountAllZones(ctx context.Context, filter repository.ZoneFilter) (int, error)                { return 0, nil }
+func (m *mockWhRepo) UpdateZone(ctx context.Context, z *domain.Zone) error                                        { return nil }
+func (m *mockWhRepo) ListAllLocations(ctx context.Context, filter repository.LocationFilter) ([]*domain.Location, error) { return nil, nil }
+func (m *mockWhRepo) CountAllLocations(ctx context.Context, filter repository.LocationFilter) (int, error)              { return 0, nil }
+func (m *mockWhRepo) UpdateLocation(ctx context.Context, l *domain.Location) error                                      { return nil }
 
 // ── Test Helpers ───────────────────────────────────────────────────────────────
 

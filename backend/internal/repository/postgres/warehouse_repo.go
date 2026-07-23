@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
+	"github.com/ai-wms/ai-wms/backend/internal/repository"
 )
 
 // WarehouseRepo implements repository.WarehouseRepository using PostgreSQL.
@@ -223,6 +224,86 @@ func (r *WarehouseRepo) CountZonesByWarehouse(ctx context.Context, warehouseID u
 	return count, nil
 }
 
+// ListAllZones returns zones, optionally filtered by warehouse_id, with pagination.
+func (r *WarehouseRepo) ListAllZones(ctx context.Context, filter repository.ZoneFilter) ([]*domain.Zone, error) {
+	query := `SELECT id, warehouse_id, code, name, zone_type, status, created_at, updated_at FROM zones`
+	var args []any
+	argIdx := 1
+
+	if filter.WarehouseID != uuid.Nil {
+		query += fmt.Sprintf(" WHERE warehouse_id = $%d", argIdx)
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	query += " ORDER BY code"
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, filter.Offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list all zones: %w", err)
+	}
+	defer rows.Close()
+
+	var zones []*domain.Zone
+	for rows.Next() {
+		z := &domain.Zone{}
+		if err := rows.Scan(&z.ID, &z.WarehouseID, &z.Code, &z.Name, &z.ZoneType, &z.Status, &z.CreatedAt, &z.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan zone: %w", err)
+		}
+		zones = append(zones, z)
+	}
+	return zones, rows.Err()
+}
+
+// CountAllZones returns the total number of zones, optionally filtered by warehouse_id.
+func (r *WarehouseRepo) CountAllZones(ctx context.Context, filter repository.ZoneFilter) (int, error) {
+	query := `SELECT COUNT(*) FROM zones`
+	var args []any
+	if filter.WarehouseID != uuid.Nil {
+		query += " WHERE warehouse_id = $1"
+		args = append(args, filter.WarehouseID)
+	}
+	var count int
+	var err error
+	if len(args) > 0 {
+		err = r.queryRow(ctx, query, args...).Scan(&count)
+	} else {
+		err = r.queryRow(ctx, query).Scan(&count)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("count all zones: %w", err)
+	}
+	return count, nil
+}
+
+// UpdateZone updates an existing zone.
+func (r *WarehouseRepo) UpdateZone(ctx context.Context, z *domain.Zone) error {
+	z.UpdatedAt = time.Now()
+
+	const query = `
+		UPDATE zones SET name=$1, zone_type=$2, status=$3, updated_at=$4
+		WHERE id=$5`
+
+	tag, err := r.exec(ctx, query, z.Name, z.ZoneType, z.Status, z.UpdatedAt, z.ID)
+	if err != nil {
+		return fmt.Errorf("update zone: %w", err)
+	}
+	if tag == 0 {
+		return fmt.Errorf("update zone %s: not found", z.ID)
+	}
+	return nil
+}
+
 // ── Location ───────────────────────────────────────────────
 
 // CreateLocation inserts a new location.
@@ -416,6 +497,151 @@ func (r *WarehouseRepo) UpdateLocationStatus(ctx context.Context, id uuid.UUID, 
 	}
 	if tag == 0 {
 		return fmt.Errorf("update location status %s: not found", id)
+	}
+	return nil
+}
+
+// ListAllLocations returns locations, optionally filtered by zone_id or warehouse_id, with pagination.
+func (r *WarehouseRepo) ListAllLocations(ctx context.Context, filter repository.LocationFilter) ([]*domain.Location, error) {
+	query := `
+		SELECT id, zone_id, warehouse_id, code, barcode, location_type, status,
+		       max_weight, max_volume, max_qty, created_at, updated_at
+		FROM locations`
+	var args []any
+	argIdx := 1
+	var conditions []string
+
+	if filter.ZoneID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("zone_id = $%d", argIdx))
+		args = append(args, filter.ZoneID)
+		argIdx++
+	}
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + conditions[0]
+		for i := 1; i < len(conditions); i++ {
+			query += " AND " + conditions[i]
+		}
+	}
+	query += " ORDER BY code"
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, filter.Limit)
+		argIdx++
+	}
+	if filter.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, filter.Offset)
+		argIdx++
+	}
+
+	rows, err := r.query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list all locations: %w", err)
+	}
+	defer rows.Close()
+
+	var locations []*domain.Location
+	for rows.Next() {
+		loc := &domain.Location{}
+		var maxWeight, maxVolume *float64
+		var maxQty *int
+
+		if err := rows.Scan(
+			&loc.ID, &loc.ZoneID, &loc.WarehouseID, &loc.Code, &loc.Barcode,
+			&loc.LocationType, &loc.Status, &maxWeight, &maxVolume, &maxQty,
+			&loc.CreatedAt, &loc.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan location: %w", err)
+		}
+
+		if maxWeight != nil || maxVolume != nil || maxQty != nil {
+			loc.Capacity = &domain.Capacity{}
+			if maxWeight != nil {
+				loc.Capacity.MaxWeight = *maxWeight
+			}
+			if maxVolume != nil {
+				loc.Capacity.MaxVolume = *maxVolume
+			}
+			if maxQty != nil {
+				loc.Capacity.MaxQty = *maxQty
+			}
+		}
+
+		locations = append(locations, loc)
+	}
+	return locations, rows.Err()
+}
+
+// CountAllLocations returns the total number of locations, optionally filtered.
+func (r *WarehouseRepo) CountAllLocations(ctx context.Context, filter repository.LocationFilter) (int, error) {
+	query := `SELECT COUNT(*) FROM locations`
+	var args []any
+	argIdx := 1
+	var conditions []string
+
+	if filter.ZoneID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("zone_id = $%d", argIdx))
+		args = append(args, filter.ZoneID)
+		argIdx++
+	}
+	if filter.WarehouseID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, filter.WarehouseID)
+		argIdx++
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + conditions[0]
+		for i := 1; i < len(conditions); i++ {
+			query += " AND " + conditions[i]
+		}
+	}
+
+	var count int
+	var err error
+	if len(args) > 0 {
+		err = r.queryRow(ctx, query, args...).Scan(&count)
+	} else {
+		err = r.queryRow(ctx, query).Scan(&count)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("count all locations: %w", err)
+	}
+	return count, nil
+}
+
+// UpdateLocation updates an existing location's code, barcode, type, and capacity.
+func (r *WarehouseRepo) UpdateLocation(ctx context.Context, l *domain.Location) error {
+	l.UpdatedAt = time.Now()
+
+	var maxWeight, maxVolume *float64
+	var maxQty *int
+	if l.Capacity != nil {
+		maxWeight = &l.Capacity.MaxWeight
+		maxVolume = &l.Capacity.MaxVolume
+		maxQty = &l.Capacity.MaxQty
+	}
+
+	const query = `
+		UPDATE locations SET code=$1, barcode=$2, location_type=$3,
+		       max_weight=$4, max_volume=$5, max_qty=$6, updated_at=$7
+		WHERE id=$8`
+
+	tag, err := r.exec(ctx, query,
+		l.Code, l.Barcode, l.LocationType,
+		maxWeight, maxVolume, maxQty,
+		l.UpdatedAt, l.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("update location: %w", err)
+	}
+	if tag == 0 {
+		return fmt.Errorf("update location %s: not found", l.ID)
 	}
 	return nil
 }

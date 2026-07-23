@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ai-wms/ai-wms/backend/internal/domain"
+	"github.com/ai-wms/ai-wms/backend/internal/repository"
 	pkgerrors "github.com/ai-wms/ai-wms/backend/pkg/errors"
 )
 
@@ -101,6 +102,36 @@ func (m *mockWarehouseRepo) CountZonesByWarehouse(ctx context.Context, warehouse
 	return count, nil
 }
 
+func (m *mockWarehouseRepo) ListAllZones(ctx context.Context, filter repository.ZoneFilter) ([]*domain.Zone, error) {
+	var result []*domain.Zone
+	for _, z := range m.zones {
+		if filter.WarehouseID != uuid.Nil && z.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		result = append(result, z)
+	}
+	return result, nil
+}
+
+func (m *mockWarehouseRepo) CountAllZones(ctx context.Context, filter repository.ZoneFilter) (int, error) {
+	count := 0
+	for _, z := range m.zones {
+		if filter.WarehouseID != uuid.Nil && z.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (m *mockWarehouseRepo) UpdateZone(ctx context.Context, z *domain.Zone) error {
+	if _, ok := m.zones[z.ID]; !ok {
+		return pkgerrors.NewNotFound("zone", z.ID.String())
+	}
+	m.zones[z.ID] = z
+	return nil
+}
+
 // ── Location ──────────────────────────────────────
 
 func (m *mockWarehouseRepo) CreateLocation(ctx context.Context, loc *domain.Location) error {
@@ -155,6 +186,42 @@ func (m *mockWarehouseRepo) CountLocationsByZone(ctx context.Context, zoneID uui
 		}
 	}
 	return count, nil
+}
+
+func (m *mockWarehouseRepo) ListAllLocations(ctx context.Context, filter repository.LocationFilter) ([]*domain.Location, error) {
+	var result []*domain.Location
+	for _, loc := range m.locations {
+		if filter.ZoneID != uuid.Nil && loc.ZoneID != filter.ZoneID {
+			continue
+		}
+		if filter.WarehouseID != uuid.Nil && loc.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		result = append(result, loc)
+	}
+	return result, nil
+}
+
+func (m *mockWarehouseRepo) CountAllLocations(ctx context.Context, filter repository.LocationFilter) (int, error) {
+	count := 0
+	for _, loc := range m.locations {
+		if filter.ZoneID != uuid.Nil && loc.ZoneID != filter.ZoneID {
+			continue
+		}
+		if filter.WarehouseID != uuid.Nil && loc.WarehouseID != filter.WarehouseID {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (m *mockWarehouseRepo) UpdateLocation(ctx context.Context, l *domain.Location) error {
+	if _, ok := m.locations[l.ID]; !ok {
+		return pkgerrors.NewNotFound("location", l.ID.String())
+	}
+	m.locations[l.ID] = l
+	return nil
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
