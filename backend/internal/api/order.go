@@ -436,6 +436,9 @@ func (h *OrderHandler) ListASNs(w http.ResponseWriter, r *http.Request) {
 		}
 		filter.WarehouseID = id
 	}
+	if raw := QueryParam(r, "asn_no", ""); raw != "" {
+		filter.ASNNo = raw
+	}
 	if raw := QueryParam(r, "status", ""); raw != "" {
 		filter.Status = domain.ASNStatus(raw)
 	}
@@ -472,6 +475,35 @@ func (h *OrderHandler) UpdateASNStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	asn, err := h.svc.UpdateASNStatus(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toASNResponse(asn))
+}
+
+// ReceiveASNLine handles POST /api/v1/asns/{id}/lines/{lineId}/receive
+func (h *OrderHandler) ReceiveASNLine(w http.ResponseWriter, r *http.Request) {
+	asnID, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	lineID, err := PathUUID(r, "lineId")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.ReceiveASNLineInput
+	if err := ReadJSON(r, &input); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	asn, err := h.svc.ReceiveASNLine(r.Context(), asnID, lineID, input)
 	if err != nil {
 		WriteError(w, r, err)
 		return

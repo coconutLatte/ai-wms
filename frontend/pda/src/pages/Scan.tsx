@@ -75,8 +75,12 @@ export default function ScanPage() {
   }, [t])
 
   const handleActionClick = useCallback(
-    (_action: ScanAction) => {
-      navigate(`/tasks`)
+    (action: ScanAction) => {
+      if (action.key === 'receiving') {
+        navigate('/receive')
+      } else {
+        navigate('/tasks')
+      }
     },
     [navigate],
   )

@@ -27,6 +27,7 @@ const tabs: TabItem[] = [
 function getActiveTab(pathname: string): string {
   if (pathname.startsWith('/tasks')) return 'tasks'
   if (pathname.startsWith('/scan')) return 'scan'
+  if (pathname.startsWith('/receive')) return 'scan'
   if (pathname.startsWith('/profile')) return 'profile'
   return 'tasks'
 }
@@ -36,6 +37,7 @@ function getActiveTab(pathname: string): string {
 function getHeaderTitle(pathname: string): string {
   if (pathname.startsWith('/tasks')) return 'app.headerTasks'
   if (pathname.startsWith('/scan')) return 'app.headerScan'
+  if (pathname.startsWith('/receive')) return 'receive.title'
   if (pathname.startsWith('/profile')) return 'app.headerProfile'
   return 'app.headerHome'
 }

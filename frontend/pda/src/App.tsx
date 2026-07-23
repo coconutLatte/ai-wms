@@ -9,6 +9,7 @@ import LoginPage from '@/pages/Login'
 import TasksPage from '@/pages/Tasks'
 import TaskDetailPage from '@/pages/TaskDetail'
 import ScanPage from '@/pages/Scan'
+import ReceivingPage from '@/pages/Receiving'
 import ProfilePage from '@/pages/Profile'
 import NotFoundPage from '@/pages/NotFound'
 
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="/scan" element={<ScanPage />} />
+            <Route path="/receive" element={<ReceivingPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>

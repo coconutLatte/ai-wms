@@ -139,5 +139,37 @@
   },
   "nav": {
     "admin": "🖥 管理端"
+  },
+  "receive": {
+    "title": "收货",
+    "scanAsnPlaceholder": "扫描或输入 ASN 单号...",
+    "searchingAsn": "正在查找 ASN...",
+    "asnNotFound": "未找到 ASN \"{{asnNo}}\"",
+    "lookupFailed": "查询失败: {{error}}",
+    "statusPending": "待处理",
+    "statusArrived": "已到达",
+    "statusReceiving": "收货中",
+    "statusPartial": "部分收货",
+    "statusReceived": "已收货",
+    "asnNo": "ASN 单号",
+    "carrier": "承运商",
+    "trackingNo": "运单号",
+    "expectedAt": "预计到达",
+    "arrivedAt": "已到达",
+    "linesReceived": "已收 {{received}}/{{total}} 行",
+    "lineStatusPending": "待收",
+    "lineStatusPartial": "部分",
+    "lineStatusReceived": "已收",
+    "expectedQty": "预期数量",
+    "receivedQty": "已收数量",
+    "receiveQty": "收货数量",
+    "receive": "收货",
+    "receiving": "收货中...",
+    "receiveLineError": "收货失败: {{error}}",
+    "qtyExceedsExpected": "收货数量 ({{total}}) 超过预期数量 ({{expected}})",
+    "allLinesReceived": "所有行已收货完毕",
+    "asnReceived": "✓ 此 ASN 已全部收货完成",
+    "backToScan": "← 返回扫描",
+    "clearAndRescan": "清除并重新扫描"
   }
 }

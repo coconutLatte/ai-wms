@@ -139,5 +139,37 @@
   },
   "nav": {
     "admin": "🖥 Admin"
+  },
+  "receive": {
+    "title": "Receiving",
+    "scanAsnPlaceholder": "Scan or type ASN number...",
+    "searchingAsn": "Searching ASN...",
+    "asnNotFound": "ASN \"{{asnNo}}\" not found",
+    "lookupFailed": "Lookup failed: {{error}}",
+    "statusPending": "Pending",
+    "statusArrived": "Arrived",
+    "statusReceiving": "Receiving",
+    "statusPartial": "Partial",
+    "statusReceived": "Received",
+    "asnNo": "ASN No.",
+    "carrier": "Carrier",
+    "trackingNo": "Tracking No.",
+    "expectedAt": "Expected",
+    "arrivedAt": "Arrived",
+    "linesReceived": "Lines {{received}}/{{total}} received",
+    "lineStatusPending": "Pending",
+    "lineStatusPartial": "Partial",
+    "lineStatusReceived": "Received",
+    "expectedQty": "Expected Qty",
+    "receivedQty": "Received Qty",
+    "receiveQty": "Receive Qty",
+    "receive": "Receive",
+    "receiving": "Receiving...",
+    "receiveLineError": "Receive failed: {{error}}",
+    "qtyExceedsExpected": "Receive qty ({{total}}) exceeds expected ({{expected}})",
+    "allLinesReceived": "All lines received",
+    "asnReceived": "✓ This ASN has been fully received",
+    "backToScan": "← Back to Scan",
+    "clearAndRescan": "Clear & Rescan"
   }
 }

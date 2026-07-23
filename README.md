@@ -134,10 +134,10 @@ make evolve-dry     # Preview next task only
 | Metric | Value |
 |--------|-------|
 | Total tasks | 78 |
-| Completed | 69 |
-| Pending | 7 |
+| Completed | 70 |
+| Pending | 6 |
 | Cancelled | 2 |
-| Evolution rounds | 72 |
+| Evolution rounds | 73 |
 | Last evolution | 2026-07-23 |
 <!-- EVOLUTION-STATS-END -->
 

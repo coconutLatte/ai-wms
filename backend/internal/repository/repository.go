@@ -166,6 +166,7 @@ type OrderRepository interface {
 
 	// ASNLine
 	CreateASNLine(ctx context.Context, line *domain.ASNLine) error
+	GetASNLine(ctx context.Context, id uuid.UUID) (*domain.ASNLine, error)
 	GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain.ASNLine, error)
 	UpdateASNLineStatus(ctx context.Context, id uuid.UUID, status domain.ASNLineStatus) error
 	UpdateASNLineReceivedQty(ctx context.Context, id uuid.UUID, qty float64) error
@@ -174,6 +175,7 @@ type OrderRepository interface {
 // ASNFilter defines query parameters for ASN search.
 type ASNFilter struct {
 	WarehouseID uuid.UUID
+	ASNNo       string
 	Status      domain.ASNStatus
 	Limit       int
 	Offset      int

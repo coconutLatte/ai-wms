@@ -88,6 +88,7 @@ func RegisterASNRoutes(mux *http.ServeMux, h *OrderHandler) {
 	mux.HandleFunc("GET /api/v1/asns", h.ListASNs)
 	mux.HandleFunc("GET /api/v1/asns/{id}", h.GetASN)
 	mux.HandleFunc("PUT /api/v1/asns/{id}/status", h.UpdateASNStatus)
+	mux.HandleFunc("POST /api/v1/asns/{id}/lines/{lineId}/receive", h.ReceiveASNLine)
 }
 
 // RegisterAuditLogRoutes registers audit log API routes on the given mux (Admin only).

@@ -78,6 +78,7 @@ func main() {
 	}
 
 	// Initialize repositories.
+	orderRepo := postgres.NewOrderRepo(db)
 	taskRepo := postgres.NewTaskRepo(db)
 	inventoryRepo := postgres.NewInventoryRepo(db)
 	warehouseRepo := postgres.NewWarehouseRepo(db)
@@ -88,6 +89,7 @@ func main() {
 	txManager := postgres.NewTxManager(db)
 
 	// Initialize services.
+	orderSvc := service.NewOrderService(orderRepo, taskRepo)
 	taskSvc := service.NewTaskServiceWithTx(taskRepo, inventoryRepo, txManager)
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
 	skuSvc := service.NewSKUService(inventoryRepo)
@@ -95,6 +97,7 @@ func main() {
 
 	// Initialize API handlers.
 	authHandler := api.NewAuthHandler(authSvc, log.Logger)
+	orderHandler := api.NewOrderHandler(orderSvc, log.Logger)
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
 	skuHandler := api.NewSKUHandler(skuSvc, log.Logger)
@@ -116,6 +119,7 @@ func main() {
 	// Protected routes — wrapped in JWT auth middleware.
 	protected := http.NewServeMux()
 	api.RegisterTaskRoutes(protected, taskHandler)
+	api.RegisterASNRoutes(protected, orderHandler)
 
 	// Barcode lookup routes for the PDA scanner (location barcode → putaway, SKU barcode → inventory).
 	api.RegisterWarehouseRoutes(protected, warehouseHandler)

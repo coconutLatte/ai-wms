@@ -565,6 +565,130 @@ func (s *OrderService) UpdateASNStatus(ctx context.Context, asnID uuid.UUID, inp
 	return updated, nil
 }
 
+// ── Receive ASN Line ───────────────────────────────────────────────────────
+
+// ReceiveASNLineInput is the input for receiving a quantity on an ASN line.
+type ReceiveASNLineInput struct {
+	ReceivedQty float64 `json:"received_qty"`
+}
+
+// Validate checks the input for business rule violations.
+func (in *ReceiveASNLineInput) Validate() error {
+	if in.ReceivedQty <= 0 {
+		return pkgerrors.NewInvalidInput("received_qty must be positive")
+	}
+	return nil
+}
+
+// ReceiveASNLine records a received quantity on an ASN line.
+// Updates the line's received_qty, determines line status (pending/received),
+// and updates the parent ASN status accordingly.
+func (s *OrderService) ReceiveASNLine(ctx context.Context, asnID, lineID uuid.UUID, input ReceiveASNLineInput) (*domain.ASN, error) {
+	// 1. Validate input.
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	// 2. Get the ASN line.
+	line, err := s.repo.GetASNLine(ctx, lineID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: receive asn line: %w", err)
+	}
+
+	// Verify the line belongs to this ASN.
+	if line.ASNID != asnID {
+		return nil, pkgerrors.NewInvalidInput("line does not belong to this ASN")
+	}
+
+	// 3. Validate: received_qty + existing received_qty <= expected_qty.
+	newReceived := line.ReceivedQty + input.ReceivedQty
+	if newReceived > line.ExpectedQty {
+		return nil, pkgerrors.NewInvalidInput("received_qty exceeds expected_qty")
+	}
+
+	// 4. Update received_qty on the line.
+	if err := s.repo.UpdateASNLineReceivedQty(ctx, lineID, newReceived); err != nil {
+		return nil, fmt.Errorf("order service: update received qty: %w", err)
+	}
+
+	// 5. Determine line status.
+	var lineStatus domain.ASNLineStatus
+	if newReceived >= line.ExpectedQty {
+		lineStatus = domain.ASNLineStatusReceived
+	} else {
+		lineStatus = domain.ASNLineStatusPartial
+	}
+
+	// 6. Update line status.
+	if err := s.repo.UpdateASNLineStatus(ctx, lineID, lineStatus); err != nil {
+		return nil, fmt.Errorf("order service: update line status: %w", err)
+	}
+
+	// 7. Get all ASN lines to determine overall ASN status.
+	lines, err := s.repo.GetASNLines(ctx, asnID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: get asn lines: %w", err)
+	}
+
+	// Update the just-modified line in the lines slice for status evaluation.
+	for i, l := range lines {
+		if l.ID == lineID {
+			l.ReceivedQty = newReceived
+			l.Status = lineStatus
+			lines[i] = l
+			break
+		}
+	}
+
+	// 8. Determine ASN status.
+	asn, err := s.repo.GetASN(ctx, asnID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: get asn: %w", err)
+	}
+
+	// If ASN is "arrived", first transition to "receiving".
+	if asn.Status == domain.ASNStatusArrived && asn.CanTransitionTo(domain.ASNStatusReceiving) {
+		if err := s.repo.UpdateASNStatus(ctx, asnID, domain.ASNStatusReceiving); err != nil {
+			return nil, fmt.Errorf("order service: update asn status to receiving: %w", err)
+		}
+		asn.Status = domain.ASNStatusReceiving
+	}
+
+	// Check if all lines are fully received.
+	allReceived := true
+	for _, l := range lines {
+		if l.Status != domain.ASNLineStatusReceived {
+			allReceived = false
+			break
+		}
+	}
+
+	// 9. If all lines received, transition ASN to "received".
+	if allReceived {
+		if asn.CanTransitionTo(domain.ASNStatusReceived) {
+			if err := s.repo.UpdateASNStatus(ctx, asnID, domain.ASNStatusReceived); err != nil {
+				return nil, fmt.Errorf("order service: update asn status to received: %w", err)
+			}
+		}
+	}
+
+	// 10. Return updated ASN with lines loaded.
+	updated, err := s.repo.GetASN(ctx, asnID)
+	if err != nil {
+		return nil, fmt.Errorf("order service: re-fetch asn: %w", err)
+	}
+
+	refreshedLines, _ := s.repo.GetASNLines(ctx, asnID)
+	if refreshedLines != nil {
+		updated.Lines = make([]domain.ASNLine, len(refreshedLines))
+		for i, l := range refreshedLines {
+			updated.Lines[i] = *l
+		}
+	}
+
+	return updated, nil
+}
+
 // generateTasksForOrder creates warehouse tasks for an order when it is confirmed.
 // Task types:
 //   - inbound orders  → putaway (one per line, since receiving is handled by ASN)

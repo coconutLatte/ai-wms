@@ -99,3 +99,49 @@ export interface UpdateTaskStatusRequest {
 export interface CompleteTaskRequest {
   notes?: string
 }
+
+// ── ASN (Advanced Shipping Notice) ──────────────────────────────────────
+
+export type ASNStatus = 'pending' | 'arrived' | 'receiving' | 'partial' | 'received'
+export type ASNLineStatus = 'pending' | 'partial' | 'received'
+
+export interface ASNLine {
+  id: string
+  asn_id: string
+  sku_id: string
+  expected_qty: number
+  received_qty: number
+  batch_no?: string
+  status: ASNLineStatus
+}
+
+export interface ASN {
+  id: string
+  asn_no: string
+  warehouse_id: string
+  order_id?: string
+  carrier?: string
+  tracking_no?: string
+  expected_at: string
+  arrived_at?: string
+  lines: ASNLine[]
+  status: ASNStatus
+  created_at: string
+}
+
+export interface ASNSummary {
+  id: string
+  asn_no: string
+  warehouse_id: string
+  order_id?: string
+  carrier?: string
+  tracking_no?: string
+  expected_at: string
+  arrived_at?: string
+  status: ASNStatus
+  created_at: string
+}
+
+export interface ReceiveLineRequest {
+  received_qty: number
+}

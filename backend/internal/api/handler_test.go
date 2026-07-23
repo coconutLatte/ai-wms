@@ -152,6 +152,7 @@ func (m *mockOrderRepo) ListASNs(ctx context.Context, filter repository.ASNFilte
 func (m *mockOrderRepo) UpdateASNStatus(ctx context.Context, id uuid.UUID, status domain.ASNStatus) error { return nil }
 func (m *mockOrderRepo) CountASNs(ctx context.Context, filter repository.ASNFilter) (int, error)          { return 0, nil }
 func (m *mockOrderRepo) CreateASNLine(ctx context.Context, line *domain.ASNLine) error                    { return nil }
+func (m *mockOrderRepo) GetASNLine(ctx context.Context, id uuid.UUID) (*domain.ASNLine, error)            { return nil, nil }
 func (m *mockOrderRepo) GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain.ASNLine, error)      { return nil, nil }
 func (m *mockOrderRepo) UpdateASNLineStatus(ctx context.Context, id uuid.UUID, status domain.ASNLineStatus) error {
 	return nil

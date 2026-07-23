@@ -428,6 +428,11 @@ func (r *OrderRepo) ListASNs(ctx context.Context, filter repository.ASNFilter) (
 		args = append(args, filter.WarehouseID)
 		argIdx++
 	}
+	if filter.ASNNo != "" {
+		conditions = append(conditions, fmt.Sprintf("asn_no = $%d", argIdx))
+		args = append(args, filter.ASNNo)
+		argIdx++
+	}
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
@@ -485,6 +490,11 @@ func (r *OrderRepo) CountASNs(ctx context.Context, filter repository.ASNFilter) 
 		args = append(args, filter.WarehouseID)
 		argIdx++
 	}
+	if filter.ASNNo != "" {
+		conditions = append(conditions, fmt.Sprintf("asn_no = $%d", argIdx))
+		args = append(args, filter.ASNNo)
+		argIdx++
+	}
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
@@ -529,6 +539,23 @@ func (r *OrderRepo) CreateASNLine(ctx context.Context, line *domain.ASNLine) err
 		return fmt.Errorf("create asn line: %w", err)
 	}
 	return nil
+}
+
+// GetASNLine retrieves a single ASN line by ID.
+func (r *OrderRepo) GetASNLine(ctx context.Context, id uuid.UUID) (*domain.ASNLine, error) {
+	const query = `
+		SELECT id, asn_id, sku_id, expected_qty, received_qty,
+		       batch_no, status
+		FROM asn_lines WHERE id = $1`
+
+	l, err := r.scanASNLine(r.queryRow(ctx, query, id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("get asn line %s: %w", id, err)
+		}
+		return nil, fmt.Errorf("get asn line: %w", err)
+	}
+	return l, nil
 }
 
 // GetASNLines retrieves all lines for an ASN.
@@ -758,6 +785,27 @@ func (r *OrderRepo) scanASNLineFromRows(rows pgx.Rows) (*domain.ASNLine, error) 
 	var batchNo *string
 
 	err := rows.Scan(
+		&l.ID, &l.ASNID, &l.SKUID,
+		&l.ExpectedQty, &l.ReceivedQty,
+		&batchNo, &l.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if batchNo != nil {
+		l.BatchNo = *batchNo
+	}
+
+	return l, nil
+}
+
+// scanASNLine scans a single ASN line row.
+func (r *OrderRepo) scanASNLine(row pgx.Row) (*domain.ASNLine, error) {
+	l := &domain.ASNLine{}
+	var batchNo *string
+
+	err := row.Scan(
 		&l.ID, &l.ASNID, &l.SKUID,
 		&l.ExpectedQty, &l.ReceivedQty,
 		&batchNo, &l.Status,

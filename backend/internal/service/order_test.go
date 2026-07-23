@@ -237,6 +237,17 @@ func (m *mockOrderRepo) CreateASNLine(ctx context.Context, line *domain.ASNLine)
 	return nil
 }
 
+func (m *mockOrderRepo) GetASNLine(ctx context.Context, id uuid.UUID) (*domain.ASNLine, error) {
+	for _, lines := range m.asnLines {
+		for _, l := range lines {
+			if l.ID == id {
+				return l, nil
+			}
+		}
+	}
+	return nil, pkgerrors.NewNotFound("asn line", id.String())
+}
+
 func (m *mockOrderRepo) GetASNLines(ctx context.Context, asnID uuid.UUID) ([]*domain.ASNLine, error) {
 	lines, ok := m.asnLines[asnID]
 	if !ok {
@@ -1792,5 +1803,301 @@ func TestOrderService_Confirm_NoTasksForNonConfirmTransition(t *testing.T) {
 	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
 	if len(tasks) != 0 {
 		t.Errorf("expected 0 tasks for cancelled order, got %d", len(tasks))
+	}
+}
+
+// ── ReceiveASNLine Tests ─────────────────────────────────────────────────────
+
+func TestOrderService_ReceiveASNLine_FullReceive(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line := lines[0]
+	line.ExpectedQty = 100
+	line.ReceivedQty = 0
+	line.Status = domain.ASNLineStatusPending
+
+	// Transition ASN to arrived.
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	// Receive the full quantity.
+	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 100})
+	if err != nil {
+		t.Fatalf("ReceiveASNLine failed: %v", err)
+	}
+
+	// ASN should be "received" (arrived → receiving → received).
+	if updated.Status != domain.ASNStatusReceived {
+		t.Errorf("ASN status = %q, want %q", updated.Status, domain.ASNStatusReceived)
+	}
+	// Line should be "received".
+	if len(updated.Lines) != 1 {
+		t.Fatalf("expected 1 line, got %d", len(updated.Lines))
+	}
+	if updated.Lines[0].Status != domain.ASNLineStatusReceived {
+		t.Errorf("line status = %q, want %q", updated.Lines[0].Status, domain.ASNLineStatusReceived)
+	}
+	if updated.Lines[0].ReceivedQty != 100 {
+		t.Errorf("received_qty = %f, want 100", updated.Lines[0].ReceivedQty)
+	}
+}
+
+func TestOrderService_ReceiveASNLine_PartialReceive(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 2)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line0 := lines[0]
+	line0.ExpectedQty = 50
+	line0.ReceivedQty = 0
+	line1 := lines[1]
+	line1.ExpectedQty = 30
+	line1.ReceivedQty = 0
+
+	// Transition ASN to arrived.
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	// Receive partial quantity on line 0.
+	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 20})
+	if err != nil {
+		t.Fatalf("ReceiveASNLine failed: %v", err)
+	}
+
+	// ASN should be "receiving" (arrived → receiving, but not all lines done).
+	if updated.Status != domain.ASNStatusReceiving {
+		t.Errorf("ASN status = %q, want %q", updated.Status, domain.ASNStatusReceiving)
+	}
+
+	// Find the updated line 0.
+	for _, l := range updated.Lines {
+		if l.ID == line0.ID {
+			if l.Status != domain.ASNLineStatusPartial {
+				t.Errorf("line status = %q, want %q", l.Status, domain.ASNLineStatusPartial)
+			}
+			if l.ReceivedQty != 20 {
+				t.Errorf("received_qty = %f, want 20", l.ReceivedQty)
+			}
+		}
+	}
+}
+
+func TestOrderService_ReceiveASNLine_MultiLineAllReceived(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 2)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line0 := lines[0]
+	line0.ExpectedQty = 10
+	line0.ReceivedQty = 0
+	line1 := lines[1]
+	line1.ExpectedQty = 5
+	line1.ReceivedQty = 0
+
+	// Transition ASN to arrived.
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	// Receive line 0 fully.
+	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
+
+	// Receive line 1 fully.
+	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line1.ID, ReceiveASNLineInput{ReceivedQty: 5})
+	if err != nil {
+		t.Fatalf("ReceiveASNLine line1 failed: %v", err)
+	}
+
+	// ASN should be "received" (all lines fully received).
+	if updated.Status != domain.ASNStatusReceived {
+		t.Errorf("ASN status = %q, want %q", updated.Status, domain.ASNStatusReceived)
+	}
+}
+
+func TestOrderService_ReceiveASNLine_MultiLinePartialASN(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 2)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line0 := lines[0]
+	line0.ExpectedQty = 10
+	line0.ReceivedQty = 0
+
+	// Transition ASN to arrived.
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	// Receive line 0 partially.
+	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 5})
+
+	// ASN should be "receiving" (received some but not all lines).
+	updated, _ := svc.GetASN(ctx, asn.ID)
+	if updated.Status != domain.ASNStatusReceiving {
+		t.Errorf("ASN status = %q, want %q", updated.Status, domain.ASNStatusReceiving)
+	}
+}
+
+func TestOrderService_ReceiveASNLine_ExceedsExpected(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line := lines[0]
+	line.ExpectedQty = 10
+	line.ReceivedQty = 0
+
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 15})
+	if err == nil {
+		t.Fatal("expected error for exceeding expected_qty")
+	}
+}
+
+func TestOrderService_ReceiveASNLine_AccumulatedExceedsExpected(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line := lines[0]
+	line.ExpectedQty = 10
+	line.ReceivedQty = 0
+
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	// Receive 8 first.
+	svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 8})
+
+	// Try to receive 5 more (total would be 13 > 10).
+	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 5})
+	if err == nil {
+		t.Fatal("expected error for accumulated qty exceeding expected_qty")
+	}
+}
+
+func TestOrderService_ReceiveASNLine_ZeroQty(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line := lines[0]
+
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 0})
+	if err == nil {
+		t.Fatal("expected error for zero received_qty")
+	}
+}
+
+func TestOrderService_ReceiveASNLine_NegativeQty(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line := lines[0]
+
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: -1})
+	if err == nil {
+		t.Fatal("expected error for negative received_qty")
+	}
+}
+
+func TestOrderService_ReceiveASNLine_WrongASN(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn1 := setupMockASNWithLines(repo, 1)
+	asn2 := setupMockASNWithLines(repo, 1)
+
+	lines, _ := repo.GetASNLines(ctx, asn2.ID)
+	line := lines[0]
+
+	svc.UpdateASNStatus(ctx, asn1.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	// Try to receive line from asn2 using asn1's ID.
+	_, err := svc.ReceiveASNLine(ctx, asn1.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 5})
+	if err == nil {
+		t.Fatal("expected error for line not belonging to ASN")
+	}
+}
+
+func TestOrderService_ReceiveASNLine_LineNotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+
+	_, err := svc.ReceiveASNLine(ctx, asn.ID, uuid.New(), ReceiveASNLineInput{ReceivedQty: 5})
+	if err == nil {
+		t.Fatal("expected error for non-existent line")
+	}
+}
+
+func TestOrderService_ReceiveASNLine_FromPendingNotArrived(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 1)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line := lines[0]
+	line.ExpectedQty = 10
+	line.ReceivedQty = 0
+
+	// ASN is still pending — try to receive.
+	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 5})
+	if err != nil {
+		t.Fatalf("ReceiveASNLine should not fail for pending ASN: %v", err)
+	}
+	// The ASN stays in pending (CanTransitionTo from pending only allows "arrived").
+	if updated.Status != domain.ASNStatusPending {
+		t.Errorf("ASN status = %q, want %q (pending ASN cannot auto-transition)", updated.Status, domain.ASNStatusPending)
+	}
+}
+
+func TestOrderService_ReceiveASNLine_AlreadyReceiving(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	asn := setupMockASNWithLines(repo, 2)
+	lines, _ := repo.GetASNLines(ctx, asn.ID)
+	line0 := lines[0]
+	line0.ExpectedQty = 20
+	line0.ReceivedQty = 0
+	line1 := lines[1]
+	line1.ExpectedQty = 10
+	line1.ReceivedQty = 0
+
+	// Transition to arrived, then start receiving.
+	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
+
+	// Now receive more on the same line. ASN should still be "receiving" (no new transition needed).
+	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 5})
+	if err != nil {
+		t.Fatalf("ReceiveASNLine second call failed: %v", err)
+	}
+	if updated.Status != domain.ASNStatusReceiving {
+		t.Errorf("ASN status = %q, want %q", updated.Status, domain.ASNStatusReceiving)
 	}
 }
