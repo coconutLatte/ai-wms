@@ -135,8 +135,8 @@ make evolve-dry     # Preview next task only
 |--------|-------|
 | Total tasks | 86 |
 | Completed | 76 |
-| Pending | 8 |
-| Cancelled | 2 |
+| Pending | 5 |
+| Cancelled | 5 |
 | Evolution rounds | 80 |
 | Last evolution | 2026-07-23 |
 <!-- EVOLUTION-STATS-END -->
