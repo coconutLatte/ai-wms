@@ -69,6 +69,12 @@ export default function ScanPage() {
       labelKey: 'scan.shipConfirm',
       descriptionKey: 'scan.shipConfirmDesc',
     },
+    {
+      key: 'replenish',
+      icon: '\u{1F504}',
+      labelKey: 'scan.replenish',
+      descriptionKey: 'scan.replenishDesc',
+    },
   ]
 
   const handleScan = useCallback(async (barcode: string) => {
@@ -108,6 +114,8 @@ export default function ScanPage() {
         navigate('/cycle-count')
       } else if (action.key === 'shipConfirm') {
         navigate('/ship-confirm')
+      } else if (action.key === 'replenish') {
+        navigate('/replenish')
       } else {
         navigate('/tasks')
       }
