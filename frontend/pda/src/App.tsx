@@ -13,6 +13,7 @@ import ReceivingPage from '@/pages/Receiving'
 import PutawayPage from '@/pages/Putaway'
 import PickingPage from '@/pages/Picking'
 import OrderLookupPage from '@/pages/OrderLookup'
+import StockInquiryPage from '@/pages/StockInquiry'
 import ProfilePage from '@/pages/Profile'
 import NotFoundPage from '@/pages/NotFound'
 
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/putaway" element={<PutawayPage />} />
             <Route path="/pick" element={<PickingPage />} />
             <Route path="/order-lookup" element={<OrderLookupPage />} />
+            <Route path="/stock-inquiry" element={<StockInquiryPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>

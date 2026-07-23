@@ -143,6 +143,7 @@ POST   /api/v1/asns/:id/lines/:lineId/receive — Receive a line quantity
 
 GET    /api/v1/locations             — Location lookup (support ?barcode=X for scanner)
 GET    /api/v1/skus                  — SKU lookup (support ?code=X for scanner)
+GET    /api/v1/stock-inquiry         — Stock inquiry (support ?barcode=X for scanner, resolves to location or SKU, returns inventory levels)
 ```
 
 #### Authentication Flow

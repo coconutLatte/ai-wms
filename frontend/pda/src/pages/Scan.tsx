@@ -90,6 +90,8 @@ export default function ScanPage() {
         navigate('/pick')
       } else if (action.key === 'orderLookup') {
         navigate('/order-lookup')
+      } else if (action.key === 'locate') {
+        navigate('/stock-inquiry')
       } else {
         navigate('/tasks')
       }

@@ -93,6 +93,7 @@ func main() {
 	taskSvc := service.NewTaskServiceWithTx(taskRepo, inventoryRepo, txManager)
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
 	skuSvc := service.NewSKUService(inventoryRepo)
+	inventorySvc := service.NewInventoryServiceWithTx(inventoryRepo, txManager)
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	// Initialize API handlers.
@@ -101,6 +102,7 @@ func main() {
 	taskHandler := api.NewTaskHandler(taskSvc, log.Logger)
 	warehouseHandler := api.NewWarehouseHandler(warehouseSvc, log.Logger)
 	skuHandler := api.NewSKUHandler(skuSvc, log.Logger)
+	stockInquiryHandler := api.NewStockInquiryHandler(inventorySvc, warehouseSvc, skuSvc, log.Logger)
 
 	// ── Route Setup ──────────────────────────────────────────────────────────
 
@@ -125,6 +127,9 @@ func main() {
 	// Barcode lookup routes for the PDA scanner (location barcode → putaway, SKU barcode → inventory).
 	api.RegisterWarehouseRoutes(protected, warehouseHandler)
 	api.RegisterSKURoutes(protected, skuHandler)
+
+	// Stock inquiry endpoint — barcode-based inventory lookup for PDA operators.
+	api.RegisterStockInquiryRoutes(protected, stockInquiryHandler)
 
 	authMiddleware := middleware.Auth(cfg.JWTSecret)
 	mux.Handle("/api/v1/", authMiddleware(protected))
