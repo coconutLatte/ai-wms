@@ -92,7 +92,7 @@ func main() {
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
 	skuSvc := service.NewSKUService(inventoryRepo)
 	inventorySvc := service.NewInventoryServiceWithTx(inventoryRepo, txManager)
-	orderSvc := service.NewOrderService(orderRepo, taskRepo)
+	orderSvc := service.NewOrderServiceWithTx(orderRepo, taskRepo, inventoryRepo, txManager)
 	taskSvc := service.NewTaskServiceWithTx(taskRepo, inventoryRepo, txManager)
 	waveSvc := service.NewWaveService(taskRepo)
 	authSvc := service.NewAuthServiceWithBlacklist(userRepo, tokenBLRepo, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)

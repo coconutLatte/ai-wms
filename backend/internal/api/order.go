@@ -287,6 +287,29 @@ func (h *OrderHandler) UpdateOrderLineStatus(w http.ResponseWriter, r *http.Requ
 	WriteJSON(w, http.StatusOK, toOrderLineResponse(line))
 }
 
+// CancelOrder handles PUT /api/v1/orders/{id}/cancel
+func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	id, err := PathUUID(r, "id")
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var input service.CancelOrderInput
+	if err := ReadJSON(r, &input); err != nil {
+		// Body is optional for cancel — allow empty body.
+		input = service.CancelOrderInput{}
+	}
+
+	order, err := h.svc.CancelOrder(r.Context(), id, input)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, toOrderResponse(order))
+}
+
 // ── ASN Response Types ──────────────────────────────────────────────────────────────
 
 // asnResponse is the JSON shape returned for ASN endpoints.

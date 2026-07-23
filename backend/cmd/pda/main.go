@@ -89,7 +89,7 @@ func main() {
 	txManager := postgres.NewTxManager(db)
 
 	// Initialize services.
-	orderSvc := service.NewOrderService(orderRepo, taskRepo)
+	orderSvc := service.NewOrderServiceWithTx(orderRepo, taskRepo, inventoryRepo, txManager)
 	taskSvc := service.NewTaskServiceWithTx(taskRepo, inventoryRepo, txManager)
 	warehouseSvc := service.NewWarehouseService(warehouseRepo)
 	skuSvc := service.NewSKUService(inventoryRepo)

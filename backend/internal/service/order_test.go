@@ -321,6 +321,11 @@ func (m *mockTaskRepoForOrder) AssignTask(ctx context.Context, id uuid.UUID, ass
 	return nil
 }
 func (m *mockTaskRepoForOrder) UpdateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus) error {
+	t, ok := m.tasks[id]
+	if !ok {
+		return pkgerrors.NewNotFound("task", id.String())
+	}
+	t.Status = status
 	return nil
 }
 func (m *mockTaskRepoForOrder) CompleteTask(ctx context.Context, id uuid.UUID, actualQty float64, toLocationID *uuid.UUID) error {
@@ -2099,5 +2104,310 @@ func TestOrderService_ReceiveASNLine_AlreadyReceiving(t *testing.T) {
 	}
 	if updated.Status != domain.ASNStatusReceiving {
 		t.Errorf("ASN status = %q, want %q", updated.Status, domain.ASNStatusReceiving)
+	}
+}
+
+// ── CancelOrder Tests ──────────────────────────────────────────────────────────
+
+func TestOrderService_CancelOrder_Draft(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Create a task associated with the order.
+	lineID := order.Lines[0].ID
+	taskRepo.CreateTask(ctx, &domain.Task{
+		TaskType:    domain.TaskTypePick,
+		WarehouseID: order.WarehouseID,
+		OrderID:     &order.ID,
+		OrderLineID: &lineID,
+		Status:      domain.TaskStatusPending,
+		SKUID:       order.Lines[0].SKUID,
+		ExpectedQty: 10,
+	})
+
+	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{Reason: "no longer needed"})
+	if err != nil {
+		t.Fatalf("CancelOrder failed: %v", err)
+	}
+	if cancelled.Status != domain.OrderStatusCancelled {
+		t.Errorf("status = %q, want %q", cancelled.Status, domain.OrderStatusCancelled)
+	}
+
+	// Verify tasks are cancelled.
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].Status != domain.TaskStatusCancelled {
+		t.Errorf("task status = %q, want %q", tasks[0].Status, domain.TaskStatusCancelled)
+	}
+
+	// Verify order lines are cancelled.
+	if len(cancelled.Lines) != 1 {
+		t.Fatalf("expected 1 line, got %d", len(cancelled.Lines))
+	}
+	if cancelled.Lines[0].Status != domain.OrderLineStatusCancelled {
+		t.Errorf("line status = %q, want %q", cancelled.Lines[0].Status, domain.OrderLineStatusCancelled)
+	}
+}
+
+func TestOrderService_CancelOrder_Confirmed(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeInbound,
+		WarehouseID: uuid.New(),
+		Lines: []CreateOrderLineInput{
+			{SKUID: uuid.New(), OrderedQty: 50},
+			{SKUID: uuid.New(), OrderedQty: 30},
+		},
+		CreatedBy: "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Confirm the order (generates tasks).
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+
+	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	if err != nil {
+		t.Fatalf("CancelOrder failed: %v", err)
+	}
+	if cancelled.Status != domain.OrderStatusCancelled {
+		t.Errorf("status = %q, want %q", cancelled.Status, domain.OrderStatusCancelled)
+	}
+
+	// All generated tasks should be cancelled.
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	for _, tk := range tasks {
+		if tk.Status != domain.TaskStatusCancelled {
+			t.Errorf("task %s status = %q, want cancelled", tk.ID, tk.Status)
+		}
+	}
+
+	// All lines should be cancelled.
+	for _, l := range cancelled.Lines {
+		if l.Status != domain.OrderLineStatusCancelled {
+			t.Errorf("line %s status = %q, want cancelled", l.ID, l.Status)
+		}
+	}
+}
+
+func TestOrderService_CancelOrder_Processing(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 20}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Confirm → Processing.
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+
+	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	if err != nil {
+		t.Fatalf("processing → cancelled failed: %v", err)
+	}
+	if cancelled.Status != domain.OrderStatusCancelled {
+		t.Errorf("status = %q, want %q", cancelled.Status, domain.OrderStatusCancelled)
+	}
+}
+
+func TestOrderService_CancelOrder_Partial(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 15}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusPartial})
+
+	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{Reason: "order cancelled during partial fulfillment"})
+	if err != nil {
+		t.Fatalf("partial → cancelled failed: %v", err)
+	}
+	if cancelled.Status != domain.OrderStatusCancelled {
+		t.Errorf("status = %q, want %q", cancelled.Status, domain.OrderStatusCancelled)
+	}
+}
+
+func TestOrderService_CancelOrder_TerminalCompleted(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Complete the order.
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCompleted})
+
+	_, err = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	if err == nil {
+		t.Fatal("expected error for cancelling completed order")
+	}
+}
+
+func TestOrderService_CancelOrder_TerminalAlreadyCancelled(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Cancel once.
+	svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	// Cancel again — should fail.
+	_, err = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	if err == nil {
+		t.Fatal("expected error for cancelling already-cancelled order")
+	}
+}
+
+func TestOrderService_CancelOrder_NotFound(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _ := newMockOrderService()
+
+	_, err := svc.CancelOrder(ctx, uuid.New(), CancelOrderInput{})
+	if err == nil {
+		t.Fatal("expected error for non-existent order")
+	}
+}
+
+func TestOrderService_CancelOrder_AlreadyCompletedTaskUnaffected(t *testing.T) {
+	ctx := context.Background()
+	svc, _, taskRepo := newMockOrderService()
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
+		CreatedBy:   "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	lineID := order.Lines[0].ID
+	// Create one completed task and one pending task.
+	completedTask := &domain.Task{
+		TaskType:    domain.TaskTypePick,
+		WarehouseID: order.WarehouseID,
+		OrderID:     &order.ID,
+		OrderLineID: &lineID,
+		Status:      domain.TaskStatusCompleted,
+		SKUID:       order.Lines[0].SKUID,
+		ExpectedQty: 10,
+	}
+	pendingTask := &domain.Task{
+		TaskType:    domain.TaskTypePick,
+		WarehouseID: order.WarehouseID,
+		OrderID:     &order.ID,
+		OrderLineID: &lineID,
+		Status:      domain.TaskStatusPending,
+		SKUID:       order.Lines[0].SKUID,
+		ExpectedQty: 10,
+	}
+	taskRepo.CreateTask(ctx, completedTask)
+	taskRepo.CreateTask(ctx, pendingTask)
+
+	_, err = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	if err != nil {
+		t.Fatalf("CancelOrder failed: %v", err)
+	}
+
+	tasks, _ := taskRepo.GetTasksByOrderID(ctx, order.ID)
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+
+	for _, tk := range tasks {
+		if tk.ID == completedTask.ID && tk.Status != domain.TaskStatusCompleted {
+			t.Errorf("completed task should stay completed, got %q", tk.Status)
+		}
+		if tk.ID == pendingTask.ID && tk.Status != domain.TaskStatusCancelled {
+			t.Errorf("pending task should be cancelled, got %q", tk.Status)
+		}
+	}
+}
+
+func TestOrderService_CancelOrder_AlreadyFulfilledLineUnaffected(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockOrderRepo()
+	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
+
+	order, err := svc.CreateOrder(ctx, CreateOrderInput{
+		OrderType:   domain.OrderTypeOutbound,
+		WarehouseID: uuid.New(),
+		Lines: []CreateOrderLineInput{
+			{SKUID: uuid.New(), OrderedQty: 10},
+			{SKUID: uuid.New(), OrderedQty: 5},
+		},
+		CreatedBy: "testuser",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	// Mark first line as allocated then fulfilled.
+	svc.UpdateOrderLineStatus(ctx, order.Lines[0].ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
+	svc.UpdateOrderLineStatus(ctx, order.Lines[0].ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusFulfilled})
+
+	// Cancel the order.
+	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+	if err != nil {
+		t.Fatalf("CancelOrder failed: %v", err)
+	}
+
+	for _, l := range cancelled.Lines {
+		if l.ID == order.Lines[0].ID && l.Status != domain.OrderLineStatusFulfilled {
+			t.Errorf("fulfilled line should stay fulfilled, got %q", l.Status)
+		}
+		if l.ID == order.Lines[1].ID && l.Status != domain.OrderLineStatusCancelled {
+			t.Errorf("pending line should be cancelled, got %q", l.Status)
+		}
 	}
 }

@@ -79,6 +79,7 @@ func RegisterOrderRoutes(mux *http.ServeMux, h *OrderHandler) {
 	mux.HandleFunc("GET /api/v1/orders", h.ListOrders)
 	mux.HandleFunc("GET /api/v1/orders/{id}", h.GetOrder)
 	mux.HandleFunc("PUT /api/v1/orders/{id}/status", h.UpdateOrderStatus)
+	mux.HandleFunc("PUT /api/v1/orders/{id}/cancel", h.CancelOrder)
 	mux.HandleFunc("POST /api/v1/orders/{id}/lines", h.AddOrderLine)
 
 	// Order line status transition

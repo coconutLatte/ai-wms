@@ -15,13 +15,23 @@ import (
 
 // OrderService orchestrates business logic for orders and order lines.
 type OrderService struct {
-	repo     repository.OrderRepository
-	taskRepo repository.TaskRepository
+	repo          repository.OrderRepository
+	taskRepo      repository.TaskRepository
+	inventoryRepo repository.InventoryRepository
+	txManager     repository.TxManager
 }
 
-// NewOrderService creates a new OrderService.
+// NewOrderService creates a new OrderService without transaction/inventory support.
+// Use NewOrderServiceWithTx when cancellation/reservation operations are needed.
 func NewOrderService(repo repository.OrderRepository, taskRepo repository.TaskRepository) *OrderService {
 	return &OrderService{repo: repo, taskRepo: taskRepo}
+}
+
+// NewOrderServiceWithTx creates a new OrderService with transaction and inventory support.
+// When inventoryRepo and txManager are provided, cancellation and reservation operations
+// can run within atomic database transactions.
+func NewOrderServiceWithTx(repo repository.OrderRepository, taskRepo repository.TaskRepository, inventoryRepo repository.InventoryRepository, txManager repository.TxManager) *OrderService {
+	return &OrderService{repo: repo, taskRepo: taskRepo, inventoryRepo: inventoryRepo, txManager: txManager}
 }
 
 // ── Input Types ──────────────────────────────────────────────────────────────────────────
@@ -293,6 +303,169 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id uuid.UUID, inpu
 	}
 
 	return updated, nil
+}
+
+// CancelOrderInput is the input for cancelling an order.
+type CancelOrderInput struct {
+	Reason string `json:"reason,omitempty"` // Optional cancellation reason for audit
+}
+
+// CancelOrder cancels an order and performs all cleanup operations atomically:
+//  1. Validates the order can transition to cancelled
+//  2. Cancels all non-terminal tasks for the order
+//  3. Releases all inventory reservations for the order's lines
+//  4. Cancels all non-terminal order lines
+//  5. Updates the order status to cancelled
+//
+// When TxManager is configured, all steps run in a single database transaction.
+// Without TxManager, steps run sequentially (best-effort).
+func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID, input CancelOrderInput) (*domain.Order, error) {
+	// 1. Get the order and validate the transition.
+	order, err := s.repo.GetOrder(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order service: cancel %s: %w", id, err)
+	}
+
+	if !order.CanTransitionTo(domain.OrderStatusCancelled) {
+		return nil, pkgerrors.NewInvalidStatus(string(order.Status), string(domain.OrderStatusCancelled))
+	}
+
+	// 2. Get order lines for reservation release and line cancellation.
+	lines, err := s.repo.GetOrderLines(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order service: cancel: get lines %s: %w", id, err)
+	}
+
+	// 3. Get all tasks for this order.
+	tasks, err := s.taskRepo.GetTasksByOrderID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order service: cancel: get tasks %s: %w", id, err)
+	}
+
+	// 4. Execute all writes (within a transaction when configured).
+	doWrites := func(ctx context.Context) error {
+		// a. Cancel all non-terminal tasks.
+		for _, task := range tasks {
+			if task.IsTerminal() {
+				continue
+			}
+			if err := s.taskRepo.UpdateTaskStatus(ctx, task.ID, domain.TaskStatusCancelled); err != nil {
+				return fmt.Errorf("cancel task %s: %w", task.ID, err)
+			}
+		}
+
+		// b. Release inventory reservations for each order line.
+		if s.inventoryRepo != nil {
+			for _, line := range lines {
+				if line.IsTerminal() {
+					continue // Already cancelled or fulfilled — nothing to release.
+				}
+				if err := s.releaseReservationsForLine(ctx, line); err != nil {
+					return fmt.Errorf("release reservations for line %s: %w", line.ID, err)
+				}
+			}
+		}
+
+		// c. Cancel all non-terminal order lines.
+		for _, line := range lines {
+			if line.IsTerminal() {
+				continue
+			}
+			if err := s.repo.UpdateOrderLineStatus(ctx, line.ID, domain.OrderLineStatusCancelled); err != nil {
+				return fmt.Errorf("cancel line %s: %w", line.ID, err)
+			}
+		}
+
+		// d. Update order status to cancelled.
+		if err := s.repo.UpdateOrderStatus(ctx, id, domain.OrderStatusCancelled); err != nil {
+			return fmt.Errorf("update order status to cancelled: %w", err)
+		}
+
+		return nil
+	}
+
+	if s.txManager != nil && s.inventoryRepo != nil {
+		if err := s.txManager.WithTx(ctx, doWrites); err != nil {
+			return nil, fmt.Errorf("order service: cancel: %w", err)
+		}
+	} else {
+		if err := doWrites(ctx); err != nil {
+			return nil, fmt.Errorf("order service: cancel: %w", err)
+		}
+	}
+
+	// 5. Re-fetch updated order with lines.
+	updated, err := s.repo.GetOrder(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("order service: re-fetch after cancel %s: %w", id, err)
+	}
+
+	refreshedLines, _ := s.repo.GetOrderLines(ctx, id)
+	if refreshedLines != nil {
+		updated.Lines = make([]domain.OrderLine, len(refreshedLines))
+		for i, l := range refreshedLines {
+			updated.Lines[i] = *l
+		}
+	}
+
+	return updated, nil
+}
+
+// releaseReservationsForLine finds inventory reserve transactions for an order line
+// and releases the reserved quantities back to available. Idempotent: if no reserve
+// transactions are found, this is a no-op.
+func (s *OrderService) releaseReservationsForLine(ctx context.Context, line *domain.OrderLine) error {
+	if s.inventoryRepo == nil {
+		return nil
+	}
+
+	reserveTxs, err := s.inventoryRepo.ListTransactionsByReference(ctx, "order_line", line.ID)
+	if err != nil {
+		return fmt.Errorf("list reserve transactions: %w", err)
+	}
+
+	for _, tx := range reserveTxs {
+		if tx.Type != domain.InventoryTxReserve {
+			continue
+		}
+
+		// Lock the inventory row to prevent race conditions.
+		lockedInv, err := s.inventoryRepo.GetAndLockInventory(ctx, tx.InventoryID)
+		if err != nil {
+			return fmt.Errorf("lock inventory %s: %w", tx.InventoryID, err)
+		}
+
+		unreserveQty := tx.DeltaQty
+		if unreserveQty > lockedInv.ReservedQty {
+			// Clamp: defensive against inconsistent state.
+			unreserveQty = lockedInv.ReservedQty
+		}
+		if unreserveQty <= 0 {
+			continue // Already fully unreserved.
+		}
+
+		// Decrement reserved_qty (deltaQty=0, deltaReserved=-unreserveQty).
+		if err := s.inventoryRepo.UpdateInventoryQty(ctx, lockedInv.ID, 0, -unreserveQty); err != nil {
+			return fmt.Errorf("unreserve qty from inventory %s: %w", lockedInv.ID, err)
+		}
+
+		// Record unreserve transaction for audit trail.
+		unreserveTx := &domain.InventoryTransaction{
+			InventoryID:   lockedInv.ID,
+			SKUID:         lockedInv.SKUID,
+			LocationID:    lockedInv.LocationID,
+			Type:          domain.InventoryTxUnreserve,
+			DeltaQty:      unreserveQty,
+			ResultingQty:  lockedInv.Qty,
+			ReferenceType: "order_line",
+			ReferenceID:   line.ID,
+		}
+		if err := s.inventoryRepo.CreateTransaction(ctx, unreserveTx); err != nil {
+			return fmt.Errorf("create unreserve transaction: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // AddOrderLine adds a new line to an existing order.
