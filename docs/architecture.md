@@ -169,6 +169,13 @@ PUT    /api/v1/shipments/:id/deliver   — Mark shipment as delivered
 4. On 401, client auto-refreshes via `POST /api/v1/auth/refresh`
 5. Logout revokes refresh token via `POST /api/v1/auth/logout`
 
+#### API Documentation (Swagger UI)
+- **GET /api/docs** — Interactive Swagger UI documentation (no auth required)
+- **GET /api/docs/swagger.json** — Raw OpenAPI 3.0 spec (JSON format)
+- Available on both Admin (port 8080) and PDA (port 8081) servers
+- Spec is embedded in the binary via Go's `embed` package — zero external dependencies
+- Covers all 18 resource groups across 70+ documented endpoints
+
 ### gRPC Services (Internal + Integration)
 
 ```protobuf

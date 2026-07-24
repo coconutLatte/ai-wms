@@ -137,6 +137,9 @@ func main() {
 	healthHandler := api.NewHealthHandler(db, redisClient, log.Logger)
 	mux.HandleFunc("GET /ready", healthHandler.Ready)
 
+	// Swagger API docs (no auth required).
+	api.RegisterSwaggerRoutes(mux)
+
 	// Auth routes (no auth required — these are the login/refresh endpoints).
 	api.RegisterAuthRoutes(mux, authHandler)
 

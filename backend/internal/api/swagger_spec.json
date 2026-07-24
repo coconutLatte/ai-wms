@@ -1,0 +1,2181 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI-WMS API",
+    "description": "Warehouse Management System REST API. All protected endpoints require a Bearer JWT token (except auth endpoints). Admin-only endpoints additionally require the \"admin\" role.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "AI-WMS Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "API base path"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT access token obtained from POST /auth/login"
+      }
+    },
+    "schemas": {
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer", "description": "Total number of items" },
+          "page": { "type": "integer", "description": "Current page number (1-indexed)" },
+          "page_size": { "type": "integer", "description": "Items per page" },
+          "total_pages": { "type": "integer", "description": "Total number of pages" }
+        }
+      },
+      "ProblemDetail": {
+        "type": "object",
+        "description": "RFC 7807 Problem Details error response",
+        "properties": {
+          "type": { "type": "string", "description": "URI reference identifying the problem type" },
+          "title": { "type": "string", "description": "Short human-readable summary" },
+          "status": { "type": "integer", "description": "HTTP status code" },
+          "detail": { "type": "string", "description": "Human-readable explanation" },
+          "instance": { "type": "string", "description": "URI reference of the request that caused the error" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "example": "admin" },
+          "password": { "type": "string", "example": "admin123" }
+        }
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string" },
+          "refresh_token": { "type": "string" },
+          "token_type": { "type": "string", "example": "Bearer" },
+          "expires_in": { "type": "integer", "example": 3600 }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": { "type": "string" }
+        }
+      },
+      "Warehouse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "address": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WarehouseList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Warehouse" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "CreateWarehouseRequest": {
+        "type": "object",
+        "required": ["code", "name"],
+        "properties": {
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "address": { "type": "string" }
+        }
+      },
+      "Zone": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "zone_type": { "type": "string" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ZoneList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Zone" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "CreateZoneRequest": {
+        "type": "object",
+        "required": ["code", "name", "zone_type"],
+        "properties": {
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "zone_type": { "type": "string" }
+        }
+      },
+      "Location": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "zone_id": { "type": "string", "format": "uuid" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "barcode": { "type": "string" },
+          "location_type": { "type": "string" },
+          "capacity": {
+            "type": "object",
+            "properties": {
+              "max_weight": { "type": "number" },
+              "max_volume": { "type": "number" },
+              "max_units": { "type": "integer" }
+            }
+          },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LocationList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Location" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "SKU": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "barcode": { "type": "string" },
+          "uom": { "type": "string" },
+          "attributes": { "type": "object" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SKUList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/SKU" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_no": { "type": "string" },
+          "order_type": { "type": "string", "enum": ["inbound", "outbound", "transfer", "return"] },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string" },
+          "priority": { "type": "string" },
+          "external_ref": { "type": "string" },
+          "external_type": { "type": "string" },
+          "lines": { "type": "array", "items": { "$ref": "#/components/schemas/OrderLine" } },
+          "notes": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" },
+          "created_by": { "type": "string" }
+        }
+      },
+      "OrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_no": { "type": "string" },
+          "order_type": { "type": "string" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string" },
+          "priority": { "type": "string" },
+          "external_ref": { "type": "string" },
+          "external_type": { "type": "string" },
+          "notes": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" },
+          "created_by": { "type": "string" }
+        }
+      },
+      "OrderSummaryList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/OrderSummary" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "OrderLine": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "line_no": { "type": "integer" },
+          "sku_id": { "type": "string", "format": "uuid" },
+          "ordered_qty": { "type": "number" },
+          "fulfilled_qty": { "type": "number" },
+          "uom": { "type": "string" },
+          "batch_no": { "type": "string" },
+          "status": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "task_no": { "type": "string" },
+          "task_type": { "type": "string", "enum": ["putaway", "pick", "replenish", "transfer", "cycle_count"] },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string" },
+          "priority": { "type": "string" },
+          "assigned_to": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "order_line_id": { "type": "string", "format": "uuid" },
+          "sku_id": { "type": "string", "format": "uuid" },
+          "qty": { "type": "number" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TaskList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "ASN": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "asn_no": { "type": "string" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "carrier": { "type": "string" },
+          "tracking_no": { "type": "string" },
+          "expected_at": { "type": "string", "format": "date-time" },
+          "arrived_at": { "type": "string", "format": "date-time" },
+          "lines": { "type": "array", "items": { "$ref": "#/components/schemas/ASNLine" } },
+          "status": { "type": "string", "enum": ["pending", "arrived", "receiving", "received", "cancelled"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ASNSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "asn_no": { "type": "string" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "carrier": { "type": "string" },
+          "tracking_no": { "type": "string" },
+          "expected_at": { "type": "string", "format": "date-time" },
+          "arrived_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ASNSummaryList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/ASNSummary" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "ASNLine": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "asn_id": { "type": "string", "format": "uuid" },
+          "sku_id": { "type": "string", "format": "uuid" },
+          "expected_qty": { "type": "number" },
+          "received_qty": { "type": "number" },
+          "batch_no": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "Wave": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "wave_no": { "type": "string" },
+          "name": { "type": "string" },
+          "wave_type": { "type": "string" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["created", "released", "in_progress", "completed", "cancelled"] },
+          "order_count": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WaveList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Wave" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "username": { "type": "string" },
+          "display_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "role_names": { "type": "array", "items": { "type": "string" } },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "permissions": { "type": "array", "items": { "type": "string" } },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RoleList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Role" } }
+        }
+      },
+      "Shipment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "shipment_no": { "type": "string" },
+          "order_id": { "type": "string", "format": "uuid" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "carrier": { "type": "string" },
+          "tracking_no": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "in_transit", "delivered", "cancelled"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ShipmentList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Shipment" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "CycleCount": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "count_no": { "type": "string" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "zone_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["draft", "in_progress", "pending_review", "approved", "adjusted", "cancelled"] },
+          "line_count": { "type": "integer" },
+          "variance_count": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CycleCountList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/CycleCount" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "Inventory": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sku_id": { "type": "string", "format": "uuid" },
+          "warehouse_id": { "type": "string", "format": "uuid" },
+          "location_id": { "type": "string", "format": "uuid" },
+          "qty": { "type": "number" },
+          "reserved_qty": { "type": "number" },
+          "batch_no": { "type": "string" },
+          "status": { "type": "string" },
+          "lot_no": { "type": "string" },
+          "expiry_date": { "type": "string", "format": "date" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "InventoryList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Inventory" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "action": { "type": "string" },
+          "resource_type": { "type": "string" },
+          "resource_id": { "type": "string" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "old_values": { "type": "object" },
+          "new_values": { "type": "object" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuditLogList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/AuditLog" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "warehouse_count": { "type": "integer" },
+          "sku_count": { "type": "integer" },
+          "inventory_stats": {
+            "type": "object",
+            "properties": {
+              "total_qty": { "type": "number" },
+              "total_reserved": { "type": "number" },
+              "low_stock_count": { "type": "integer" }
+            }
+          },
+          "order_summary": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" }
+          },
+          "task_summary": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "auth", "description": "Authentication (login, refresh, logout)" },
+    { "name": "warehouses", "description": "Warehouse management" },
+    { "name": "zones", "description": "Zone management within warehouses" },
+    { "name": "locations", "description": "Location management within zones" },
+    { "name": "skus", "description": "SKU (Stock Keeping Unit) management" },
+    { "name": "inventory", "description": "Inventory queries, adjustments, and transactions" },
+    { "name": "orders", "description": "Order management" },
+    { "name": "asns", "description": "ASN (Advanced Shipping Notice) management" },
+    { "name": "tasks", "description": "Warehouse task management" },
+    { "name": "waves", "description": "Wave management (order batching)" },
+    { "name": "shipments", "description": "Shipment tracking and management" },
+    { "name": "cycle-counts", "description": "Cycle count (inventory audit) management" },
+    { "name": "dashboard", "description": "Admin dashboard aggregation" },
+    { "name": "users", "description": "User management (admin only)" },
+    { "name": "roles", "description": "Role and permission management (admin only)" },
+    { "name": "audit-logs", "description": "Audit log viewer (admin only)" },
+    { "name": "settings", "description": "System configuration (admin only)" },
+    { "name": "health", "description": "Health and readiness checks" }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Login and obtain JWT token pair",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token pair",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenPair" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Refresh JWT token pair",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New token pair",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenPair" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked refresh token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Logout and revoke refresh token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "logged out successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Get current authenticated user info",
+        "responses": {
+          "200": {
+            "description": "Authenticated user acknowledgment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "authenticated" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/warehouses": {
+      "post": {
+        "tags": ["warehouses"],
+        "summary": "Create a new warehouse",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWarehouseRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created warehouse", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Warehouse" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } },
+          "500": { "description": "Internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["warehouses"],
+        "summary": "List all warehouses",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated warehouse list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WarehouseList" } } } }
+        }
+      }
+    },
+    "/warehouses/{id}": {
+      "get": {
+        "tags": ["warehouses"],
+        "summary": "Get warehouse by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Warehouse details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Warehouse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "put": {
+        "tags": ["warehouses"],
+        "summary": "Update warehouse",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWarehouseRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated warehouse", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Warehouse" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/warehouses/{id}/zones": {
+      "post": {
+        "tags": ["zones"],
+        "summary": "Create a zone within a warehouse",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Warehouse ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateZoneRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created zone", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Zone" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["zones"],
+        "summary": "List zones in a warehouse",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Warehouse ID" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated zone list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ZoneList" } } } }
+        }
+      }
+    },
+    "/zones": {
+      "get": {
+        "tags": ["zones"],
+        "summary": "List all zones globally",
+        "parameters": [
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" }, "description": "Filter by warehouse" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated zone list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ZoneList" } } } }
+        }
+      }
+    },
+    "/zones/{id}": {
+      "get": {
+        "tags": ["zones"],
+        "summary": "Get zone by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Zone details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Zone" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "put": {
+        "tags": ["zones"],
+        "summary": "Update zone",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateZoneRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated zone", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Zone" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/zones/{id}/locations": {
+      "post": {
+        "tags": ["locations"],
+        "summary": "Create a location within a zone",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Zone ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["code"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "barcode": { "type": "string" },
+                  "location_type": { "type": "string" },
+                  "capacity": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created location", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Location" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["locations"],
+        "summary": "List locations in a zone",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Zone ID" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated location list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LocationList" } } } }
+        }
+      }
+    },
+    "/locations": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "List all locations globally or lookup by barcode",
+        "parameters": [
+          { "name": "zone_id", "in": "query", "schema": { "type": "string", "format": "uuid" }, "description": "Filter by zone" },
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" }, "description": "Filter by warehouse" },
+          { "name": "barcode", "in": "query", "schema": { "type": "string" }, "description": "Lookup by barcode (returns single location)" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Location list or single location", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LocationList" } } } }
+        }
+      }
+    },
+    "/locations/{id}": {
+      "get": {
+        "tags": ["locations"],
+        "summary": "Get location by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Location details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Location" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "put": {
+        "tags": ["locations"],
+        "summary": "Update location",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Updated location", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Location" } } } }
+        }
+      }
+    },
+    "/locations/{id}/status": {
+      "patch": {
+        "tags": ["locations"],
+        "summary": "Update location status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "description": "New status (active, maintenance, disabled)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status updated OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" } } } } } },
+          "400": { "description": "Invalid status transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/skus": {
+      "post": {
+        "tags": ["skus"],
+        "summary": "Create a new SKU",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["code", "name", "uom"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "name": { "type": "string" },
+                  "barcode": { "type": "string" },
+                  "uom": { "type": "string" },
+                  "attributes": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created SKU", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SKU" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["skus"],
+        "summary": "List SKUs",
+        "parameters": [
+          { "name": "code", "in": "query", "schema": { "type": "string" }, "description": "Filter by SKU code" },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Search by name/code" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated SKU list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SKUList" } } } }
+        }
+      }
+    },
+    "/skus/{id}": {
+      "get": {
+        "tags": ["skus"],
+        "summary": "Get SKU by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "SKU details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SKU" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "put": {
+        "tags": ["skus"],
+        "summary": "Update SKU",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Updated SKU", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SKU" } } } }
+        }
+      }
+    },
+    "/inventory": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Query inventory",
+        "parameters": [
+          { "name": "sku_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "location_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated inventory list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InventoryList" } } } }
+        }
+      }
+    },
+    "/inventory/{id}": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Get inventory record by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Inventory record", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Inventory" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/inventory/{id}/adjust": {
+      "post": {
+        "tags": ["inventory"],
+        "summary": "Adjust inventory quantity",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["delta_qty", "reason"],
+                "properties": {
+                  "delta_qty": { "type": "number", "description": "Positive to add, negative to remove" },
+                  "reason": { "type": "string", "description": "Reason for adjustment" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Adjustment applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Inventory" } } } },
+          "400": { "description": "Validation error or insufficient stock", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/inventory/{id}/status": {
+      "patch": {
+        "tags": ["inventory"],
+        "summary": "Update inventory status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } } } } }
+        }
+      }
+    },
+    "/inventory/{id}/transactions": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Get transaction history for an inventory record",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Transaction list" }
+        }
+      }
+    },
+    "/inventory/fifo": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Get oldest inventory (FIFO strategy)",
+        "parameters": [
+          { "name": "sku_id", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Oldest inventory record", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InventoryList" } } } }
+        }
+      }
+    },
+    "/inventory/fefo": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Get earliest-expiring inventory (FEFO strategy)",
+        "parameters": [
+          { "name": "sku_id", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Earliest-expiring inventory", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InventoryList" } } } }
+        }
+      }
+    },
+    "/inventory/dashboard": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Get inventory dashboard summary",
+        "parameters": [
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Inventory dashboard data" }
+        }
+      }
+    },
+    "/inventory-transactions": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Query global inventory transaction history",
+        "parameters": [
+          { "name": "type", "in": "query", "schema": { "type": "string" }, "description": "Transaction type filter" },
+          { "name": "sku_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "date_from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "date_to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated transaction list" }
+        }
+      }
+    },
+    "/orders": {
+      "post": {
+        "tags": ["orders"],
+        "summary": "Create a new order",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_type", "warehouse_id", "priority"],
+                "properties": {
+                  "order_type": { "type": "string", "enum": ["inbound", "outbound", "transfer", "return"] },
+                  "warehouse_id": { "type": "string", "format": "uuid" },
+                  "priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
+                  "external_ref": { "type": "string" },
+                  "external_type": { "type": "string" },
+                  "notes": { "type": "string" },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["sku_id", "ordered_qty", "uom"],
+                      "properties": {
+                        "sku_id": { "type": "string", "format": "uuid" },
+                        "ordered_qty": { "type": "number" },
+                        "uom": { "type": "string" },
+                        "batch_no": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Order" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["orders"],
+        "summary": "List orders",
+        "parameters": [
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "order_no", "in": "query", "schema": { "type": "string" } },
+          { "name": "order_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated order list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderSummaryList" } } } }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "tags": ["orders"],
+        "summary": "Get order by ID (includes lines)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Order details with lines", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Order" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/orders/{id}/status": {
+      "put": {
+        "tags": ["orders"],
+        "summary": "Update order status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "description": "New status (draft, confirmed, in_progress, completed, cancelled)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Order" } } } },
+          "400": { "description": "Invalid state transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/orders/{id}/cancel": {
+      "put": {
+        "tags": ["orders"],
+        "summary": "Cancel order (releases reservations, cancels tasks)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Cancelled order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Order" } } } },
+          "400": { "description": "Invalid state transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/orders/{id}/lines": {
+      "post": {
+        "tags": ["orders"],
+        "summary": "Add a line to an order",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Order ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sku_id", "ordered_qty", "uom"],
+                "properties": {
+                  "sku_id": { "type": "string", "format": "uuid" },
+                  "ordered_qty": { "type": "number" },
+                  "uom": { "type": "string" },
+                  "batch_no": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created order line", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderLine" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/orders/{id}/lines/{lineId}/status": {
+      "put": {
+        "tags": ["orders"],
+        "summary": "Update order line status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Order ID" },
+          { "name": "lineId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Line ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated order line", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderLine" } } } }
+        }
+      }
+    },
+    "/asns": {
+      "post": {
+        "tags": ["asns"],
+        "summary": "Create an ASN (Advanced Shipping Notice)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["warehouse_id"],
+                "properties": {
+                  "warehouse_id": { "type": "string", "format": "uuid" },
+                  "order_id": { "type": "string", "format": "uuid" },
+                  "carrier": { "type": "string" },
+                  "tracking_no": { "type": "string" },
+                  "expected_at": { "type": "string", "format": "date-time" },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["sku_id", "expected_qty"],
+                      "properties": {
+                        "sku_id": { "type": "string", "format": "uuid" },
+                        "expected_qty": { "type": "number" },
+                        "batch_no": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created ASN", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ASN" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["asns"],
+        "summary": "List ASNs",
+        "parameters": [
+          { "name": "warehouse_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "asn_no", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated ASN list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ASNSummaryList" } } } }
+        }
+      }
+    },
+    "/asns/{id}": {
+      "get": {
+        "tags": ["asns"],
+        "summary": "Get ASN by ID (includes lines)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "ASN details with lines", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ASN" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/asns/{id}/status": {
+      "put": {
+        "tags": ["asns"],
+        "summary": "Update ASN status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["pending", "arrived", "receiving", "received", "cancelled"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated ASN", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ASN" } } } },
+          "400": { "description": "Invalid state transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/asns/{id}/lines/{lineId}/receive": {
+      "post": {
+        "tags": ["asns"],
+        "summary": "Receive an ASN line item",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "ASN ID" },
+          { "name": "lineId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Line ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["qty"],
+                "properties": {
+                  "qty": { "type": "number", "description": "Quantity received" },
+                  "batch_no": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated ASN", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ASN" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/tasks": {
+      "post": {
+        "tags": ["tasks"],
+        "summary": "Create a new task",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["task_type", "warehouse_id"],
+                "properties": {
+                  "task_type": { "type": "string", "enum": ["putaway", "pick", "replenish", "transfer", "cycle_count"] },
+                  "warehouse_id": { "type": "string", "format": "uuid" },
+                  "priority": { "type": "string", "default": "normal" },
+                  "order_id": { "type": "string", "format": "uuid" },
+                  "order_line_id": { "type": "string", "format": "uuid" },
+                  "sku_id": { "type": "string", "format": "uuid" },
+                  "qty": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created task", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["tasks"],
+        "summary": "List tasks",
+        "parameters": [
+          { "name": "task_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "assigned_to", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated task list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskList" } } } }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "tags": ["tasks"],
+        "summary": "Get task by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Task details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/tasks/{id}/assign": {
+      "post": {
+        "tags": ["tasks"],
+        "summary": "Assign task to a user",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["assigned_to"],
+                "properties": {
+                  "assigned_to": { "type": "string", "format": "uuid", "description": "User ID to assign to" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Task assigned", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/tasks/{id}/status": {
+      "put": {
+        "tags": ["tasks"],
+        "summary": "Update task status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["pending", "assigned", "in_progress", "completed", "cancelled"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated task", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "description": "Invalid state transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/tasks/{id}/complete": {
+      "post": {
+        "tags": ["tasks"],
+        "summary": "Complete task (applies inventory effects)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "qty": { "type": "number", "description": "Actual qty processed (defaults to task qty)" },
+                  "location_id": { "type": "string", "format": "uuid", "description": "Target location for putaway/replenish" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Task completed with inventory effects applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/waves": {
+      "post": {
+        "tags": ["waves"],
+        "summary": "Create a new wave",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "wave_type", "warehouse_id"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "wave_type": { "type": "string" },
+                  "warehouse_id": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created wave", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wave" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["waves"],
+        "summary": "List waves",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated wave list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WaveList" } } } }
+        }
+      }
+    },
+    "/waves/{id}": {
+      "get": {
+        "tags": ["waves"],
+        "summary": "Get wave by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Wave details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wave" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/waves/{id}/status": {
+      "put": {
+        "tags": ["waves"],
+        "summary": "Update wave status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated wave", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wave" } } } },
+          "400": { "description": "Invalid state transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/waves/{id}/release": {
+      "post": {
+        "tags": ["waves"],
+        "summary": "Release a wave (creates tasks from orders)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Wave released", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wave" } } } },
+          "400": { "description": "Cannot release (wave not in correct state)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/waves/{id}/orders": {
+      "post": {
+        "tags": ["waves"],
+        "summary": "Add orders to a wave",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_ids"],
+                "properties": {
+                  "order_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Orders added to wave", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wave" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["waves"],
+        "summary": "Remove orders from a wave",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_ids"],
+                "properties": {
+                  "order_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Orders removed from wave", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wave" } } } }
+        }
+      }
+    },
+    "/shipments": {
+      "post": {
+        "tags": ["shipments"],
+        "summary": "Create a shipment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_id", "warehouse_id"],
+                "properties": {
+                  "order_id": { "type": "string", "format": "uuid" },
+                  "warehouse_id": { "type": "string", "format": "uuid" },
+                  "carrier": { "type": "string" },
+                  "tracking_no": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created shipment", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Shipment" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["shipments"],
+        "summary": "List shipments",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "carrier", "in": "query", "schema": { "type": "string" } },
+          { "name": "tracking_no", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated shipment list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ShipmentList" } } } }
+        }
+      }
+    },
+    "/shipments/{id}": {
+      "get": {
+        "tags": ["shipments"],
+        "summary": "Get shipment by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Shipment details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Shipment" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/shipments/{id}/status": {
+      "put": {
+        "tags": ["shipments"],
+        "summary": "Update shipment status",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["pending", "in_transit", "delivered", "cancelled"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated shipment", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Shipment" } } } }
+        }
+      }
+    },
+    "/shipments/{id}/tracking": {
+      "put": {
+        "tags": ["shipments"],
+        "summary": "Update shipment tracking info",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "carrier": { "type": "string" },
+                  "tracking_no": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated shipment", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Shipment" } } } }
+        }
+      }
+    },
+    "/shipments/{id}/deliver": {
+      "put": {
+        "tags": ["shipments"],
+        "summary": "Mark shipment as delivered",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Shipment delivered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Shipment" } } } }
+        }
+      }
+    },
+    "/cycle-counts": {
+      "post": {
+        "tags": ["cycle-counts"],
+        "summary": "Start a new cycle count",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["warehouse_id"],
+                "properties": {
+                  "warehouse_id": { "type": "string", "format": "uuid" },
+                  "zone_id": { "type": "string", "format": "uuid", "description": "Optional: limit to a specific zone" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created cycle count", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCount" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["cycle-counts"],
+        "summary": "List cycle counts",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated cycle count list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCountList" } } } }
+        }
+      }
+    },
+    "/cycle-counts/{id}": {
+      "get": {
+        "tags": ["cycle-counts"],
+        "summary": "Get cycle count by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Cycle count details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCount" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/cycle-counts/{id}/lines": {
+      "post": {
+        "tags": ["cycle-counts"],
+        "summary": "Submit a line count for a cycle count",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["inventory_id", "counted_qty"],
+                "properties": {
+                  "inventory_id": { "type": "string", "format": "uuid" },
+                  "counted_qty": { "type": "number" },
+                  "batch_no": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Line submitted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCount" } } } }
+        }
+      }
+    },
+    "/cycle-counts/{id}/finalize": {
+      "post": {
+        "tags": ["cycle-counts"],
+        "summary": "Finalize a cycle count (submits for review)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Cycle count finalized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCount" } } } },
+          "400": { "description": "Cannot finalize", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/cycle-counts/{id}/approve": {
+      "put": {
+        "tags": ["cycle-counts"],
+        "summary": "Approve a cycle count (applies inventory adjustments)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Cycle count approved and adjustments applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCount" } } } },
+          "400": { "description": "Cannot approve", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/cycle-counts/{id}/cancel": {
+      "put": {
+        "tags": ["cycle-counts"],
+        "summary": "Cancel a cycle count",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Cycle count cancelled", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CycleCount" } } } }
+        }
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "tags": ["dashboard"],
+        "summary": "Get admin dashboard aggregation",
+        "responses": {
+          "200": { "description": "Dashboard data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Dashboard" } } } }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": ["users"],
+        "summary": "Create a new user (admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password", "display_name"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "password": { "type": "string" },
+                  "display_name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "role_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["users"],
+        "summary": "List users (admin only)",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated user list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserList" } } } }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["users"],
+        "summary": "Get user by ID (admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "User details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "put": {
+        "tags": ["users"],
+        "summary": "Update user (admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "role_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }
+        }
+      }
+    },
+    "/users/{id}/status": {
+      "put": {
+        "tags": ["users"],
+        "summary": "Update user status - activate/deactivate (admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["active", "inactive"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }
+        }
+      }
+    },
+    "/roles": {
+      "post": {
+        "tags": ["roles"],
+        "summary": "Create a new role (admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "permissions": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created role", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "get": {
+        "tags": ["roles"],
+        "summary": "List roles (admin only)",
+        "responses": {
+          "200": { "description": "Role list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoleList" } } } }
+        }
+      }
+    },
+    "/roles/{id}": {
+      "get": {
+        "tags": ["roles"],
+        "summary": "Get role by ID (admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Role details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      },
+      "put": {
+        "tags": ["roles"],
+        "summary": "Update role (admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "permissions": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated role", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Role" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["roles"],
+        "summary": "Delete role (admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "204": { "description": "Role deleted" },
+          "400": { "description": "Cannot delete (role in use)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    },
+    "/audit-logs": {
+      "get": {
+        "tags": ["audit-logs"],
+        "summary": "List audit logs (admin only)",
+        "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string" } },
+          { "name": "user_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "resource_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "date_from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "date_to", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated audit log list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuditLogList" } } } }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "tags": ["settings"],
+        "summary": "Get system settings (admin only)",
+        "responses": {
+          "200": { "description": "Current settings" }
+        }
+      },
+      "put": {
+        "tags": ["settings"],
+        "summary": "Update system settings (admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "site_name": { "type": "string" },
+                  "default_warehouse_id": { "type": "string", "format": "uuid" },
+                  "low_stock_threshold": { "type": "number" },
+                  "pagination_size": { "type": "integer" },
+                  "jwt_ttl": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Settings updated" }
+        }
+      }
+    },
+    "/stock-inquiry": {
+      "get": {
+        "tags": ["inventory"],
+        "summary": "Barcode-based stock inquiry (PDA)",
+        "parameters": [
+          { "name": "barcode", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Location or SKU barcode" }
+        ],
+        "responses": {
+          "200": { "description": "Stock inquiry result with inventory details" },
+          "400": { "description": "Missing barcode", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } },
+          "404": { "description": "Barcode not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetail" } } } }
+        }
+      }
+    }
+  }
+}
