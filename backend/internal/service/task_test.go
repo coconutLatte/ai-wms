@@ -637,8 +637,8 @@ func TestTaskService_CompleteTask(t *testing.T) {
 	})
 
 	// Must be in_progress to complete.
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	toLoc := uuid.New()
 	updated, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 95, ToLocationID: &toLoc})
@@ -671,7 +671,7 @@ func TestTaskService_CompleteTask_NotInProgress(t *testing.T) {
 	}
 
 	// Assign it, then try — should still fail (not in progress).
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
 	_, err = svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 10})
 	if err == nil {
 		t.Fatal("expected error for completing assigned task (not in_progress)")
@@ -688,8 +688,8 @@ func TestTaskService_CompleteTask_NegativeQty(t *testing.T) {
 		SKUID:       uuid.New(),
 		ExpectedQty: 10,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: -1})
 	if err == nil {
@@ -709,8 +709,8 @@ func TestTaskService_PauseResumeFlow(t *testing.T) {
 	})
 
 	// Assign → start → pause → resume → complete.
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	// Pause.
 	updated, err := svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusPaused})
@@ -752,8 +752,8 @@ func TestTaskService_ExceptionFlow(t *testing.T) {
 	})
 
 	// Assign and start the task.
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	// in_progress → exception (via UpdateTaskStatus — exception is a valid target)
 	// Note: The repository's UpdateTaskStatus handles status transition to exception.
@@ -765,7 +765,7 @@ func TestTaskService_ExceptionFlow(t *testing.T) {
 	// But the raw UpdateTaskStatus service method with exception target should be tested.
 
 	// Cancel from exception is valid.
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusCancelled})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusCancelled})
 
 	got, _ := svc.GetTask(ctx, task.ID)
 	if got.Status != domain.TaskStatusCancelled {
@@ -783,8 +783,8 @@ func TestTaskService_CompleteTask_ZeroQty(t *testing.T) {
 		SKUID:       uuid.New(),
 		ExpectedQty: 50,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	// Zero qty (valid — e.g., zero-count for cycle counting).
 	updated, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 0})
@@ -1096,8 +1096,8 @@ func TestTaskService_CompleteTask_PutawayCreatesInventory(t *testing.T) {
 		ToLocation:   &toLoc,
 		BatchNo:      "BATCH-001",
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	updated, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 95})
 	if err != nil {
@@ -1184,8 +1184,8 @@ func TestTaskService_CompleteTask_PutawayIncrementsExistingInventory(t *testing.
 		ToLocation:  &toLoc,
 		BatchNo:     "BATCH-001",
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 30})
 	if err != nil {
@@ -1225,8 +1225,8 @@ func TestTaskService_CompleteTask_PutawayRequiresToLocation(t *testing.T) {
 		ExpectedQty: 100,
 		// No ToLocation set.
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 50})
 	if err == nil {
@@ -1265,8 +1265,8 @@ func TestTaskService_CompleteTask_PickDecrementsInventory(t *testing.T) {
 		FromLocation: &fromLoc,
 		BatchNo:      "BATCH-002",
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 30})
 	if err != nil {
@@ -1327,8 +1327,8 @@ func TestTaskService_CompleteTask_PickInsufficientInventory(t *testing.T) {
 		ExpectedQty:  20,
 		FromLocation: &fromLoc,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 20})
 	if err == nil {
@@ -1357,8 +1357,8 @@ func TestTaskService_CompleteTask_PickRequiresFromLocation(t *testing.T) {
 		ExpectedQty: 50,
 		// No FromLocation set.
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 50})
 	if err == nil {
@@ -1377,8 +1377,8 @@ func TestTaskService_CompleteTask_CycleCountNoInventoryEffect(t *testing.T) {
 		SKUID:       uuid.New(),
 		ExpectedQty: 50,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 48})
 	if err != nil {
@@ -1426,8 +1426,8 @@ func TestTaskService_CompleteTask_ReplenishMovesInventory(t *testing.T) {
 		FromLocation: &fromLoc,
 		ToLocation:   &toLoc,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 50})
 	if err != nil {
@@ -1466,8 +1466,8 @@ func TestTaskService_CompleteTask_ZeroQtyNoInventoryEffect(t *testing.T) {
 		ExpectedQty: 100,
 		ToLocation:  &toLoc,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{ActualQty: 0})
 	if err != nil {
@@ -1501,8 +1501,8 @@ func TestTaskService_CompleteTask_OverridesToLocationOnCompletion(t *testing.T) 
 		ExpectedQty: 100,
 		ToLocation:  &originalToLoc,
 	})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+_, _ = svc.UpdateTaskStatus(ctx, task.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
 
 	// Complete with a different to_location.
 	_, err := svc.CompleteTask(ctx, task.ID, CompleteTaskInput{

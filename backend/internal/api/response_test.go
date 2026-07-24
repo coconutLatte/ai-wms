@@ -110,7 +110,7 @@ func TestWriteError_InvalidInput(t *testing.T) {
 	}
 
 	var pd pkgerrors.ProblemDetail
-	json.Unmarshal(w.Body.Bytes(), &pd)
+	_ = json.Unmarshal(w.Body.Bytes(), &pd)
 
 	if pd.Code != "INVALID_INPUT" {
 		t.Errorf("expected code 'INVALID_INPUT', got %q", pd.Code)
@@ -129,7 +129,7 @@ func TestWriteError_InvalidStatus(t *testing.T) {
 	}
 
 	var pd pkgerrors.ProblemDetail
-	json.Unmarshal(w.Body.Bytes(), &pd)
+	_ = json.Unmarshal(w.Body.Bytes(), &pd)
 
 	if pd.Code != "INVALID_STATUS" {
 		t.Errorf("expected code 'INVALID_STATUS', got %q", pd.Code)
@@ -160,7 +160,7 @@ func TestWriteError_Internal(t *testing.T) {
 	}
 
 	var pd pkgerrors.ProblemDetail
-	json.Unmarshal(w.Body.Bytes(), &pd)
+	_ = json.Unmarshal(w.Body.Bytes(), &pd)
 
 	// Internal errors should not leak details.
 	if strings.Contains(pd.Detail, "db connection") {
@@ -193,7 +193,7 @@ func TestWriteError_PlainError(t *testing.T) {
 	}
 
 	var pd pkgerrors.ProblemDetail
-	json.Unmarshal(w.Body.Bytes(), &pd)
+	_ = json.Unmarshal(w.Body.Bytes(), &pd)
 
 	if pd.Code != "INTERNAL_ERROR" {
 		t.Errorf("expected code 'INTERNAL_ERROR', got %q", pd.Code)

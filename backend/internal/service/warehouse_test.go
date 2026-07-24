@@ -510,7 +510,7 @@ func TestWarehouseService_UpdateLocationStatus_InvalidTransition(t *testing.T) {
 	loc, _ := svc.CreateLocation(ctx, zone.ID, CreateLocationInput{Code: "L-001", LocationType: domain.LocationTypeShelf})
 
 	// occupied → reserved is not allowed.
-	svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusOccupied)
+		_ = svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusOccupied)
 
 	err := svc.UpdateLocationStatus(ctx, loc.ID, domain.LocationStatusReserved)
 	if err == nil {

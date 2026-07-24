@@ -378,9 +378,9 @@ func TestWaveService_UpdateWaveStatus_Terminal(t *testing.T) {
 	}
 
 	// Progress to completed.
-	svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusReleased})
-	svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusInProgress})
-	svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusCompleted})
+_, _ = svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusReleased})
+_, _ = svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusInProgress})
+_, _ = svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusCompleted})
 
 	// Terminal: completed → anything should fail.
 	_, err = svc.UpdateWaveStatus(ctx, wave.ID, UpdateWaveStatusInput{Status: domain.WaveStatusReleased})
@@ -472,7 +472,7 @@ func TestWaveService_AddWaveOrders_WrongStatus(t *testing.T) {
 	}
 
 	// Release the wave first.
-	svc.ReleaseWave(ctx, wave.ID)
+_, _ = svc.ReleaseWave(ctx, wave.ID)
 
 	// Now try to add orders — should fail because wave is released.
 	_, err = svc.AddWaveOrders(ctx, wave.ID, AddWaveOrdersInput{OrderIDs: []uuid.UUID{uuid.New()}})

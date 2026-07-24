@@ -346,7 +346,6 @@ func (r *InventoryRepo) QueryInventory(ctx context.Context, filter repository.In
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -433,7 +432,6 @@ func (r *InventoryRepo) CountInventory(ctx context.Context, filter repository.In
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
-		argIdx++
 	}
 
 	query := `SELECT COUNT(*) FROM inventory`
@@ -503,7 +501,6 @@ func (r *InventoryRepo) queryWithOrder(ctx context.Context, filter repository.In
 	if filter.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIdx)
 		args = append(args, filter.Limit)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -709,7 +706,6 @@ func (r *InventoryRepo) ListTransactionsGlobal(ctx context.Context, filter repos
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -867,7 +863,6 @@ func (r *InventoryRepo) GetLowStockInventory(ctx context.Context, threshold floa
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIdx)
 		args = append(args, limit)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
