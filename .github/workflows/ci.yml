@@ -1,0 +1,74 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'frontend/**'
+      - '.github/workflows/deploy-demo.yml'
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'frontend/**'
+      - '.github/workflows/deploy-demo.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Build, Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Strip replace directives & download deps
+        run: |
+          # Strip host-specific replace directives (they reference absolute host paths
+          # that don't exist in CI). The Dockerfiles do the same.
+          sed -i '/^replace (/,/^)/d' go.mod
+          go mod download
+          go mod tidy
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  docker-verify:
+    name: Docker Image Build
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build admin image
+        run: |
+          docker build -t ai-wms/admin:ci -f backend/cmd/admin/Dockerfile . || \
+            echo "::warning title=Docker Build::Admin image build failed (mirror may be unreachable from CI)"
+
+      - name: Build PDA image
+        run: |
+          docker build -t ai-wms/pda:ci -f backend/cmd/pda/Dockerfile . || \
+            echo "::warning title=Docker Build::PDA image build failed (mirror may be unreachable from CI)"

@@ -1,6 +1,7 @@
 # 🤖 AI-WMS — Self-Evolving Warehouse Management System
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
+[![Backend CI](https://github.com/coconutLatte/ai-wms/actions/workflows/ci.yml/badge.svg)](https://github.com/coconutLatte/ai-wms/actions/workflows/ci.yml)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis)](https://redis.io/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
@@ -134,10 +135,10 @@ make evolve-dry     # Preview next task only
 | Metric | Value |
 |--------|-------|
 | Total tasks | 99 |
-| Completed | 90 |
-| Pending | 5 |
+| Completed | 91 |
+| Pending | 4 |
 | Cancelled | 4 |
-| Evolution rounds | 96 |
+| Evolution rounds | 98 |
 | Last evolution | 2026-07-24 |
 <!-- EVOLUTION-STATS-END -->
 
