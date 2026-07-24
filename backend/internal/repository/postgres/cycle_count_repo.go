@@ -104,7 +104,6 @@ func (r *CycleCountRepo) ListCycleCounts(ctx context.Context, filter repository.
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
 	}
 
 	rows, err := r.db.Pool.Query(ctx, query, args...)
@@ -141,7 +140,6 @@ func (r *CycleCountRepo) CountCycleCounts(ctx context.Context, filter repository
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
-		argIdx++
 	}
 
 	query := `SELECT COUNT(*) FROM cycle_counts`

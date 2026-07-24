@@ -386,19 +386,19 @@ func TestTaskService_ListTasks(t *testing.T) {
 	wh1 := uuid.New()
 	wh2 := uuid.New()
 
-	svc.CreateTask(ctx, CreateTaskInput{
+	_, _ = svc.CreateTask(ctx, CreateTaskInput{
 		TaskType:    domain.TaskTypePick,
 		WarehouseID: wh1,
 		SKUID:       uuid.New(),
 		ExpectedQty: 10,
 	})
-	svc.CreateTask(ctx, CreateTaskInput{
+	_, _ = svc.CreateTask(ctx, CreateTaskInput{
 		TaskType:    domain.TaskTypePutaway,
 		WarehouseID: wh1,
 		SKUID:       uuid.New(),
 		ExpectedQty: 20,
 	})
-	svc.CreateTask(ctx, CreateTaskInput{
+	_, _ = svc.CreateTask(ctx, CreateTaskInput{
 		TaskType:    domain.TaskTypePick,
 		WarehouseID: wh2,
 		SKUID:       uuid.New(),
@@ -485,7 +485,7 @@ func TestTaskService_AssignTask_NotPending(t *testing.T) {
 	})
 
 	// First assign succeeds.
-	svc.AssignTask(ctx, task.ID, AssignTaskInput{AssignedTo: "worker-1"})
+	_, _ = svc.AssignTask(ctx, task.ID, AssignTaskInput{AssignedTo: "worker-1"})
 
 	// Second assign should fail — task is already assigned.
 	_, err := svc.AssignTask(ctx, task.ID, AssignTaskInput{AssignedTo: "worker-2"})
@@ -601,7 +601,7 @@ func TestTaskService_UpdateTaskStatus_TerminalStates(t *testing.T) {
 		SKUID:       uuid.New(),
 		ExpectedQty: 10,
 	})
-	svc.UpdateTaskStatus(ctx, task1.ID, UpdateTaskStatusInput{Status: domain.TaskStatusCancelled})
+	_, _ = svc.UpdateTaskStatus(ctx, task1.ID, UpdateTaskStatusInput{Status: domain.TaskStatusCancelled})
 
 	_, err := svc.UpdateTaskStatus(ctx, task1.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
 	if err == nil {
@@ -615,9 +615,9 @@ func TestTaskService_UpdateTaskStatus_TerminalStates(t *testing.T) {
 		SKUID:       uuid.New(),
 		ExpectedQty: 20,
 	})
-	svc.UpdateTaskStatus(ctx, task2.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
-	svc.UpdateTaskStatus(ctx, task2.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
-	svc.CompleteTask(ctx, task2.ID, CompleteTaskInput{ActualQty: 20})
+	_, _ = svc.UpdateTaskStatus(ctx, task2.ID, UpdateTaskStatusInput{Status: domain.TaskStatusAssigned})
+	_, _ = svc.UpdateTaskStatus(ctx, task2.ID, UpdateTaskStatusInput{Status: domain.TaskStatusInProgress})
+	_, _ = svc.CompleteTask(ctx, task2.ID, CompleteTaskInput{ActualQty: 20})
 
 	_, err = svc.UpdateTaskStatus(ctx, task2.ID, UpdateTaskStatusInput{Status: domain.TaskStatusCancelled})
 	if err == nil {

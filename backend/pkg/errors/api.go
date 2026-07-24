@@ -316,9 +316,6 @@ func Unwrap(err error) error {
 
 // As is a helper wrapping errors.As for convenience.
 func As(err error, target interface{}) bool {
-	type aser interface {
-		As(target interface{}) bool
-	}
 	// Use standard library's errors.As through a simple type assertion approach.
 	// We need to import "errors" but we're already in the errors package.
 	// Let's just use the standard approach.

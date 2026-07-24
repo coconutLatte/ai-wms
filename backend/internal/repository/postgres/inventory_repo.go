@@ -138,7 +138,6 @@ func (r *InventoryRepo) ListSKUs(ctx context.Context, limit, offset int) ([]*dom
 	if offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -577,7 +576,6 @@ func (r *InventoryRepo) ListTransactions(ctx context.Context, inventoryID uuid.U
 	if offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -773,7 +771,6 @@ func (r *InventoryRepo) buildTxGlobalConditions(filter repository.InventoryTxFil
 	if filter.DateTo != nil {
 		conditions = append(conditions, fmt.Sprintf("t.created_at <= $%d", idx))
 		args = append(args, *filter.DateTo)
-		idx++
 	}
 
 	return conditions, args

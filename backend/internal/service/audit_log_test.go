@@ -171,6 +171,9 @@ func TestAuditLogService_ListAuditLogs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAuditLogs by action failed: %v", err)
 	}
+	if total != 2 {
+		t.Errorf("expected total=2 for action=order.create, got %d", total)
+	}
 	if len(logs) != 2 {
 		t.Errorf("expected 2 logs for action=order.create, got %d", len(logs))
 	}
@@ -179,6 +182,9 @@ func TestAuditLogService_ListAuditLogs(t *testing.T) {
 	logs, total, err = svc.ListAuditLogs(ctx, repository.AuditLogFilter{Resource: "inventory"})
 	if err != nil {
 		t.Fatalf("ListAuditLogs by resource failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 for resource=inventory, got %d", total)
 	}
 	if len(logs) != 1 {
 		t.Errorf("expected 1 log for resource=inventory, got %d", len(logs))
@@ -190,6 +196,9 @@ func TestAuditLogService_ListAuditLogs(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("ListAuditLogs combined filter failed: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 for combined filter, got %d", total)
 	}
 	if len(logs) != 1 {
 		t.Errorf("expected 1 log for combined filter, got %d", len(logs))

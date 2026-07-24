@@ -993,13 +993,6 @@ func isValidOrderStatus(s domain.OrderStatus) bool {
 	return false
 }
 
-// isValidOrderTransition validates an order status state machine transition.
-// DEPRECATED: Delegates to Order.CanTransitionTo() — keep for reference.
-func isValidOrderTransition(current, target domain.OrderStatus) bool {
-	o := &domain.Order{Status: current}
-	return o.CanTransitionTo(target)
-}
-
 func isValidOrderLineStatus(s domain.OrderLineStatus) bool {
 	switch s {
 	case domain.OrderLineStatusPending, domain.OrderLineStatusAllocated,

@@ -283,6 +283,9 @@ func TestWaveService_ListWaves(t *testing.T) {
 	if total != 2 {
 		t.Errorf("expected total 2, got %d", total)
 	}
+	if len(waves) != 2 {
+		t.Errorf("expected 2 waves for wh2, got %d", len(waves))
+	}
 
 	// List all (no warehouse filter).
 	waves, total, err = svc.ListWaves(ctx, WaveQueryParams{Page: 1, PageSize: 20})
@@ -291,6 +294,9 @@ func TestWaveService_ListWaves(t *testing.T) {
 	}
 	if total != 5 {
 		t.Errorf("expected total 5 across all warehouses, got %d", total)
+	}
+	if len(waves) != 5 {
+		t.Errorf("expected 5 waves for all warehouses, got %d", len(waves))
 	}
 }
 

@@ -290,8 +290,8 @@ func TestWarehouseService_ListWarehouses(t *testing.T) {
 	ctx := context.Background()
 	svc := NewWarehouseService(newMockWarehouseRepo())
 
-	svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "W1"})
-	svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-002", Name: "W2"})
+	_, _ = svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "W1"})
+	_, _ = svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-002", Name: "W2"})
 
 	list, total, err := svc.ListWarehouses(ctx, 0, 0)
 	if err != nil {
@@ -402,8 +402,8 @@ func TestWarehouseService_ListZones(t *testing.T) {
 
 	wh, _ := svc.CreateWarehouse(ctx, CreateWarehouseInput{Code: "WH-001", Name: "Test WH"})
 
-	svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
-	svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-02", Name: "Z2", ZoneType: domain.ZoneTypePicking})
+	_, _ = svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-01", Name: "Z1", ZoneType: domain.ZoneTypeStorage})
+	_, _ = svc.CreateZone(ctx, wh.ID, CreateZoneInput{Code: "Z-02", Name: "Z2", ZoneType: domain.ZoneTypePicking})
 
 	zones, total, err := svc.ListZones(ctx, wh.ID, 0, 0)
 	if err != nil {
