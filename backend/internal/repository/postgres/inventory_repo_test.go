@@ -25,20 +25,20 @@ func setupInventoryTestDB(t *testing.T) (*DB, func()) {
 	}
 
 	// Clean up previous test data (order matters due to FK constraints)
-	db.Pool.Exec(ctx, "DELETE FROM inventory_transactions WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
-	db.Pool.Exec(ctx, "DELETE FROM inventory WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
-	db.Pool.Exec(ctx, "DELETE FROM skus WHERE code LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM inventory_transactions WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM inventory WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM skus WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
 
 	cleanup := func() {
-		db.Pool.Exec(ctx, "DELETE FROM inventory_transactions WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
-		db.Pool.Exec(ctx, "DELETE FROM inventory WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
-		db.Pool.Exec(ctx, "DELETE FROM skus WHERE code LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM inventory_transactions WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM inventory WHERE sku_id IN (SELECT id FROM skus WHERE code LIKE 'TEST-%')")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM skus WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
 		db.Close()
 	}
 

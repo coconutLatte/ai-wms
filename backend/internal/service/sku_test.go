@@ -525,7 +525,7 @@ func TestSKUService_GetSKUByCode(t *testing.T) {
 	ctx := context.Background()
 	svc := NewSKUService(newMockInventoryRepo())
 
-	svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-FIND", Name: "Find Me", UOM: domain.UOM{BaseUnit: "EA"}})
+_, _ = svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-FIND", Name: "Find Me", UOM: domain.UOM{BaseUnit: "EA"}})
 
 	got, err := svc.GetSKUByCode(ctx, "SKU-FIND")
 	if err != nil {
@@ -550,9 +550,9 @@ func TestSKUService_ListSKUs(t *testing.T) {
 	ctx := context.Background()
 	svc := NewSKUService(newMockInventoryRepo())
 
-	svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-001", Name: "S1", UOM: domain.UOM{BaseUnit: "EA"}})
-	svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-002", Name: "S2", UOM: domain.UOM{BaseUnit: "EA"}})
-	svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-003", Name: "S3", UOM: domain.UOM{BaseUnit: "EA"}})
+_, _ = svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-001", Name: "S1", UOM: domain.UOM{BaseUnit: "EA"}})
+_, _ = svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-002", Name: "S2", UOM: domain.UOM{BaseUnit: "EA"}})
+_, _ = svc.CreateSKU(ctx, CreateSKUInput{Code: "SKU-003", Name: "S3", UOM: domain.UOM{BaseUnit: "EA"}})
 
 	list, total, err := svc.ListSKUs(ctx, 0, 0)
 	if err != nil {

@@ -133,7 +133,7 @@ func (r *OrderRepo) ListOrders(ctx context.Context, filter repository.OrderFilte
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+		_ = argIdx
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -180,7 +180,7 @@ func (r *OrderRepo) CountOrders(ctx context.Context, filter repository.OrderFilt
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
-		argIdx++
+		_ = argIdx
 	}
 
 	query := "SELECT COUNT(*) FROM orders"
@@ -466,7 +466,7 @@ func (r *OrderRepo) ListASNs(ctx context.Context, filter repository.ASNFilter) (
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+		_ = argIdx
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -508,7 +508,7 @@ func (r *OrderRepo) CountASNs(ctx context.Context, filter repository.ASNFilter) 
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
-		argIdx++
+		_ = argIdx
 	}
 
 	query := "SELECT COUNT(*) FROM asns"

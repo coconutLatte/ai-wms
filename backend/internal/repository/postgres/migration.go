@@ -142,7 +142,7 @@ func (db *DB) runMigrationFile(ctx context.Context, f MigrationFile) error {
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, string(content)); err != nil {
 		return fmt.Errorf("exec sql: %w", err)

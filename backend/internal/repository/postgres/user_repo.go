@@ -131,7 +131,6 @@ func (r *UserRepo) ListUsers(ctx context.Context, filter repository.UserFilter) 
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -211,7 +210,6 @@ func (r *UserRepo) CountUsers(ctx context.Context, filter repository.UserFilter)
 	if filter.Status != "" {
 		conditions = append(conditions, fmt.Sprintf("status = $%d", argIdx))
 		args = append(args, filter.Status)
-		argIdx++
 	}
 
 	query := "SELECT COUNT(*) FROM users"
@@ -423,7 +421,6 @@ func (r *UserRepo) ListAuditLogs(ctx context.Context, filter repository.AuditLog
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -474,7 +471,6 @@ func (r *UserRepo) CountAuditLogs(ctx context.Context, filter repository.AuditLo
 	if filter.DateTo != "" {
 		conditions = append(conditions, fmt.Sprintf("created_at <= $%d::timestamptz", argIdx))
 		args = append(args, filter.DateTo)
-		argIdx++
 	}
 
 	query := "SELECT COUNT(*) FROM audit_logs"

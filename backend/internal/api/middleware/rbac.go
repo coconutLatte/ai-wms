@@ -52,5 +52,5 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 func writeForbidden(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusForbidden)
-	w.Write([]byte(`{"error":"forbidden","detail":"` + msg + `"}`))
+_, _ = w.Write([]byte(`{"error":"forbidden","detail":"` + msg + `"}`))
 }

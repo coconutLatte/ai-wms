@@ -56,7 +56,7 @@ func RegisterSwaggerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Write(swaggerSpec)
+	_, _ = w.Write(swaggerSpec)
 	})
 
 	// Swagger UI page
@@ -64,6 +64,6 @@ func RegisterSwaggerRoutes(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		tmpl, _ := template.New("swagger").Parse(swaggerUITemplate)
-		tmpl.Execute(w, nil)
+	_ = tmpl.Execute(w, nil)
 	})
 }

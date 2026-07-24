@@ -118,12 +118,12 @@ func setupMigrationTestDB(t *testing.T) (*DB, func()) {
 	}
 
 	cleanup := func() {
-		db.Pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations CASCADE")
+		_, _ = db.Pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations CASCADE")
 		db.Close()
 	}
 
 	// Start with a clean state.
-	db.Pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations CASCADE")
+	_, _ = db.Pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations CASCADE")
 
 	return db, cleanup
 }
@@ -313,7 +313,7 @@ func TestRunMigrationsFromDir(t *testing.T) {
 	}
 
 	// Clean up the test table.
-	db.Pool.Exec(ctx, "DROP TABLE IF EXISTS test_products CASCADE")
+	_, _ = db.Pool.Exec(ctx, "DROP TABLE IF EXISTS test_products CASCADE")
 }
 
 func TestRunMigrationsFromDir_EmptyDir(t *testing.T) {
@@ -383,7 +383,7 @@ func TestRunMigrationsFromDir_PartialApply(t *testing.T) {
 	}
 
 	// Clean up test tables.
-	db.Pool.Exec(ctx, "DROP TABLE IF EXISTS test_first, test_second, test_third CASCADE")
+	_, _ = db.Pool.Exec(ctx, "DROP TABLE IF EXISTS test_first, test_second, test_third CASCADE")
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

@@ -24,10 +24,10 @@ func setupTokenBlacklistTestDB(t *testing.T) (*DB, func()) {
 	}
 
 	// Clean up previous test data
-	db.Pool.Exec(ctx, "DELETE FROM token_blacklist WHERE jti LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM token_blacklist WHERE jti LIKE 'TEST-%'")
 
 	cleanup := func() {
-		db.Pool.Exec(ctx, "DELETE FROM token_blacklist WHERE jti LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM token_blacklist WHERE jti LIKE 'TEST-%'")
 		db.Close()
 	}
 

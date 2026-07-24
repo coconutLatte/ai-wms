@@ -157,7 +157,7 @@ func (r *TaskRepo) ListTasks(ctx context.Context, filter repository.TaskFilter) 
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+		_ = argIdx
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -271,7 +271,7 @@ func (r *TaskRepo) CountTasks(ctx context.Context, filter repository.TaskFilter)
 	if filter.AssignedTo != "" {
 		conditions = append(conditions, fmt.Sprintf("assigned_to = $%d", argIdx))
 		args = append(args, filter.AssignedTo)
-		argIdx++
+		_ = argIdx
 	}
 
 	query := `SELECT COUNT(*) FROM tasks`
@@ -406,7 +406,7 @@ func (r *TaskRepo) ListWaves(ctx context.Context, filter repository.WaveFilter) 
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+		_ = argIdx
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -475,7 +475,7 @@ func (r *TaskRepo) CountWaves(ctx context.Context, filter repository.WaveFilter)
 	if filter.WaveType != "" {
 		conditions = append(conditions, fmt.Sprintf("wave_type = $%d", argIdx))
 		args = append(args, filter.WaveType)
-		argIdx++
+		_ = argIdx
 	}
 
 	query := `SELECT COUNT(*) FROM waves`

@@ -25,14 +25,14 @@ func setupUserTestDB(t *testing.T) (*DB, func()) {
 	}
 
 	// Clean up previous test data (FK-aware order)
-	db.Pool.Exec(ctx, "DELETE FROM audit_logs WHERE username LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM users WHERE username LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM roles WHERE name LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM audit_logs WHERE username LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM users WHERE username LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM roles WHERE name LIKE 'TEST-%'")
 
 	cleanup := func() {
-		db.Pool.Exec(ctx, "DELETE FROM audit_logs WHERE username LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM users WHERE username LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM roles WHERE name LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM audit_logs WHERE username LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM users WHERE username LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM roles WHERE name LIKE 'TEST-%'")
 		db.Close()
 	}
 

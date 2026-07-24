@@ -24,14 +24,14 @@ func setupTestDB(t *testing.T) (*DB, func()) {
 	}
 
 	// Clean up any previous test data
-	db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
-	db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
+	_, _ = db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
 
 	cleanup := func() {
-		db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
-		db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM locations WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM zones WHERE code LIKE 'TEST-%'")
+		_, _ = db.Pool.Exec(ctx, "DELETE FROM warehouses WHERE code LIKE 'TEST-%'")
 		db.Close()
 	}
 

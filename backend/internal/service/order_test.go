@@ -1594,7 +1594,7 @@ _, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domai
 				ExpectedQty: float64((i + 1) * 10),
 				Status:      domain.ASNLineStatusPending,
 			}
-			repo.CreateASNLine(context.Background(), line)
+		_ = repo.CreateASNLine(context.Background(), line)
 		}
 		return asn
 	}
@@ -1909,7 +1909,7 @@ func TestOrderService_ReceiveASNLine_MultiLineAllReceived(t *testing.T) {
 _, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive line 0 fully.
-	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
+_, _ = svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
 
 	// Receive line 1 fully.
 	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line1.ID, ReceiveASNLineInput{ReceivedQty: 5})
@@ -1938,7 +1938,7 @@ func TestOrderService_ReceiveASNLine_MultiLinePartialASN(t *testing.T) {
 _, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive line 0 partially.
-	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 5})
+_, _ = svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 5})
 
 	// ASN should be "receiving" (received some but not all lines).
 	updated, _ := svc.GetASN(ctx, asn.ID)
@@ -1980,7 +1980,7 @@ func TestOrderService_ReceiveASNLine_AccumulatedExceedsExpected(t *testing.T) {
 _, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive 8 first.
-	svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 8})
+_, _ = svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 8})
 
 	// Try to receive 5 more (total would be 13 > 10).
 	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 5})
@@ -2095,7 +2095,7 @@ func TestOrderService_ReceiveASNLine_AlreadyReceiving(t *testing.T) {
 
 	// Transition to arrived, then start receiving.
 _, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
-	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
+_, _ = svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
 
 	// Now receive more on the same line. ASN should still be "receiving" (no new transition needed).
 	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 5})
@@ -2125,7 +2125,7 @@ func TestOrderService_CancelOrder_Draft(t *testing.T) {
 
 	// Create a task associated with the order.
 	lineID := order.Lines[0].ID
-	taskRepo.CreateTask(ctx, &domain.Task{
+_ = taskRepo.CreateTask(ctx, &domain.Task{
 		TaskType:    domain.TaskTypePick,
 		WarehouseID: order.WarehouseID,
 		OrderID:     &order.ID,
@@ -2299,7 +2299,7 @@ func TestOrderService_CancelOrder_TerminalAlreadyCancelled(t *testing.T) {
 	}
 
 	// Cancel once.
-	svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
+_, _ = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
 	// Cancel again — should fail.
 	_, err = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
 	if err == nil {
@@ -2351,8 +2351,8 @@ func TestOrderService_CancelOrder_AlreadyCompletedTaskUnaffected(t *testing.T) {
 		SKUID:       order.Lines[0].SKUID,
 		ExpectedQty: 10,
 	}
-	taskRepo.CreateTask(ctx, completedTask)
-	taskRepo.CreateTask(ctx, pendingTask)
+_ = taskRepo.CreateTask(ctx, completedTask)
+_ = taskRepo.CreateTask(ctx, pendingTask)
 
 	_, err = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
 	if err != nil {

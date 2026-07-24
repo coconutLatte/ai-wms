@@ -119,7 +119,7 @@ func (r *ShipmentRepo) ListShipments(ctx context.Context, filter repository.Ship
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+		_ = argIdx
 	}
 
 	rows, err := r.db.Pool.Query(ctx, query, args...)
@@ -166,7 +166,7 @@ func (r *ShipmentRepo) CountShipments(ctx context.Context, filter repository.Shi
 	if filter.Carrier != "" {
 		conditions = append(conditions, fmt.Sprintf("carrier = $%d", argIdx))
 		args = append(args, filter.Carrier)
-		argIdx++
+		_ = argIdx
 	}
 
 	query := `SELECT COUNT(*) FROM shipments`

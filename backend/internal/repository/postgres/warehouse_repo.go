@@ -82,7 +82,6 @@ func (r *WarehouseRepo) ListWarehouses(ctx context.Context, limit, offset int) (
 	if offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -194,7 +193,6 @@ func (r *WarehouseRepo) ListZonesByWarehouse(ctx context.Context, warehouseID uu
 	if offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, offset)
-		argIdx++
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -245,7 +243,7 @@ func (r *WarehouseRepo) ListAllZones(ctx context.Context, filter repository.Zone
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -436,7 +434,7 @@ func (r *WarehouseRepo) ListLocationsByZone(ctx context.Context, zoneID uuid.UUI
 	if offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, offset)
-		argIdx++
+
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -537,7 +535,7 @@ func (r *WarehouseRepo) ListAllLocations(ctx context.Context, filter repository.
 	if filter.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, filter.Offset)
-		argIdx++
+
 	}
 
 	rows, err := r.query(ctx, query, args...)
@@ -593,7 +591,6 @@ func (r *WarehouseRepo) CountAllLocations(ctx context.Context, filter repository
 	if filter.WarehouseID != uuid.Nil {
 		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
 		args = append(args, filter.WarehouseID)
-		argIdx++
 	}
 	if len(conditions) > 0 {
 		query += " WHERE " + conditions[0]
