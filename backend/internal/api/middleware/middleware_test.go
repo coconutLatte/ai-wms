@@ -70,7 +70,7 @@ func TestLogger_LogsRequest(t *testing.T) {
 
 	handler := RequestID(Logger(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+_, _ = w.Write([]byte("ok"))
 	})))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/test?page=1", nil)
@@ -177,7 +177,7 @@ func TestRecovery_NoPanicPassesThrough(t *testing.T) {
 
 	handler := RequestID(Recovery(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("all good"))
+_, _ = w.Write([]byte("all good"))
 	})))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/ok", nil)
@@ -377,7 +377,7 @@ func TestFullMiddlewareChain(t *testing.T) {
 							t.Error("expected request ID in context, got empty")
 						}
 						w.WriteHeader(http.StatusOK)
-						w.Write([]byte(`{"status":"ok"}`))
+				_, _ = w.Write([]byte(`{"status":"ok"}`))
 					}),
 				),
 			),

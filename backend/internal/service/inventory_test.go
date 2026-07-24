@@ -1111,7 +1111,7 @@ func TestInventoryService_ReserveInventory_SpreadAcrossMultiple(t *testing.T) {
 	orderLineID := uuid.New()
 
 	for i := 0; i < 3; i++ {
-		svc.CreateInventory(ctx, CreateInventoryInput{
+	_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 			SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
 			Qty: 30, Status: domain.InventoryStatusAvailable,
 		})
@@ -1139,7 +1139,7 @@ func TestInventoryService_ReserveInventory_InsufficientStock(t *testing.T) {
 	skuID := uuid.New()
 	whID := uuid.New()
 
-	svc.CreateInventory(ctx, CreateInventoryInput{
+_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
 		Qty: 10, Status: domain.InventoryStatusAvailable,
 	})
@@ -1160,7 +1160,7 @@ func TestInventoryService_ReserveInventory_NoAvailableStock(t *testing.T) {
 	skuID := uuid.New()
 	whID := uuid.New()
 
-	svc.CreateInventory(ctx, CreateInventoryInput{
+_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
 		Qty: 100, Status: domain.InventoryStatusQuarantine,
 	})
@@ -1216,7 +1216,7 @@ func TestInventoryService_ReserveInventory_AlreadyReserved(t *testing.T) {
 	skuID := uuid.New()
 	whID := uuid.New()
 
-	svc.CreateInventory(ctx, CreateInventoryInput{
+_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
 		Qty: 100, ReservedQty: 80, Status: domain.InventoryStatusAvailable,
 	})
@@ -1237,7 +1237,7 @@ func TestInventoryService_ReserveInventory_PartialWithinLimit(t *testing.T) {
 	skuID := uuid.New()
 	whID := uuid.New()
 
-	svc.CreateInventory(ctx, CreateInventoryInput{
+_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
 		Qty: 100, ReservedQty: 70, Status: domain.InventoryStatusAvailable,
 	})
@@ -1262,7 +1262,7 @@ func TestInventoryService_ReserveInventory_WrongWarehouse(t *testing.T) {
 	wh1 := uuid.New()
 	wh2 := uuid.New()
 
-	svc.CreateInventory(ctx, CreateInventoryInput{
+_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 		SKUID: skuID, LocationID: uuid.New(), WarehouseID: wh1,
 		Qty: 100, Status: domain.InventoryStatusAvailable,
 	})
@@ -1291,7 +1291,7 @@ func TestInventoryService_UnreserveInventory(t *testing.T) {
 		Qty: 100, Status: domain.InventoryStatusAvailable,
 	})
 
-	svc.ReserveInventory(ctx, ReserveInventoryInput{
+_, _ = svc.ReserveInventory(ctx, ReserveInventoryInput{
 		SKUID: skuID, WarehouseID: whID, Qty: 40, OrderLineID: orderLineID,
 	})
 
@@ -1355,11 +1355,11 @@ func TestInventoryService_UnreserveInventory_DoubleUnreserve(t *testing.T) {
 	whID := uuid.New()
 	orderLineID := uuid.New()
 
-	svc.CreateInventory(ctx, CreateInventoryInput{
+_, _ = svc.CreateInventory(ctx, CreateInventoryInput{
 		SKUID: skuID, LocationID: uuid.New(), WarehouseID: whID,
 		Qty: 50, Status: domain.InventoryStatusAvailable,
 	})
-	svc.ReserveInventory(ctx, ReserveInventoryInput{
+_, _ = svc.ReserveInventory(ctx, ReserveInventoryInput{
 		SKUID: skuID, WarehouseID: whID, Qty: 30, OrderLineID: orderLineID,
 	})
 
@@ -1462,10 +1462,10 @@ func TestInventoryService_ReserveInventory_MultipleOrderLines(t *testing.T) {
 		Qty: 100, Status: domain.InventoryStatusAvailable,
 	})
 
-	svc.ReserveInventory(ctx, ReserveInventoryInput{
+_, _ = svc.ReserveInventory(ctx, ReserveInventoryInput{
 		SKUID: skuID, WarehouseID: whID, Qty: 30, OrderLineID: olID1,
 	})
-	svc.ReserveInventory(ctx, ReserveInventoryInput{
+_, _ = svc.ReserveInventory(ctx, ReserveInventoryInput{
 		SKUID: skuID, WarehouseID: whID, Qty: 40, OrderLineID: olID2,
 	})
 

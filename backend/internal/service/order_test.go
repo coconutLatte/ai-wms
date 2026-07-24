@@ -628,19 +628,19 @@ func TestOrderService_ListOrders(t *testing.T) {
 	wh2 := uuid.New()
 
 	// Create orders in different warehouses with different types.
-	svc.CreateOrder(ctx, CreateOrderInput{
+_, _ = svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeInbound,
 		WarehouseID: wh1,
 		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
 		CreatedBy:   "user",
 	})
-	svc.CreateOrder(ctx, CreateOrderInput{
+_, _ = svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeOutbound,
 		WarehouseID: wh1,
 		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 20}},
 		CreatedBy:   "user",
 	})
-	svc.CreateOrder(ctx, CreateOrderInput{
+_, _ = svc.CreateOrder(ctx, CreateOrderInput{
 		OrderType:   domain.OrderTypeInbound,
 		WarehouseID: wh2,
 		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 30}},
@@ -759,7 +759,7 @@ func TestOrderService_UpdateOrderStatus_InvalidTransitions(t *testing.T) {
 	}
 
 	// Advance to confirmed, then try confirmed → completed (invalid — must go through processing).
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
 	_, err = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCompleted})
 	if err == nil {
 		t.Fatal("expected error for confirmed → completed transition")
@@ -777,7 +777,7 @@ func TestOrderService_UpdateOrderStatus_TerminalStates(t *testing.T) {
 		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
 		CreatedBy:   "user",
 	})
-	svc.UpdateOrderStatus(ctx, order1.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCancelled})
+_, _ = svc.UpdateOrderStatus(ctx, order1.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCancelled})
 
 	// Cancelled → something else (should fail).
 	_, err := svc.UpdateOrderStatus(ctx, order1.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
@@ -792,9 +792,9 @@ func TestOrderService_UpdateOrderStatus_TerminalStates(t *testing.T) {
 		Lines:       []CreateOrderLineInput{{SKUID: uuid.New(), OrderedQty: 10}},
 		CreatedBy:   "user",
 	})
-	svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
-	svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
-	svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCompleted})
+_, _ = svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+_, _ = svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCompleted})
 
 	// Completed → something else (should fail).
 	_, err = svc.UpdateOrderStatus(ctx, order2.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCancelled})
@@ -856,7 +856,7 @@ func TestOrderService_AddOrderLine_NotDraft(t *testing.T) {
 	})
 
 	// Confirm the order first.
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
 
 	_, err := svc.AddOrderLine(ctx, order.ID, AddOrderLineInput{
 		SKUID:      uuid.New(),
@@ -945,8 +945,8 @@ func TestOrderService_PartialStatus(t *testing.T) {
 	})
 
 	// Advance to processing.
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
 
 	// processing → partial (valid)
 	updated, err := svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusPartial})
@@ -1015,7 +1015,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		line := &order.Lines[0]
 
 		// pending → allocated → partial → fulfilled
-		svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
+	_, _ = svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
 		updated, err := svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusPartial})
 		if err != nil {
 			t.Fatalf("allocated → partial failed: %v", err)
@@ -1063,7 +1063,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 			CreatedBy:   "user",
 		})
 		line2 := &order2.Lines[0]
-		svc.UpdateOrderLineStatus(ctx, line2.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
+	_, _ = svc.UpdateOrderLineStatus(ctx, line2.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
 
 		updated, err = svc.UpdateOrderLineStatus(ctx, line2.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusCancelled})
 		if err != nil {
@@ -1094,7 +1094,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		}
 
 		// Advance to allocated, then try going backwards.
-		svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
+	_, _ = svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
 		_, err = svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusPending})
 		if err == nil {
 			t.Fatal("expected error for allocated → pending (backwards) transition")
@@ -1115,8 +1115,8 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		line := &order.Lines[0]
 
 		// Fulfilled is terminal.
-		svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
-		svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusFulfilled})
+	_, _ = svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
+	_, _ = svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusFulfilled})
 
 		_, err := svc.UpdateOrderLineStatus(ctx, line.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusPartial})
 		if err == nil {
@@ -1131,7 +1131,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 			CreatedBy:   "user",
 		})
 		line2 := &order2.Lines[0]
-		svc.UpdateOrderLineStatus(ctx, line2.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusCancelled})
+	_, _ = svc.UpdateOrderLineStatus(ctx, line2.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusCancelled})
 
 		_, err = svc.UpdateOrderLineStatus(ctx, line2.ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusPending})
 		if err == nil {
@@ -1220,8 +1220,8 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		asn := setupMockASN(repo)
 
 		// pending → arrived → receiving → partial → received
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceiving})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceiving})
 
 		updated, err := svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusPartial})
 		if err != nil {
@@ -1260,8 +1260,8 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		}
 
 		// Advance to receiving, then try backwards.
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceiving})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceiving})
 
 		_, err = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusPending})
 		if err == nil {
@@ -1282,9 +1282,9 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		asn := setupMockASN(repo)
 
 		// Advance to received (terminal).
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceiving})
-		svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceived})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceiving})
+	_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusReceived})
 
 		// Received → anything should fail.
 		for _, target := range []domain.ASNStatus{
@@ -1527,9 +1527,9 @@ func TestOrderService_PartialStatus(t *testing.T) {
 		wh2 := uuid.New()
 
 		// Create ASNs in different warehouses with different statuses.
-		repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-001", WarehouseID: wh1, Status: domain.ASNStatusPending})
-		repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-002", WarehouseID: wh1, Status: domain.ASNStatusArrived})
-		repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-003", WarehouseID: wh2, Status: domain.ASNStatusPending})
+	_ = repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-001", WarehouseID: wh1, Status: domain.ASNStatusPending})
+	_ = repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-002", WarehouseID: wh1, Status: domain.ASNStatusArrived})
+	_ = repo.CreateASN(ctx, &domain.ASN{ASNNo: "ASN-003", WarehouseID: wh2, Status: domain.ASNStatusPending})
 
 		// All ASNs.
 		all, count, err := svc.ListASNs(ctx, repository.ASNFilter{})
@@ -1576,7 +1576,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 			WarehouseID: uuid.New(),
 			Status:      domain.ASNStatusPending,
 		}
-		repo.CreateASN(context.Background(), asn)
+	_ = repo.CreateASN(context.Background(), asn)
 		return asn
 	}
 
@@ -1586,7 +1586,7 @@ func TestOrderService_PartialStatus(t *testing.T) {
 			WarehouseID: uuid.New(),
 			Status:      domain.ASNStatusPending,
 		}
-		repo.CreateASN(context.Background(), asn)
+	_ = repo.CreateASN(context.Background(), asn)
 		for i := 0; i < lineCount; i++ {
 			line := &domain.ASNLine{
 				ASNID:       asn.ID,
@@ -1826,7 +1826,7 @@ func TestOrderService_ReceiveASNLine_FullReceive(t *testing.T) {
 	line.Status = domain.ASNLineStatusPending
 
 	// Transition ASN to arrived.
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive the full quantity.
 	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 100})
@@ -1865,7 +1865,7 @@ func TestOrderService_ReceiveASNLine_PartialReceive(t *testing.T) {
 	line1.ReceivedQty = 0
 
 	// Transition ASN to arrived.
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive partial quantity on line 0.
 	updated, err := svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 20})
@@ -1906,7 +1906,7 @@ func TestOrderService_ReceiveASNLine_MultiLineAllReceived(t *testing.T) {
 	line1.ReceivedQty = 0
 
 	// Transition ASN to arrived.
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive line 0 fully.
 	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
@@ -1935,7 +1935,7 @@ func TestOrderService_ReceiveASNLine_MultiLinePartialASN(t *testing.T) {
 	line0.ReceivedQty = 0
 
 	// Transition ASN to arrived.
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive line 0 partially.
 	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 5})
@@ -1958,7 +1958,7 @@ func TestOrderService_ReceiveASNLine_ExceedsExpected(t *testing.T) {
 	line.ExpectedQty = 10
 	line.ReceivedQty = 0
 
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 15})
 	if err == nil {
@@ -1977,7 +1977,7 @@ func TestOrderService_ReceiveASNLine_AccumulatedExceedsExpected(t *testing.T) {
 	line.ExpectedQty = 10
 	line.ReceivedQty = 0
 
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Receive 8 first.
 	svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 8})
@@ -1998,7 +1998,7 @@ func TestOrderService_ReceiveASNLine_ZeroQty(t *testing.T) {
 	lines, _ := repo.GetASNLines(ctx, asn.ID)
 	line := lines[0]
 
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 0})
 	if err == nil {
@@ -2015,7 +2015,7 @@ func TestOrderService_ReceiveASNLine_NegativeQty(t *testing.T) {
 	lines, _ := repo.GetASNLines(ctx, asn.ID)
 	line := lines[0]
 
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	_, err := svc.ReceiveASNLine(ctx, asn.ID, line.ID, ReceiveASNLineInput{ReceivedQty: -1})
 	if err == nil {
@@ -2034,7 +2034,7 @@ func TestOrderService_ReceiveASNLine_WrongASN(t *testing.T) {
 	lines, _ := repo.GetASNLines(ctx, asn2.ID)
 	line := lines[0]
 
-	svc.UpdateASNStatus(ctx, asn1.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn1.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	// Try to receive line from asn2 using asn1's ID.
 	_, err := svc.ReceiveASNLine(ctx, asn1.ID, line.ID, ReceiveASNLineInput{ReceivedQty: 5})
@@ -2049,7 +2049,7 @@ func TestOrderService_ReceiveASNLine_LineNotFound(t *testing.T) {
 	svc := newMockOrderServiceWithRepos(repo, newMockTaskRepoForOrder())
 
 	asn := setupMockASNWithLines(repo, 1)
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 
 	_, err := svc.ReceiveASNLine(ctx, asn.ID, uuid.New(), ReceiveASNLineInput{ReceivedQty: 5})
 	if err == nil {
@@ -2094,7 +2094,7 @@ func TestOrderService_ReceiveASNLine_AlreadyReceiving(t *testing.T) {
 	line1.ReceivedQty = 0
 
 	// Transition to arrived, then start receiving.
-	svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
+_, _ = svc.UpdateASNStatus(ctx, asn.ID, UpdateASNStatusInput{Status: domain.ASNStatusArrived})
 	svc.ReceiveASNLine(ctx, asn.ID, line0.ID, ReceiveASNLineInput{ReceivedQty: 10})
 
 	// Now receive more on the same line. ASN should still be "receiving" (no new transition needed).
@@ -2179,7 +2179,7 @@ func TestOrderService_CancelOrder_Confirmed(t *testing.T) {
 	}
 
 	// Confirm the order (generates tasks).
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
 
 	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
 	if err != nil {
@@ -2220,8 +2220,8 @@ func TestOrderService_CancelOrder_Processing(t *testing.T) {
 	}
 
 	// Confirm → Processing.
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
 
 	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
 	if err != nil {
@@ -2246,9 +2246,9 @@ func TestOrderService_CancelOrder_Partial(t *testing.T) {
 		t.Fatalf("CreateOrder failed: %v", err)
 	}
 
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusPartial})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusPartial})
 
 	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{Reason: "order cancelled during partial fulfillment"})
 	if err != nil {
@@ -2274,9 +2274,9 @@ func TestOrderService_CancelOrder_TerminalCompleted(t *testing.T) {
 	}
 
 	// Complete the order.
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
-	svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCompleted})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusConfirmed})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusProcessing})
+_, _ = svc.UpdateOrderStatus(ctx, order.ID, UpdateOrderStatusInput{Status: domain.OrderStatusCompleted})
 
 	_, err = svc.CancelOrder(ctx, order.ID, CancelOrderInput{})
 	if err == nil {
@@ -2393,8 +2393,8 @@ func TestOrderService_CancelOrder_AlreadyFulfilledLineUnaffected(t *testing.T) {
 	}
 
 	// Mark first line as allocated then fulfilled.
-	svc.UpdateOrderLineStatus(ctx, order.Lines[0].ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
-	svc.UpdateOrderLineStatus(ctx, order.Lines[0].ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusFulfilled})
+_, _ = svc.UpdateOrderLineStatus(ctx, order.Lines[0].ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusAllocated})
+_, _ = svc.UpdateOrderLineStatus(ctx, order.Lines[0].ID, UpdateOrderLineStatusInput{Status: domain.OrderLineStatusFulfilled})
 
 	// Cancel the order.
 	cancelled, err := svc.CancelOrder(ctx, order.ID, CancelOrderInput{})

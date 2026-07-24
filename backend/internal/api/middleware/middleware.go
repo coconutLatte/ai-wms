@@ -139,7 +139,7 @@ func Recovery(logger *slog.Logger) func(http.Handler) http.Handler {
 					// Only write header if not already written.
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte(`{"error":"internal server error"}`))
+			_, _ = w.Write([]byte(`{"error":"internal server error"}`))
 				}
 			}()
 
