@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Documentation (not needed for build)
+docs/
+*.md
+
+# Logs
+logs/
+
+# Node modules & frontend (not needed for backend build)
+node_modules/
+frontend/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test & coverage
+*.test
+coverage.out
+coverage.html
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI
+.github/
+
+# Scripts
+scripts/
+
+# Proto
+proto/
+
+# Docker (avoid recursive builds)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Temporary
+tmp/
+temp/

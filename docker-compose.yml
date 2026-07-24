@@ -32,6 +32,76 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Application Services ────────────────────────────────────────────────
+
+  admin:
+    build:
+      context: .
+      dockerfile: backend/cmd/admin/Dockerfile
+    container_name: wms-admin
+    ports:
+      - "${ADMIN_PORT:-8080}:8080"
+    environment:
+      ADMIN_PORT: "8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: wms
+      DB_PASSWORD: wms_dev_2026
+      DB_NAME: wms
+      DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      ENV: "${ENV:-development}"
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-production-REPLACE-ME}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-*}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  pda:
+    build:
+      context: .
+      dockerfile: backend/cmd/pda/Dockerfile
+    container_name: wms-pda
+    ports:
+      - "${PDA_PORT:-8081}:8081"
+    environment:
+      PDA_PORT: "8081"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: wms
+      DB_PASSWORD: wms_dev_2026
+      DB_NAME: wms
+      DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      ENV: "${ENV:-development}"
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-production-REPLACE-ME}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-*}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
 volumes:
   postgres_data:
   redis_data:

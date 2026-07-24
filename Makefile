@@ -123,3 +123,21 @@ setup: ## Full project setup
 docker-build: ## Build Docker images
 	docker build -t ai-wms/admin:latest -f backend/cmd/admin/Dockerfile .
 	docker build -t ai-wms/pda:latest -f backend/cmd/pda/Dockerfile .
+
+docker-build-admin: ## Build admin Docker image only
+	docker build -t ai-wms/admin:latest -f backend/cmd/admin/Dockerfile .
+
+docker-build-pda: ## Build PDA Docker image only
+	docker build -t ai-wms/pda:latest -f backend/cmd/pda/Dockerfile .
+
+docker-up: ## Start full stack (PostgreSQL + Redis + Admin + PDA)
+	docker-compose up -d --build
+
+docker-up-apps: ## Start app services only (requires infrastructure running)
+	docker-compose up -d --build admin pda
+
+docker-down: ## Stop all services
+	docker-compose down
+
+docker-logs: ## Tail logs from all services
+	docker-compose logs -f
