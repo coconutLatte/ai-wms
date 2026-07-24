@@ -75,6 +75,12 @@ export default function ScanPage() {
       labelKey: 'scan.replenish',
       descriptionKey: 'scan.replenishDesc',
     },
+    {
+      key: 'transfer',
+      icon: '\u{1F4E6}',
+      labelKey: 'scan.transfer',
+      descriptionKey: 'scan.transferDesc',
+    },
   ]
 
   const handleScan = useCallback(async (barcode: string) => {
@@ -116,6 +122,8 @@ export default function ScanPage() {
         navigate('/ship-confirm')
       } else if (action.key === 'replenish') {
         navigate('/replenish')
+      } else if (action.key === 'transfer') {
+        navigate('/transfer')
       } else {
         navigate('/tasks')
       }
